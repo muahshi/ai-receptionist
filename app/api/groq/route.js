@@ -1,21 +1,23 @@
 import Groq from "groq-sdk";
 
+// Vercel environment variable issue fix karne ke liye renamed key
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: process.env.MY_GROQ_API_KEY, 
 });
 
 export async function POST(request) {
   try {
-    const { imageBase64, type } = await request.json();
+    // Sabse pehle body ko ek hi baar parse karein
+    const body = await request.json().catch(() => ({}));
+    const { imageBase64, type, stats } = body;
 
-    if (!imageBase64) {
-      return Response.json({ error: "Image data required" }, { status: 400 });
-    }
-
-    // ─── ID DOCUMENT EXTRACTION ───────────────────────────────────────────────
     if (type === "id_scan") {
+      if (!imageBase64) {
+        return Response.json({ error: "Image data required" }, { status: 400 });
+      }
+
       const response = await groq.chat.completions.create({
-        model: "llava-v1.5-7b-4096-preview", // LLaVA for vision
+        model: "llava-v1.5-7b-4096-preview",
         max_tokens: 500,
         messages: [
           {
@@ -31,16 +33,8 @@ export async function POST(request) {
                 type: "text",
                 text: `You are an ID document scanner for an Indian hotel check-in system.
                 
-Extract the following information from this ID document (Aadhaar Card, PAN Card, Passport, or Driving License):
-
-1. Full Name
-2. Date of Birth (in DD/MM/YYYY format)
-3. Address (full address)
-4. ID Number (Aadhaar number, PAN number, Passport number, or DL number)
-5. Document Type (Aadhaar/PAN/Passport/Driving License)
-6. Gender (if visible)
-
-Return ONLY a valid JSON object with these exact keys:
+Extract information from this ID (Aadhaar, PAN, Passport, or DL). 
+Return ONLY a valid JSON object:
 {
   "name": "",
   "dob": "",
@@ -49,9 +43,8 @@ Return ONLY a valid JSON object with these exact keys:
   "idType": "",
   "gender": ""
 }
-
-If a field is not visible or readable, use an empty string.
-Return ONLY the JSON, no other text.`,
+If Aadhaar is detected, provide the idNumber but do not include spaces.
+Return ONLY JSON.`,
               },
             ],
           },
@@ -60,32 +53,24 @@ Return ONLY the JSON, no other text.`,
 
       const content = response.choices[0]?.message?.content || "{}";
 
-      // Clean and parse JSON
+      // Robust JSON Parsing
       let extracted = {};
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          extracted = JSON.parse(jsonMatch[0]);
-        }
-      } catch {
-        // Fallback: try to extract manually
+        extracted = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+      } catch (e) {
         extracted = {
           name: extractField(content, "name"),
           dob: extractField(content, "dob"),
-          address: extractField(content, "address"),
           idNumber: extractField(content, "idNumber"),
           idType: extractField(content, "idType"),
-          gender: extractField(content, "gender"),
         };
       }
 
       return Response.json({ success: true, data: extracted });
     }
 
-    // ─── AI INSIGHT GENERATION ─────────────────────────────────────────────────
     if (type === "ai_insight") {
-      const { stats } = await request.json().catch(() => ({ stats: {} }));
-
       const today = new Date();
       const dayName = today.toLocaleDateString("en-IN", { weekday: "long" });
       const month = today.toLocaleDateString("en-IN", { month: "long" });
@@ -96,14 +81,11 @@ Return ONLY the JSON, no other text.`,
         messages: [
           {
             role: "system",
-            content: `You are a hotel revenue management AI for an Indian hotel. 
-Give short, actionable insights in Hinglish (mix of Hindi and English). 
-Keep it under 2 sentences. Be specific and helpful.`,
+            content: `You are a hotel revenue management AI for an Indian hotel. Give short, actionable insights in Hinglish. Max 2 sentences.`,
           },
           {
             role: "user",
-            content: `Hotel stats: ${JSON.stringify(stats)}. Today is ${dayName}, ${month}.
-Give a revenue insight or recommendation in Hinglish.`,
+            content: `Hotel stats: ${JSON.stringify(stats || {})}. Today is ${dayName}, ${month}. Give a revenue recommendation.`,
           },
         ],
       });
