@@ -5,17 +5,6 @@
   "devCommand": "next dev",
   "installCommand": "npm install",
   "regions": ["bom1"],
-  "env": {
-    "GROQ_API_KEY": "@groq_api_key",
-    "WATI_API_TOKEN": "@wati_api_token",
-    "WATI_API_ENDPOINT": "@wati_api_endpoint",
-    "NEXT_PUBLIC_HOTEL_NAME": "@hotel_name",
-    "NEXT_PUBLIC_HOTEL_TOTAL_ROOMS": "@hotel_total_rooms",
-    "NEXT_PUBLIC_OWNER_PHONE": "@owner_phone",
-    "NEXT_PUBLIC_MANAGER_PHONE": "@manager_phone",
-    "NEXT_PUBLIC_OWNER_PIN": "@owner_pin",
-    "NEXT_PUBLIC_MANAGER_PIN": "@manager_pin"
-  },
   "headers": [
     {
       "source": "/manifest.json",
