@@ -1,11 +1,19 @@
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// ─── KEY FIX: Using MY_GROQ_KEY ───────────────────────────────────────────────
+const groq = new Groq({ apiKey: process.env.MY_GROQ_KEY });
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const { type, stats } = body;
+
+    if (!process.env.MY_GROQ_KEY) {
+      return Response.json(
+        { error: "MY_GROQ_KEY not set" },
+        { status: 500 }
+      );
+    }
 
     if (type === "ai_insight") {
       const today = new Date();
@@ -21,7 +29,7 @@ export async function POST(request) {
           },
           {
             role: "user",
-            content: `Today is ${dayName}. Stats: ${JSON.stringify(stats)}. Give revenue insight.`,
+            content: `Today is ${dayName}. Stats: ${JSON.stringify(stats || {})}. Give revenue insight.`,
           },
         ],
       });
