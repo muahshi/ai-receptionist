@@ -1,16 +1,25 @@
 import Groq from "groq-sdk";
 
-// Vercel environment variable issue fix karne ke liye renamed key
+// ─── KEY FIX: Using MY_GROQ_KEY (set this in Vercel Dashboard) ───────────────
 const groq = new Groq({
-  apiKey: process.env.MY_GROQ_API_KEY, 
+  apiKey: process.env.MY_GROQ_KEY,
 });
 
 export async function POST(request) {
   try {
-    // Sabse pehle body ko ek hi baar parse karein
-    const body = await request.json().catch(() => ({}));
+    // Parse body ONCE here — fixes the double-parse bug for ai_insight
+    const body = await request.json();
     const { imageBase64, type, stats } = body;
 
+    // ─── HEALTH CHECK ──────────────────────────────────────────────────────────
+    if (!process.env.MY_GROQ_KEY) {
+      return Response.json(
+        { error: "MY_GROQ_KEY not set in Vercel environment variables" },
+        { status: 500 }
+      );
+    }
+
+    // ─── ID DOCUMENT EXTRACTION ───────────────────────────────────────────────
     if (type === "id_scan") {
       if (!imageBase64) {
         return Response.json({ error: "Image data required" }, { status: 400 });
@@ -32,9 +41,16 @@ export async function POST(request) {
               {
                 type: "text",
                 text: `You are an ID document scanner for an Indian hotel check-in system.
-                
-Extract information from this ID (Aadhaar, PAN, Passport, or DL). 
-Return ONLY a valid JSON object:
+
+Extract the following from this ID document (Aadhaar Card, PAN Card, Passport, or Driving License):
+1. Full Name
+2. Date of Birth (DD/MM/YYYY format)
+3. Address (full address)
+4. ID Number (Aadhaar/PAN/Passport/DL number)
+5. Document Type (Aadhaar/PAN/Passport/Driving License)
+6. Gender (if visible)
+
+Return ONLY a valid JSON object with these exact keys:
 {
   "name": "",
   "dob": "",
@@ -43,8 +59,8 @@ Return ONLY a valid JSON object:
   "idType": "",
   "gender": ""
 }
-If Aadhaar is detected, provide the idNumber but do not include spaces.
-Return ONLY JSON.`,
+
+If a field is not readable, use empty string. Return ONLY the JSON, no other text.`,
               },
             ],
           },
@@ -53,23 +69,27 @@ Return ONLY JSON.`,
 
       const content = response.choices[0]?.message?.content || "{}";
 
-      // Robust JSON Parsing
       let extracted = {};
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
-        extracted = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
-      } catch (e) {
+        if (jsonMatch) {
+          extracted = JSON.parse(jsonMatch[0]);
+        }
+      } catch {
         extracted = {
           name: extractField(content, "name"),
           dob: extractField(content, "dob"),
+          address: extractField(content, "address"),
           idNumber: extractField(content, "idNumber"),
           idType: extractField(content, "idType"),
+          gender: extractField(content, "gender"),
         };
       }
 
       return Response.json({ success: true, data: extracted });
     }
 
+    // ─── AI INSIGHT GENERATION ─────────────────────────────────────────────────
     if (type === "ai_insight") {
       const today = new Date();
       const dayName = today.toLocaleDateString("en-IN", { weekday: "long" });
@@ -81,11 +101,13 @@ Return ONLY JSON.`,
         messages: [
           {
             role: "system",
-            content: `You are a hotel revenue management AI for an Indian hotel. Give short, actionable insights in Hinglish. Max 2 sentences.`,
+            content: `You are a hotel revenue management AI for an Indian hotel. 
+Give short, actionable insights in Hinglish (mix of Hindi and English). 
+Keep it under 2 sentences. Be specific and helpful.`,
           },
           {
             role: "user",
-            content: `Hotel stats: ${JSON.stringify(stats || {})}. Today is ${dayName}, ${month}. Give a revenue recommendation.`,
+            content: `Hotel stats: ${JSON.stringify(stats || {})}. Today is ${dayName}, ${month}. Give a revenue insight in Hinglish.`,
           },
         ],
       });
