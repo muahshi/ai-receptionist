@@ -1,189 +1,137 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Home, Camera, BarChart2, Settings, Plus, Bell, LogOut,
-  TrendingUp, Users, DollarSign, Zap, RefreshCw
-} from "lucide-react";
 import dynamic from "next/dynamic";
+import {
+  LayoutDashboard, CalendarDays, Users, Cpu, BarChart3, Bell, Menu
+} from "lucide-react";
 
-// Dynamic imports to avoid SSR issues with localStorage
-const DashboardView = dynamic(() => import("../components/DashboardView"), { ssr: false });
-const ScannerView = dynamic(() => import("../components/ScannerView"), { ssr: false });
-const ReportsView = dynamic(() => import("../components/ReportsView"), { ssr: false });
-const SettingsView = dynamic(() => import("../components/SettingsView"), { ssr: false });
-const LoginScreen = dynamic(() => import("../components/LoginScreen"), { ssr: false });
+const DashboardView  = dynamic(() => import("../components/DashboardView"),  { ssr: false });
+const ScannerView    = dynamic(() => import("../components/ScannerView"),    { ssr: false });
+const ReportsView    = dynamic(() => import("../components/ReportsView"),    { ssr: false });
+const SettingsView   = dynamic(() => import("../components/SettingsView"),   { ssr: false });
+const LoginScreen    = dynamic(() => import("../components/LoginScreen"),    { ssr: false });
+
+const NAV = [
+  { id: "home",     icon: LayoutDashboard, label: "Dashboard" },
+  { id: "scanner",  icon: CalendarDays,    label: "Bookings"  },
+  { id: "guests",   icon: Users,           label: "Guests"    },
+  { id: "reports",  icon: Cpu,             label: "Operations"},
+  { id: "settings", icon: BarChart3,       label: "Reports"   },
+];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("home");
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [alertCount, setAlertCount] = useState(0);
+  const [tab, setTab]     = useState("home");
+  const [user, setUser]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts]   = useState(0);
+  const [timeStr, setTimeStr] = useState("");
 
   useEffect(() => {
-    // Check auth
     try {
-      const stored = localStorage.getItem("air_current_user");
-      if (stored) setUser(JSON.parse(stored));
+      const u = localStorage.getItem("air_current_user");
+      if (u) setUser(JSON.parse(u));
     } catch {}
-    setIsLoading(false);
+    setLoading(false);
+
+    // Live clock
+    const tick = () => {
+      const now = new Date();
+      setTimeStr(now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+    };
+    tick();
+    const iv = setInterval(tick, 60000);
+    return () => clearInterval(iv);
   }, []);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-  };
+  const onLogin  = (u) => setUser(u);
+  const onLogout = () => { localStorage.removeItem("air_current_user"); setUser(null); };
+  const onNew    = useCallback(() => { setAlerts(a => a + 1); setTimeout(() => setAlerts(0), 5000); }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("air_current_user");
-    setUser(null);
-  };
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center" style={{ background: "#0A0A0A" }}>
+      <div className="w-10 h-10 border-2 rounded-full animate-spin"
+        style={{ borderColor: "rgba(212,175,55,0.2)", borderTopColor: "#D4AF37" }} />
+    </div>
+  );
 
-  const handleNewBooking = useCallback(() => {
-    setAlertCount((c) => c + 1);
-    setTimeout(() => setAlertCount(0), 5000);
-  }, []);
+  if (!user) return <LoginScreen onLogin={onLogin} />;
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center bg-charcoal-800">
-        <div className="text-center">
-          <div className="w-12 h-12 border-2 border-gold-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gold-500 font-display text-lg">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
+  const hotelName = process.env.NEXT_PUBLIC_HOTEL_NAME || "The GuestInn";
 
   return (
-    <div className="h-full flex flex-col" style={{ height: "100dvh" }}>
-      {/* ── Top Header ────────────────────────────────────────────────── */}
-      <header className="flex-shrink-0 safe-top">
-        <div className="glass-card mx-3 mt-2 px-4 py-3 rounded-2xl flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-gold-500 text-lg leading-tight gold-glow">
-              {process.env.NEXT_PUBLIC_HOTEL_NAME || "Grand Palace"}
-            </h1>
-            <p className="text-gray-500 text-xs font-body">
-              {user.role === "owner" ? "👑 Owner View" : "🔑 Manager View"}
-            </p>
+    <div className="flex flex-col" style={{ height: "100dvh", background: "#0A0A0A" }}>
+
+      {/* ── Top Bar ─────────────────────────────────────────────────── */}
+      <header className="flex-shrink-0 safe-top px-4 pt-2 pb-0">
+        <div className="flex items-center justify-between">
+          {/* Hamburger */}
+          <button className="w-10 h-10 rounded-xl flex items-center justify-center card">
+            <Menu size={18} style={{ color: "#D4AF37" }} />
+          </button>
+
+          {/* Logo + Name */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center gap-2">
+              {/* Hotel icon SVG */}
+              <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+                <path d="M20 4L6 14v22h28V14L20 4z" stroke="#D4AF37" strokeWidth="2" fill="rgba(212,175,55,0.1)"/>
+                <path d="M15 36V24h10v12" stroke="#D4AF37" strokeWidth="2"/>
+                <path d="M12 14h16M12 20h16" stroke="#D4AF37" strokeWidth="1.5" strokeDasharray="2 2"/>
+                <circle cx="20" cy="10" r="2" fill="#D4AF37"/>
+              </svg>
+              <span className="font-bold text-lg" style={{ color: "#D4AF37", letterSpacing: "-0.02em" }}>
+                {hotelName}
+              </span>
+            </div>
+            <span className="text-xs tracking-widest font-medium"
+              style={{ color: "rgba(212,175,55,0.6)", fontSize: 9, letterSpacing: "0.15em" }}>
+              AI-POWERED HOTEL MANAGEMENT
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Alert Bell */}
-            <button
-              className="relative p-2 rounded-xl glass-card"
-              onClick={() => setAlertCount(0)}
-            >
-              <Bell size={18} className="text-gray-400" />
-              {alertCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-gold-500 rounded-full text-black text-xs flex items-center justify-center font-bold pulse-dot">
-                  {alertCount}
-                </span>
-              )}
-            </button>
-
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-xl glass-card"
-            >
-              <LogOut size={18} className="text-gray-400" />
-            </button>
-          </div>
+          {/* Bell */}
+          <button className="w-10 h-10 rounded-xl flex items-center justify-center card relative">
+            <Bell size={18} style={{ color: "#D4AF37" }} />
+            {alerts > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500"
+                style={{ animation: "pulse-gold 2s infinite" }} />
+            )}
+          </button>
         </div>
       </header>
 
-      {/* ── Main Content ──────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-hidden px-3 py-2">
-        {activeTab === "home" && (
-          <DashboardView
-            user={user}
-            onNavigate={setActiveTab}
-            onNewBooking={handleNewBooking}
-          />
-        )}
-        {activeTab === "scanner" && (
-          <ScannerView
-            user={user}
-            onSuccess={() => {
-              handleNewBooking();
-              setActiveTab("home");
-            }}
-            onBack={() => setActiveTab("home")}
-          />
-        )}
-        {activeTab === "reports" && (
-          <ReportsView user={user} />
-        )}
-        {activeTab === "settings" && (
-          <SettingsView user={user} onLogout={handleLogout} />
+      {/* ── Main Content ─────────────────────────────────────────────── */}
+      <main className="flex-1 overflow-hidden">
+        {tab === "home"     && <DashboardView user={user} onNavigate={setTab} onNewBooking={onNew} />}
+        {tab === "scanner"  && <ScannerView   user={user} onSuccess={() => { onNew(); setTab("home"); }} onBack={() => setTab("home")} />}
+        {tab === "reports"  && <ReportsView   user={user} />}
+        {tab === "settings" && <SettingsView  user={user} onLogout={onLogout} />}
+        {tab === "guests"   && (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-gray-600 text-sm">Guests section — Coming soon</p>
+          </div>
         )}
       </main>
 
-      {/* ── Bottom Navigation ─────────────────────────────────────────── */}
-      <nav className="flex-shrink-0 safe-bottom">
-        <div className="glass-card mx-3 mb-2 px-2 py-2 rounded-2xl">
+      {/* ── Bottom Nav ───────────────────────────────────────────────── */}
+      <nav className="flex-shrink-0 safe-bottom px-3 pb-2 pt-1">
+        <div className="card rounded-2xl px-1 py-2">
           <div className="flex items-center justify-around">
-            <NavItem
-              icon={<Home size={20} />}
-              label="Home"
-              active={activeTab === "home"}
-              onClick={() => setActiveTab("home")}
-            />
-
-            {/* Center Scanner Button */}
-            <button
-              onClick={() => setActiveTab("scanner")}
-              className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-200 ${
-                activeTab === "scanner"
-                  ? "btn-gold scale-110"
-                  : "bg-gradient-to-br from-gold-600/80 to-gold-500/80 shadow-lg shadow-gold-500/30"
-              }`}
-            >
-              <Plus
-                size={24}
-                className={activeTab === "scanner" ? "text-black" : "text-black"}
-                strokeWidth={2.5}
-              />
-            </button>
-
-            <NavItem
-              icon={<BarChart2 size={20} />}
-              label="Reports"
-              active={activeTab === "reports"}
-              onClick={() => setActiveTab("reports")}
-            />
-
-            <NavItem
-              icon={<Settings size={20} />}
-              label="Settings"
-              active={activeTab === "settings"}
-              onClick={() => setActiveTab("settings")}
-            />
+            {NAV.map(({ id, icon: Icon, label }) => {
+              const active = tab === id;
+              return (
+                <button key={id} onClick={() => setTab(id)}
+                  className="flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-all"
+                  style={{ color: active ? "#D4AF37" : "#4a4a4a" }}>
+                  <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+                  <span className="text-xs font-medium" style={{ fontSize: 10 }}>{label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </nav>
     </div>
-  );
-}
-
-function NavItem({ icon, label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-all duration-200 ${
-        active ? "text-gold-500" : "text-gray-500"
-      }`}
-    >
-      {icon}
-      <span className="text-xs font-medium">{label}</span>
-      {active && (
-        <span className="w-1 h-1 rounded-full bg-gold-500 absolute -bottom-0.5" />
-      )}
-    </button>
   );
 }
