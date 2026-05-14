@@ -1,152 +1,108 @@
 "use client";
-
 import { useState } from "react";
-import { Eye, EyeOff, Hotel, Shield } from "lucide-react";
 
 export default function LoginScreen({ onLogin }) {
-  const [role, setRole] = useState("manager");
-  const [pin, setPin] = useState("");
-  const [showPin, setShowPin] = useState(false);
-  const [error, setError] = useState("");
+  const [role, setRole]       = useState("manager");
+  const [pin, setPin]         = useState("");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
 
+  const hotelName = process.env.NEXT_PUBLIC_HOTEL_NAME || "The GuestInn";
+
   const handleLogin = async () => {
-    if (!pin) return;
-    setLoading(true);
-    setError("");
-
-    await new Promise((r) => setTimeout(r, 600)); // Simulate auth
-
-    const validPin =
-      role === "owner"
-        ? process.env.NEXT_PUBLIC_OWNER_PIN || "1234"
-        : process.env.NEXT_PUBLIC_MANAGER_PIN || "5678";
-
+    if (pin.length < 4) return;
+    setLoading(true); setError("");
+    await new Promise(r => setTimeout(r, 500));
+    const validPin = role === "owner"
+      ? (process.env.NEXT_PUBLIC_OWNER_PIN   || "1234")
+      : (process.env.NEXT_PUBLIC_MANAGER_PIN || "5678");
     if (pin === validPin) {
-      const user = { role, loginAt: new Date().toISOString() };
-      localStorage.setItem("air_current_user", JSON.stringify(user));
-      if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-      onLogin(user);
+      const u = { role, loginAt: new Date().toISOString() };
+      localStorage.setItem("air_current_user", JSON.stringify(u));
+      if (navigator.vibrate) navigator.vibrate([50,30,50]);
+      onLogin(u);
     } else {
-      setError("Galat PIN hai! Dobara try karo.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      setError("Galat PIN! Dobara try karo.");
+      if (navigator.vibrate) navigator.vibrate([100,50,100]);
       setPin("");
     }
     setLoading(false);
   };
 
-  const addDigit = (d) => {
-    if (pin.length < 6) setPin((p) => p + d);
-  };
-
-  const removeDigit = () => setPin((p) => p.slice(0, -1));
+  const addDigit  = d => pin.length < 4 && setPin(p => p + d);
+  const delDigit  = ()  => setPin(p => p.slice(0,-1));
 
   return (
-    <div
-      className="h-full flex flex-col items-center justify-center px-6"
-      style={{ height: "100dvh" }}
-    >
+    <div className="flex flex-col items-center justify-center px-6 safe-top safe-bottom"
+      style={{ height:"100dvh", background:"#0A0A0A" }}>
+
       {/* Logo */}
-      <div className="mb-8 text-center fade-in">
-        <div className="w-20 h-20 rounded-3xl glass-card-gold flex items-center justify-center mx-auto mb-4">
-          <Hotel size={40} className="text-gold-500" />
+      <div className="mb-8 text-center fade-up">
+        <div className="w-20 h-20 rounded-3xl mx-auto mb-4 flex items-center justify-center text-4xl"
+          style={{ background:"linear-gradient(135deg,#1a1200,#2a1f00)", border:"1px solid rgba(212,175,55,0.3)", boxShadow:"0 0 30px rgba(212,175,55,0.15)" }}>
+          🏨
         </div>
-        <h1 className="font-display text-3xl text-gold-500 gold-glow">
-          AI Receptionist
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          {process.env.NEXT_PUBLIC_HOTEL_NAME || "Smart Hotel Management"}
-        </p>
+        <h1 className="font-black text-3xl" style={{ color:"#D4AF37", letterSpacing:"-0.02em" }}>{hotelName}</h1>
+        <p className="text-gray-600 text-xs mt-1 tracking-widest uppercase">AI-Powered Hotel Management</p>
       </div>
 
-      {/* Role Selector */}
-      <div className="w-full max-w-sm glass-card p-1 rounded-2xl flex mb-6 fade-in">
-        {["manager", "owner"].map((r) => (
-          <button
-            key={r}
-            onClick={() => { setRole(r); setPin(""); setError(""); }}
-            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all duration-200 capitalize ${
-              role === r
-                ? "btn-gold"
-                : "text-gray-400"
-            }`}
-          >
+      {/* Role Toggle */}
+      <div className="w-full max-w-xs card p-1 rounded-2xl flex mb-6 fade-up">
+        {["manager","owner"].map(r => (
+          <button key={r} onClick={() => { setRole(r); setPin(""); setError(""); }}
+            className="flex-1 py-3 rounded-xl text-sm font-bold transition-all capitalize"
+            style={role === r
+              ? { background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000" }
+              : { color:"#555" }}>
             {r === "owner" ? "👑 Owner" : "🔑 Manager"}
           </button>
         ))}
       </div>
 
-      {/* PIN Display */}
-      <div className="w-full max-w-sm mb-4 fade-in">
-        <div className="glass-card p-4 rounded-2xl">
-          <p className="text-gray-500 text-xs text-center mb-3 uppercase tracking-widest">
-            PIN Enter Karo
-          </p>
-          <div className="flex justify-center gap-3 mb-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-200 ${
-                  i < pin.length
-                    ? "border-gold-500 bg-gold-500/20"
-                    : "border-white/20 bg-white/5"
-                }`}
-              >
-                {i < pin.length && (
-                  <div className="w-3 h-3 rounded-full bg-gold-500" />
-                )}
-              </div>
-            ))}
-          </div>
-          {error && (
-            <p className="text-red-400 text-xs text-center mt-2 fade-in">{error}</p>
-          )}
+      {/* PIN dots */}
+      <div className="w-full max-w-xs card rounded-2xl p-4 mb-4 fade-up">
+        <p className="text-gray-600 text-xs text-center uppercase tracking-widest mb-3">Enter PIN</p>
+        <div className="flex justify-center gap-4">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all"
+              style={i < pin.length
+                ? { background:"rgba(212,175,55,0.2)", border:"2px solid #D4AF37" }
+                : { background:"rgba(255,255,255,0.04)", border:"2px solid rgba(255,255,255,0.1)" }}>
+              {i < pin.length && <div className="w-3 h-3 rounded-full" style={{ background:"#D4AF37" }} />}
+            </div>
+          ))}
         </div>
+        {error && <p className="text-red-400 text-xs text-center mt-3 fade-up">{error}</p>}
       </div>
 
       {/* Keypad */}
-      <div className="w-full max-w-sm grid grid-cols-3 gap-3 fade-in">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
-          <button
-            key={d}
-            onClick={() => addDigit(String(d))}
-            className="glass-card py-4 rounded-2xl text-xl font-semibold text-white active:scale-95 transition-all duration-150 active:bg-gold-500/20"
-          >
+      <div className="w-full max-w-xs grid grid-cols-3 gap-3 fade-up">
+        {[1,2,3,4,5,6,7,8,9].map(d => (
+          <button key={d} onClick={() => addDigit(String(d))}
+            className="card py-4 rounded-2xl text-xl font-bold text-white active:scale-90 transition-all active:bg-white/10">
             {d}
           </button>
         ))}
-        <button
-          onClick={removeDigit}
-          className="glass-card py-4 rounded-2xl text-gray-400 active:scale-95 transition-all duration-150 flex items-center justify-center"
-        >
+        <button onClick={delDigit}
+          className="card py-4 rounded-2xl text-gray-500 text-xl active:scale-90 transition-all flex items-center justify-center">
           ⌫
         </button>
-        <button
-          onClick={() => addDigit("0")}
-          className="glass-card py-4 rounded-2xl text-xl font-semibold text-white active:scale-95 transition-all duration-150 active:bg-gold-500/20"
-        >
+        <button onClick={() => addDigit("0")}
+          className="card py-4 rounded-2xl text-xl font-bold text-white active:scale-90 transition-all active:bg-white/10">
           0
         </button>
-        <button
-          onClick={handleLogin}
-          disabled={pin.length < 4 || loading}
-          className={`py-4 rounded-2xl text-sm font-bold flex items-center justify-center transition-all duration-200 ${
-            pin.length >= 4 && !loading
-              ? "btn-gold"
-              : "bg-white/10 text-gray-600"
-          }`}
-        >
-          {loading ? (
-            <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          ) : (
-            "Login"
-          )}
+        <button onClick={handleLogin} disabled={pin.length < 4 || loading}
+          className="py-4 rounded-2xl font-bold text-sm flex items-center justify-center transition-all"
+          style={pin.length >= 4 && !loading
+            ? { background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000", boxShadow:"0 4px 20px rgba(212,175,55,0.35)" }
+            : { background:"rgba(255,255,255,0.06)", color:"#444" }}>
+          {loading
+            ? <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"/>
+            : "Login"}
         </button>
       </div>
 
-      <p className="text-gray-700 text-xs mt-8 text-center">
-        AI Receptionist v1.0 • Powered by Groq AI
-      </p>
+      <p className="text-gray-800 text-xs mt-8">The GuestInn AI v2.0 • Powered by Groq</p>
     </div>
   );
 }
