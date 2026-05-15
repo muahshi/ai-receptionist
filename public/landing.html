@@ -1,794 +1,1078 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>The GuestInn – AI-Powered Hotel Management</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          gold: '#D4AF37',
-          'gold-light': '#F5C842',
-          'gold-dim': 'rgba(212,175,55,0.15)',
-          'bg-main': '#0A0A0A',
-          'bg-card': '#111111',
-          'bg-card2': '#181818',
-        },
-        fontFamily: {
-          display: ['Playfair Display', 'serif'],
-          body: ['DM Sans', 'sans-serif'],
-        }
-      }
-    }
-  }
-</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>The GuestInn — AI-Powered Hospitality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Outfit:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --gold: #D4AF37;
-    --gold-light: #F5C842;
-    --gold-glow: rgba(212,175,55,0.35);
-    --blue: #0070F3;
-  }
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E8C76B;
+  --gold-bright: #F5D688;
+  --gold-dim: rgba(201,168,76,0.12);
+  --gold-glow: rgba(201,168,76,0.3);
+  --bg: #080807;
+  --bg2: #0c0c0a;
+  --blue: #3B82F6;
+  --blue-dim: rgba(59,130,246,0.15);
+  --white: #FAFAF8;
+  --text-muted: rgba(250,250,248,0.45);
+  --text-sub: rgba(250,250,248,0.65);
+  --border: rgba(201,168,76,0.15);
+  --border-white: rgba(255,255,255,0.07);
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth;font-size:16px}
+body{background:var(--bg);color:var(--white);font-family:'Outfit',sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
-  html { scroll-behavior: smooth; }
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.25);border-radius:3px}
 
-  body {
-    background: #0A0A0A;
-    color: #fff;
-    font-family: 'DM Sans', sans-serif;
-    overflow-x: hidden;
-  }
+/* ── TYPOGRAPHY ── */
+.font-display{font-family:'Cormorant Garamond',serif}
+.text-gold{color:var(--gold)}
+.text-gold-grad{
+  background:linear-gradient(135deg,#8a6914 0%,#C9A84C 35%,#E8C76B 65%,#F5D688 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text
+}
+.text-muted{color:var(--text-muted)}
+.text-sub{color:var(--text-sub)}
 
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: #0A0A0A; }
-  ::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.3); border-radius: 4px; }
+/* ── GLASS ── */
+.glass{
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--border-white);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)
+}
+.glass-gold{
+  background:linear-gradient(135deg,rgba(201,168,76,0.07),rgba(201,168,76,0.03));
+  border:1px solid rgba(201,168,76,0.2);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)
+}
+.glass-dark{
+  background:rgba(8,8,7,0.6);
+  border:1px solid rgba(255,255,255,0.06);
+  backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px)
+}
 
-  /* ── Gold gradient text ── */
-  .text-gold-gradient {
-    background: linear-gradient(135deg, #b8960c 0%, #D4AF37 50%, #F5C842 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+/* ── BUTTONS ── */
+.btn-gold{
+  background:linear-gradient(135deg,#8a6914,#C9A84C 45%,#E8C76B);
+  color:#050401;font-weight:700;letter-spacing:0.03em;
+  box-shadow:0 0 32px rgba(201,168,76,0.35),0 4px 20px rgba(0,0,0,0.4);
+  transition:all 0.35s cubic-bezier(0.16,1,0.3,1);
+  position:relative;overflow:hidden
+}
+.btn-gold::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent 0%,rgba(255,255,255,0.15) 50%,transparent 100%);
+  transform:translateX(-100%);transition:transform 0.5s ease
+}
+.btn-gold:hover::before{transform:translateX(100%)}
+.btn-gold:hover{transform:translateY(-3px);box-shadow:0 0 48px rgba(201,168,76,0.5),0 12px 32px rgba(0,0,0,0.5)}
+.btn-ghost{
+  border:1px solid rgba(201,168,76,0.3);color:var(--gold);
+  background:rgba(201,168,76,0.04);
+  transition:all 0.3s ease;letter-spacing:0.03em
+}
+.btn-ghost:hover{background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.6);transform:translateY(-2px)}
 
-  /* ── Glass card ── */
-  .glass {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
+/* ══════════════════════════════════ */
+/* NAVBAR                             */
+/* ══════════════════════════════════ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:0 clamp(1.5rem,5vw,4rem);
+  height:72px;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(8,8,7,0.7);
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+  transition:all 0.4s ease
+}
+nav.scrolled{background:rgba(8,8,7,0.92);border-bottom-color:rgba(201,168,76,0.1)}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.nav-logo-icon{
+  width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#1a1500,#2d2200);
+  border:1px solid rgba(201,168,76,0.3);
+  box-shadow:0 0 20px rgba(201,168,76,0.15)
+}
+.nav-logo-text{font-family:'Cormorant Garamond',serif;font-size:1.25rem;font-weight:600;color:var(--gold);letter-spacing:0.02em}
+.nav-links{display:flex;align-items:center;gap:2.5rem}
+.nav-links a{font-size:0.8rem;font-weight:400;color:var(--text-muted);text-decoration:none;letter-spacing:0.05em;text-transform:uppercase;transition:color 0.25s}
+.nav-links a:hover{color:var(--white)}
+.nav-actions{display:flex;align-items:center;gap:12px}
+.nav-actions .btn-ghost{padding:8px 20px;border-radius:8px;font-size:0.8rem;cursor:pointer;text-decoration:none}
+.nav-actions .btn-gold{padding:9px 22px;border-radius:8px;font-size:0.8rem;cursor:pointer;text-decoration:none}
+.nav-hamburger{display:none;width:40px;height:40px;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer}
+.mobile-nav{display:none;position:fixed;top:72px;left:0;right:0;background:rgba(8,8,7,0.97);border-bottom:1px solid var(--border);padding:1.5rem;flex-direction:column;gap:1rem;z-index:99;backdrop-filter:blur(32px)}
+.mobile-nav a{font-size:0.9rem;color:var(--text-sub);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border-white)}
+.mobile-nav .btn-gold,.mobile-nav .btn-ghost{display:block;text-align:center;padding:14px;border-radius:10px;text-decoration:none;font-size:0.9rem;margin-top:0.5rem}
+@media(max-width:900px){.nav-links{display:none}.nav-actions{display:none}.nav-hamburger{display:flex}.mobile-nav.open{display:flex}}
 
-  .glass-gold {
-    background: rgba(212,175,55,0.06);
-    border: 1px solid rgba(212,175,55,0.2);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
+/* ══════════════════════════════════ */
+/* HERO                               */
+/* ══════════════════════════════════ */
+#hero{
+  position:relative;min-height:100vh;display:flex;align-items:center;
+  overflow:hidden;padding-top:72px
+}
 
-  /* ── Gold button ── */
-  .btn-gold {
-    background: linear-gradient(135deg, #b8960c 0%, #D4AF37 50%, #F5C842 100%);
-    color: #000;
-    font-weight: 700;
-    box-shadow: 0 4px 24px rgba(212,175,55,0.4);
-    transition: all 0.25s ease;
-  }
-  .btn-gold:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(212,175,55,0.55);
-  }
+/* Cinematic hotel lobby background */
+.hero-bg-image{
+  position:absolute;inset:0;z-index:0;
+  background:
+    url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1920&q=80&auto=format&fit=crop') center/cover no-repeat;
+  transform:scale(1.05);
+  animation:heroZoom 20s ease-in-out infinite alternate
+}
+@keyframes heroZoom{from{transform:scale(1.05)}to{transform:scale(1.12)}}
 
-  /* ── Outline button ── */
-  .btn-outline {
-    border: 1px solid rgba(212,175,55,0.4);
-    color: #D4AF37;
-    background: rgba(212,175,55,0.06);
-    transition: all 0.25s ease;
-  }
-  .btn-outline:hover {
-    background: rgba(212,175,55,0.12);
-    border-color: rgba(212,175,55,0.7);
-  }
+/* Multi-layer cinematic overlays */
+.hero-overlay-1{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(8,8,7,0.55) 0%,rgba(8,8,7,0.2) 30%,rgba(8,8,7,0.1) 55%,rgba(8,8,7,0.85) 85%,rgba(8,8,7,1) 100%)}
+.hero-overlay-2{position:absolute;inset:0;z-index:2;background:radial-gradient(ellipse 90% 70% at 20% 50%,rgba(8,8,7,0.8) 0%,transparent 70%)}
+.hero-overlay-3{position:absolute;inset:0;z-index:3;background:radial-gradient(ellipse 60% 60% at 50% 0%,rgba(201,168,76,0.08) 0%,transparent 60%)}
 
-  /* ── Nav ── */
-  .navbar {
-    background: rgba(10,10,10,0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
+/* Gold atmospheric light beam */
+.hero-light-beam{
+  position:absolute;top:-10%;right:30%;width:2px;height:120%;z-index:4;
+  background:linear-gradient(180deg,transparent,rgba(201,168,76,0.08) 20%,rgba(201,168,76,0.15) 50%,rgba(201,168,76,0.05) 80%,transparent);
+  transform:rotate(8deg);filter:blur(12px);opacity:0.6
+}
+.hero-light-beam-2{
+  position:absolute;top:-10%;right:45%;width:1px;height:100%;z-index:4;
+  background:linear-gradient(180deg,transparent,rgba(201,168,76,0.05) 30%,rgba(201,168,76,0.1) 60%,transparent);
+  transform:rotate(-5deg);filter:blur(8px);opacity:0.4
+}
 
-  /* ── Hero gradient overlay ── */
-  .hero-bg {
-    background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212,175,55,0.12) 0%, transparent 70%),
-      radial-gradient(ellipse 40% 40% at 80% 20%, rgba(0,112,243,0.06) 0%, transparent 60%),
-      linear-gradient(180deg, #0A0A0A 0%, #0d0b00 40%, #0A0A0A 100%);
-  }
+/* Noise grain */
+.hero-grain{
+  position:absolute;inset:0;z-index:5;opacity:0.04;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")
+}
 
-  /* ── Noise texture overlay ── */
-  .noise::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-  }
+.hero-content{
+  position:relative;z-index:10;
+  width:100%;max-width:1440px;margin:0 auto;
+  padding:clamp(2rem,6vh,5rem) clamp(1.5rem,5vw,5rem);
+  display:grid;grid-template-columns:55fr 45fr;gap:clamp(2rem,5vw,5rem);
+  align-items:center;min-height:calc(100vh - 72px)
+}
 
-  /* ── Feature card hover ── */
-  .feature-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    transition: all 0.3s ease;
-  }
-  .feature-card:hover {
-    background: rgba(212,175,55,0.05);
-    border-color: rgba(212,175,55,0.25);
-    transform: translateY(-4px);
-    box-shadow: 0 20px 40px rgba(212,175,55,0.08);
-  }
+/* ── HERO LEFT ── */
+.hero-left{display:flex;flex-direction:column;justify-content:center}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:8px 18px;border-radius:100px;margin-bottom:2.5rem;
+  background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);
+  width:fit-content;animation:fadeUp 1s ease both
+}
+.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse 2s ease infinite}
+.hero-badge span{font-size:0.68rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold)}
 
-  /* ── Stat counter ── */
-  .stat-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    position: relative;
-    overflow: hidden;
-  }
-  .stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent);
-  }
+.hero-headline{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(3rem,6.5vw,6rem);
+  font-weight:300;line-height:1.06;
+  margin-bottom:1.75rem;
+  animation:fadeUp 1s ease 0.1s both
+}
+.hero-headline em{font-style:italic;color:var(--gold-light);font-weight:300}
+.hero-headline strong{font-weight:600;color:var(--white)}
 
-  /* ── Dashboard mockup ── */
-  .mockup-screen {
-    background: #111;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow:
-      0 0 0 1px rgba(212,175,55,0.1),
-      0 40px 80px rgba(0,0,0,0.8),
-      0 0 100px rgba(212,175,55,0.08);
-  }
+.hero-sub{
+  font-size:clamp(1rem,1.4vw,1.15rem);font-weight:300;
+  color:var(--text-sub);line-height:1.75;
+  max-width:440px;margin-bottom:3rem;
+  animation:fadeUp 1s ease 0.2s both
+}
 
-  .room-cell-occ { background: linear-gradient(145deg,#1a4a1a,#0d2e0d); border: 1px solid rgba(34,197,94,0.5); }
-  .room-cell-vac { background: linear-gradient(145deg,#3a1a1a,#2a0d0d); border: 1px solid rgba(239,68,68,0.4); }
-  .room-cell-res { background: linear-gradient(145deg,#2a2200,#1a1500); border: 1px solid rgba(212,175,55,0.5); }
-  .room-cell-oor { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
+.hero-cta{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:3.5rem;animation:fadeUp 1s ease 0.3s both}
+.hero-cta .btn-gold{display:inline-flex;align-items:center;gap:8px;padding:15px 32px;border-radius:10px;font-size:0.9rem;cursor:pointer;text-decoration:none}
+.hero-cta .btn-ghost{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;border-radius:10px;font-size:0.9rem;cursor:pointer;text-decoration:none}
 
-  /* ── Animations ── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(24px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  @keyframes pulse-gold {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(212,175,55,0.4); }
-    50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(212,175,55,0); }
-  }
-  @keyframes pulse-blue {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(0,112,243,0.5); }
-    50% { box-shadow: 0 0 0 8px rgba(0,112,243,0); }
-  }
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-8px); }
-  }
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-  @keyframes drawLine {
-    from { stroke-dashoffset: 600; }
-    to   { stroke-dashoffset: 0; }
-  }
-  @keyframes countUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes scanPulse {
-    0%,100% { transform: scale(1); box-shadow: 0 0 20px rgba(0,112,243,0.4); }
-    50% { transform: scale(1.04); box-shadow: 0 0 40px rgba(0,112,243,0.7); }
-  }
-  @keyframes rotateRing {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
+.hero-trust{display:flex;align-items:center;gap:20px;animation:fadeUp 1s ease 0.4s both}
+.hero-avatars{display:flex}
+.hero-avatar{
+  width:36px;height:36px;border-radius:50%;border:2px solid rgba(201,168,76,0.4);
+  background:linear-gradient(135deg,#1a1500,#2d2200);
+  display:flex;align-items:center;justify-content:center;font-size:1rem;
+  margin-left:-10px
+}
+.hero-avatar:first-child{margin-left:0}
+.hero-trust-text{font-size:0.82rem;color:var(--text-muted)}
+.hero-trust-text strong{color:var(--white)}
 
-  .anim-fade-up { animation: fadeUp 0.7s ease both; }
-  .anim-fade-up-2 { animation: fadeUp 0.7s ease 0.15s both; }
-  .anim-fade-up-3 { animation: fadeUp 0.7s ease 0.3s both; }
-  .anim-fade-up-4 { animation: fadeUp 0.7s ease 0.45s both; }
+/* ── HERO RIGHT (LAPTOP) ── */
+.hero-right{
+  display:flex;align-items:center;justify-content:center;
+  position:relative;animation:fadeUp 1s ease 0.2s both
+}
+.laptop-wrap{
+  position:relative;width:100%;max-width:600px;
+  transform:perspective(1800px) rotateY(-12deg) rotateX(5deg);
+  transform-style:preserve-3d;
+  animation:laptopFloat 7s ease-in-out infinite;
+  filter:drop-shadow(0 60px 120px rgba(0,0,0,0.8)) drop-shadow(0 0 80px rgba(201,168,76,0.12))
+}
+@keyframes laptopFloat{0%,100%{transform:perspective(1800px) rotateY(-12deg) rotateX(5deg) translateY(0)}50%{transform:perspective(1800px) rotateY(-12deg) rotateX(5deg) translateY(-14px)}}
 
-  .float-anim { animation: float 4s ease-in-out infinite; }
+/* Glow behind laptop */
+.laptop-glow{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:120%;height:120%;border-radius:50%;pointer-events:none;z-index:-1;
+  background:radial-gradient(ellipse,rgba(201,168,76,0.18) 0%,rgba(59,130,246,0.06) 40%,transparent 70%);
+  filter:blur(50px)
+}
 
-  .revenue-line {
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    animation: drawLine 2s ease 0.8s forwards;
-  }
+/* MacBook frame */
+.laptop-body{
+  background:linear-gradient(160deg,#2a2a2a 0%,#1a1a1a 40%,#111 100%);
+  border-radius:16px 16px 6px 6px;
+  border:1px solid rgba(255,255,255,0.12);
+  padding:12px 12px 8px;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 60px 120px rgba(0,0,0,0.9),
+    0 0 60px rgba(201,168,76,0.08)
+}
+.laptop-screen-outer{
+  background:#0a0a0a;border-radius:8px;overflow:hidden;
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:inset 0 0 30px rgba(0,0,0,0.6)
+}
+.laptop-notch-bar{
+  height:28px;background:linear-gradient(180deg,#151515,#0f0f0f);
+  display:flex;align-items:center;padding:0 12px;gap:6px;
+  border-bottom:1px solid rgba(255,255,255,0.05)
+}
+.dot-r{width:9px;height:9px;border-radius:50%;background:#ff5f57}
+.dot-y{width:9px;height:9px;border-radius:50%;background:#febc2e}
+.dot-g{width:9px;height:9px;border-radius:50%;background:#28c840}
+.url-bar{
+  margin:0 16px;flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
+  border-radius:5px;height:16px;display:flex;align-items:center;padding:0 8px;gap:5px
+}
+.url-bar-dot{width:5px;height:5px;border-radius:50%;background:rgba(40,200,64,0.7)}
+.url-bar-text{font-size:8px;color:rgba(255,255,255,0.25);font-family:monospace}
 
-  .ai-scan-btn {
-    animation: scanPulse 2.5s ease-in-out infinite;
-  }
+/* Dashboard inside screen */
+.dash{padding:12px;background:linear-gradient(145deg,#0d0d0d,#090909)}
 
-  .rotate-ring {
-    animation: rotateRing 8s linear infinite;
-  }
+.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.dash-greeting{font-size:11px;font-weight:600;color:rgba(255,255,255,0.9)}
+.dash-greeting-sub{font-size:8px;color:rgba(255,255,255,0.3);margin-top:1px}
+.ai-badge-live{
+  display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;
+  background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25)
+}
+.ai-badge-live .dot{width:5px;height:5px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite}
+.ai-badge-live span{font-size:8px;font-weight:700;color:var(--gold);letter-spacing:0.08em}
 
-  /* ── Scroll reveal ── */
-  .reveal { opacity: 0; transform: translateY(32px); transition: all 0.7s ease; }
-  .reveal.visible { opacity: 1; transform: translateY(0); }
+/* Stat cards */
+.dash-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.stat-c{
+  padding:10px;border-radius:10px;
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)
+}
+.stat-c.gold-c{
+  background:linear-gradient(135deg,rgba(201,168,76,0.1),rgba(201,168,76,0.04));
+  border-color:rgba(201,168,76,0.25)
+}
+.stat-label{font-size:7px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.3);margin-bottom:4px;text-transform:uppercase}
+.stat-value{font-size:16px;font-weight:800;letter-spacing:-0.03em;line-height:1}
+.stat-value.gold{color:var(--gold)}
+.stat-value.white{color:#fff}
+.stat-trend{font-size:7px;margin-top:3px;color:#22c55e}
+.stat-trend.blue{color:#60a5fa}
 
-  /* ── Pricing card ── */
-  .pricing-popular {
-    background: linear-gradient(160deg, #1a1400 0%, #0f0d00 100%);
-    border: 1px solid rgba(212,175,55,0.35);
-    box-shadow: 0 0 60px rgba(212,175,55,0.08);
-    position: relative;
-  }
-  .pricing-popular::before {
-    content: '';
-    position: absolute; inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(135deg, rgba(212,175,55,0.06) 0%, transparent 60%);
-    pointer-events: none;
-  }
+/* Grid + chart row */
+.dash-mid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
 
-  /* ── FAQ ── */
-  .faq-item { border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease; opacity: 0; }
-  .faq-item.open .faq-answer { max-height: 200px; opacity: 1; }
-  .faq-icon { transition: transform 0.3s ease; }
-  .faq-item.open .faq-icon { transform: rotate(45deg); }
+/* Room grid */
+.room-panel{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px}
+.room-panel-label{font-size:7px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.35);margin-bottom:6px;text-transform:uppercase}
+.room-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
+.rc{border-radius:2px;aspect-ratio:1}
+.rc.occ{background:linear-gradient(135deg,#166534,#14532d);box-shadow:0 0 4px rgba(34,197,94,0.3)}
+.rc.vac{background:linear-gradient(135deg,#7f1d1d,#6b1a1a);box-shadow:0 0 4px rgba(239,68,68,0.2)}
+.rc.res{background:linear-gradient(135deg,#78350f,#713f12);box-shadow:0 0 4px rgba(201,168,76,0.3)}
+.rc.oor{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06)}
+.room-legend{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.room-legend-item{display:flex;align-items:center;gap:3px}
+.room-legend-dot{width:5px;height:5px;border-radius:50%}
+.room-legend-text{font-size:7px;color:rgba(255,255,255,0.3)}
 
-  /* ── Mobile nav ── */
-  .mobile-menu { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
-  .mobile-menu.open { max-height: 400px; }
+/* Revenue chart */
+.rev-panel{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px}
+.rev-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.rev-panel-label{font-size:7px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.35);text-transform:uppercase}
+.rev-panel-week{font-size:7px;color:rgba(255,255,255,0.2)}
+.rev-graph{width:100%;overflow:hidden}
+.rev-value{font-size:13px;font-weight:800;color:var(--gold);margin-top:4px;letter-spacing:-0.02em}
+.rev-trend{font-size:7px;color:#22c55e}
 
-  /* ── Testimonial ── */
-  .testimonial-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    transition: all 0.3s ease;
-  }
-  .testimonial-card:hover {
-    border-color: rgba(212,175,55,0.2);
-    background: rgba(212,175,55,0.03);
-  }
+/* AI insight */
+.dash-insight{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
+  background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.18)
+}
+.insight-icon{
+  width:22px;height:22px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(59,130,246,0.15)
+}
+.insight-text{font-size:8px;color:rgba(255,255,255,0.55);line-height:1.4}
+.insight-text strong{color:#60a5fa;font-weight:600}
 
-  /* ── Input ── */
-  .inp {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    outline: none;
-    transition: all 0.2s ease;
-  }
-  .inp:focus {
-    border-color: rgba(212,175,55,0.5);
-    background: rgba(212,175,55,0.04);
-  }
-  .inp::placeholder { color: rgba(255,255,255,0.25); }
+/* laptop base/chin */
+.laptop-chin{
+  height:10px;
+  background:linear-gradient(180deg,#1f1f1f,#161616);
+  border-radius:0 0 6px 6px;
+  display:flex;align-items:center;justify-content:center
+}
+.laptop-chin-notch{width:60px;height:4px;border-radius:2px;background:rgba(255,255,255,0.06)}
+.laptop-stand{
+  height:12px;
+  background:linear-gradient(180deg,#1c1c1c,#141414);
+  width:45%;margin:0 auto;border-radius:0 0 4px 4px;
+  border:1px solid rgba(255,255,255,0.06);border-top:none
+}
+.laptop-foot{
+  height:4px;
+  background:linear-gradient(90deg,#111,#1c1c1c,#111);
+  width:70%;margin:0 auto;border-radius:0 0 30px 30px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5)
+}
 
-  /* ── Section divider ── */
-  .section-divider {
-    background: linear-gradient(90deg, transparent, rgba(212,175,55,0.25), transparent);
-    height: 1px;
-  }
+/* reflection on screen */
+.screen-reflection{
+  position:absolute;inset:0;pointer-events:none;z-index:5;
+  background:linear-gradient(135deg,rgba(255,255,255,0.025) 0%,transparent 50%);
+  border-radius:8px
+}
+
+/* revenue line animation */
+@keyframes drawLine{from{stroke-dashoffset:300}to{stroke-dashoffset:0}}
+.rev-line{stroke-dasharray:300;stroke-dashoffset:300;animation:drawLine 2.5s ease 1s forwards}
+
+/* ══════════════════════════════════ */
+/* STATS BAR                          */
+/* ══════════════════════════════════ */
+.stats-bar{
+  padding:clamp(3rem,6vh,5rem) clamp(1.5rem,5vw,5rem);
+  max-width:1440px;margin:0 auto;
+  display:grid;grid-template-columns:1fr;gap:0
+}
+.stats-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.2),transparent);margin:0}
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+  padding:clamp(2rem,4vh,3.5rem) 0
+}
+.stats-item{
+  text-align:center;padding:0 2rem;
+  border-right:1px solid rgba(255,255,255,0.05)
+}
+.stats-item:last-child{border-right:none}
+.stats-num{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(2.5rem,4vw,3.5rem);font-weight:300;
+  background:linear-gradient(135deg,#8a6914,#C9A84C,#E8C76B);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1;margin-bottom:0.5rem
+}
+.stats-label{font-size:0.8rem;color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;font-weight:300}
+
+/* ══════════════════════════════════ */
+/* FEATURES                           */
+/* ══════════════════════════════════ */
+#features{padding:clamp(4rem,8vh,8rem) 0}
+.section-wrap{max-width:1440px;margin:0 auto;padding:0 clamp(1.5rem,5vw,5rem)}
+.section-header{text-align:center;margin-bottom:clamp(3rem,5vh,5rem)}
+.section-eyebrow{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:7px 18px;border-radius:100px;margin-bottom:1.5rem;
+  background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18)
+}
+.section-eyebrow span{font-size:0.68rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold)}
+.section-title{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(2.5rem,4.5vw,4rem);font-weight:300;
+  color:var(--white);line-height:1.1;margin-bottom:1.25rem
+}
+.section-title em{font-style:italic;color:var(--gold-light)}
+.section-sub{font-size:clamp(0.9rem,1.2vw,1.05rem);color:var(--text-muted);line-height:1.75;max-width:520px;margin:0 auto;font-weight:300}
+
+.features-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5px}
+.feature-card{
+  padding:clamp(1.75rem,3vw,2.5rem);
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.05);
+  transition:all 0.5s cubic-bezier(0.16,1,0.3,1);
+  position:relative;overflow:hidden
+}
+.feature-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,0),transparent);
+  transition:background 0.5s ease
+}
+.feature-card:hover::before{background:linear-gradient(90deg,transparent,rgba(201,168,76,0.4),transparent)}
+.feature-card:hover{
+  background:rgba(201,168,76,0.04);
+  border-color:rgba(201,168,76,0.15);
+  transform:translateY(-6px)
+}
+.feature-icon-wrap{
+  width:52px;height:52px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:1.5rem;position:relative
+}
+.feature-title{font-size:1.05rem;font-weight:600;color:var(--white);margin-bottom:0.75rem;letter-spacing:-0.01em}
+.feature-desc{font-size:0.85rem;color:var(--text-muted);line-height:1.7;font-weight:300}
+.feature-tag{
+  display:inline-flex;align-items:center;gap:5px;margin-top:1.25rem;
+  padding:5px 12px;border-radius:20px;font-size:0.72rem;font-weight:500
+}
+
+/* Scanner highlight */
+.scanner-section{
+  margin-top:2px;
+  display:grid;grid-template-columns:1fr 1.5fr;gap:1.5px
+}
+.scanner-visual{
+  background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
+  padding:clamp(2rem,4vw,3rem);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;
+  position:relative;overflow:hidden;transition:all 0.4s ease
+}
+.scanner-visual:hover{background:rgba(59,130,246,0.03);border-color:rgba(59,130,246,0.15)}
+.scanner-orb{
+  position:relative;width:120px;height:120px
+}
+.scanner-ring-1{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(59,130,246,0.3);
+  animation:rotateRing 8s linear infinite
+}
+.scanner-ring-2{
+  position:absolute;inset:8px;border-radius:50%;
+  border:1px dashed rgba(201,168,76,0.2);
+  animation:rotateRing 12s linear infinite reverse
+}
+.scanner-center{
+  position:absolute;inset:20px;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(circle,rgba(59,130,246,0.15),rgba(8,8,7,0.9));
+  border:1px solid rgba(59,130,246,0.4);
+  box-shadow:0 0 30px rgba(59,130,246,0.2),inset 0 0 20px rgba(59,130,246,0.08);
+  animation:scanPulse 3s ease-in-out infinite
+}
+@keyframes scanPulse{0%,100%{box-shadow:0 0 30px rgba(59,130,246,0.2),inset 0 0 20px rgba(59,130,246,0.08)}50%{box-shadow:0 0 50px rgba(59,130,246,0.4),inset 0 0 30px rgba(59,130,246,0.15)}}
+@keyframes rotateRing{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.scanner-ai-label{font-size:0.8rem;font-weight:800;color:#60a5fa;letter-spacing:0.15em}
+.scanner-sub-label{font-size:0.55rem;font-weight:500;color:rgba(255,255,255,0.3);letter-spacing:0.12em;margin-top:1px}
+
+.scanner-info{
+  background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
+  padding:clamp(2rem,4vw,3rem);transition:all 0.4s ease
+}
+.scanner-info:hover{background:rgba(59,130,246,0.02)}
+.scanner-badge{
+  display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;margin-bottom:1.5rem;
+  background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25)
+}
+.scanner-badge span{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#60a5fa}
+.scanner-title{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--white);line-height:1.2;margin-bottom:1rem}
+.scanner-desc{font-size:0.88rem;color:var(--text-muted);line-height:1.75;font-weight:300;max-width:440px;margin-bottom:2rem}
+.scanner-stats{display:flex;gap:2rem}
+.scanner-stat{text-align:center}
+.scanner-stat-num{font-size:2rem;font-weight:800;color:#60a5fa;line-height:1}
+.scanner-stat-label{font-size:0.72rem;color:var(--text-muted);margin-top:0.25rem}
+
+/* ══════════════════════════════════ */
+/* HOW IT WORKS                       */
+/* ══════════════════════════════════ */
+#how-it-works{
+  padding:clamp(4rem,8vh,8rem) 0;
+  background:linear-gradient(180deg,var(--bg) 0%,rgba(12,12,10,1) 50%,var(--bg) 100%)
+}
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(2rem,4vw,4rem);position:relative;margin-top:clamp(2.5rem,5vh,4rem)}
+.steps-grid::before{
+  content:'';position:absolute;top:32px;left:calc(16.7% + 1rem);right:calc(16.7% + 1rem);
+  height:1px;background:linear-gradient(90deg,var(--gold) 0%,rgba(201,168,76,0.3) 50%,var(--gold) 100%);
+  opacity:0.2
+}
+.step-card{text-align:center;padding:0 1rem}
+.step-num{
+  width:64px;height:64px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Cormorant Garamond',serif;font-size:1.75rem;font-weight:300;
+  margin:0 auto 2rem;position:relative;z-index:1
+}
+.step-num.gold-step{
+  color:var(--gold);
+  background:linear-gradient(135deg,#1a1400,#2d2200);
+  border:1px solid rgba(201,168,76,0.3);
+  box-shadow:0 0 30px rgba(201,168,76,0.12)
+}
+.step-num.blue-step{
+  color:#60a5fa;
+  background:linear-gradient(135deg,#000d1a,#001a3a);
+  border:1px solid rgba(59,130,246,0.3);
+  box-shadow:0 0 30px rgba(59,130,246,0.12)
+}
+.step-num.green-step{
+  color:#4ade80;
+  background:linear-gradient(135deg,#051005,#0a1a0a);
+  border:1px solid rgba(74,222,128,0.3);
+  box-shadow:0 0 30px rgba(74,222,128,0.1)
+}
+.step-title{font-size:1.15rem;font-weight:600;color:var(--white);margin-bottom:1rem;letter-spacing:-0.01em}
+.step-desc{font-size:0.87rem;color:var(--text-muted);line-height:1.75;font-weight:300}
+
+/* ══════════════════════════════════ */
+/* TESTIMONIALS                       */
+/* ══════════════════════════════════ */
+#testimonials{padding:clamp(4rem,8vh,8rem) 0}
+.testimonials-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:clamp(2.5rem,5vh,4rem)}
+.testimonial-card{
+  padding:clamp(1.75rem,3vw,2.5rem);
+  background:rgba(255,255,255,0.025);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:20px;
+  transition:all 0.4s ease;position:relative;overflow:hidden
+}
+.testimonial-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent)
+}
+.testimonial-card:hover{
+  border-color:rgba(201,168,76,0.15);
+  background:rgba(201,168,76,0.03);
+  transform:translateY(-4px);
+  box-shadow:0 20px 60px rgba(0,0,0,0.4)
+}
+.testimonial-stars{color:var(--gold);font-size:0.8rem;margin-bottom:1.25rem;letter-spacing:2px}
+.testimonial-quote{
+  font-family:'Cormorant Garamond',serif;
+  font-size:1.05rem;font-weight:300;font-style:italic;
+  color:rgba(250,250,248,0.8);line-height:1.7;margin-bottom:1.75rem
+}
+.testimonial-author{display:flex;align-items:center;gap:12px}
+.testimonial-avatar{
+  width:42px;height:42px;border-radius:50%;
+  background:linear-gradient(135deg,#1a1400,#2d2200);
+  border:1px solid rgba(201,168,76,0.2);
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0
+}
+.testimonial-name{font-size:0.88rem;font-weight:600;color:var(--white);margin-bottom:2px}
+.testimonial-role{font-size:0.75rem;color:var(--text-muted)}
+
+/* ══════════════════════════════════ */
+/* PRICING                            */
+/* ══════════════════════════════════ */
+#pricing{
+  padding:clamp(4rem,8vh,8rem) 0;
+  background:linear-gradient(180deg,var(--bg) 0%,rgba(12,12,10,1) 50%,var(--bg) 100%)
+}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:clamp(2.5rem,5vh,4rem);max-width:1100px;margin-left:auto;margin-right:auto}
+.pricing-card{
+  padding:clamp(2rem,3vw,2.75rem);border-radius:20px;
+  background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);
+  position:relative;overflow:hidden;transition:all 0.4s ease
+}
+.pricing-card:hover{transform:translateY(-6px)}
+.pricing-card.popular{
+  background:linear-gradient(160deg,rgba(201,168,76,0.08),rgba(201,168,76,0.03));
+  border-color:rgba(201,168,76,0.3);
+  box-shadow:0 0 60px rgba(201,168,76,0.08),0 40px 80px rgba(0,0,0,0.4)
+}
+.pricing-card.popular::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,0.5),transparent)
+}
+.pricing-popular-badge{
+  display:inline-flex;padding:4px 14px;border-radius:20px;margin-bottom:1.25rem;
+  background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3)
+}
+.pricing-popular-badge span{font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)}
+.pricing-tier{font-size:0.8rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem}
+.pricing-price{font-family:'Cormorant Garamond',serif;font-size:3.5rem;font-weight:300;color:var(--white);line-height:1;margin-bottom:0.35rem}
+.pricing-price span{font-family:'Outfit',sans-serif;font-size:1rem;color:var(--text-muted);font-weight:300}
+.pricing-period{font-size:0.82rem;color:var(--text-muted);margin-bottom:2rem}
+.pricing-features{list-style:none;space-y:0.75rem;margin-bottom:2rem;display:flex;flex-direction:column;gap:0.85rem}
+.pricing-features li{display:flex;align-items:center;gap:10px;font-size:0.85rem;color:var(--text-sub);font-weight:300}
+.pricing-features li .check{color:#4ade80;flex-shrink:0}
+.pricing-features li .cross{color:rgba(255,255,255,0.15);flex-shrink:0}
+.pricing-btn{display:block;text-align:center;padding:14px;border-radius:10px;font-size:0.88rem;font-weight:600;text-decoration:none;transition:all 0.3s ease;cursor:pointer;letter-spacing:0.02em}
+
+/* ══════════════════════════════════ */
+/* FAQ                                */
+/* ══════════════════════════════════ */
+#faq{padding:clamp(4rem,8vh,8rem) 0}
+.faq-list{max-width:780px;margin:clamp(2.5rem,5vh,4rem) auto 0;display:flex;flex-direction:column;gap:0}
+.faq-item{border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer}
+.faq-item:first-child{border-top:1px solid rgba(255,255,255,0.05)}
+.faq-q{
+  display:flex;align-items:center;justify-content:space-between;gap:2rem;
+  padding:1.75rem 0;font-size:1rem;font-weight:500;color:var(--white);
+  transition:color 0.25s
+}
+.faq-item:hover .faq-q,.faq-item.open .faq-q{color:var(--gold-light)}
+.faq-icon{
+  width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;color:var(--text-muted);transition:all 0.35s ease
+}
+.faq-item.open .faq-icon{transform:rotate(45deg);border-color:rgba(201,168,76,0.4);color:var(--gold)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height 0.45s ease,opacity 0.3s ease;opacity:0}
+.faq-item.open .faq-a{max-height:200px;opacity:1}
+.faq-a p{font-size:0.9rem;color:var(--text-muted);line-height:1.8;font-weight:300;padding-bottom:1.75rem}
+
+/* ══════════════════════════════════ */
+/* CTA / DEMO                         */
+/* ══════════════════════════════════ */
+#demo{
+  padding:clamp(5rem,10vh,10rem) 0;
+  position:relative;overflow:hidden
+}
+.demo-glow{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:800px;height:600px;pointer-events:none;
+  background:radial-gradient(ellipse,rgba(201,168,76,0.07) 0%,transparent 70%);
+  filter:blur(60px)
+}
+.demo-wrap{
+  max-width:900px;margin:0 auto;
+  padding:clamp(3rem,5vw,5rem);
+  border-radius:28px;
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.06);
+  position:relative;overflow:hidden;text-align:center
+}
+.demo-wrap::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,0.4),transparent)
+}
+.demo-badge{
+  display:inline-flex;align-items:center;gap:8px;padding:7px 18px;border-radius:100px;margin-bottom:2rem;
+  background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2)
+}
+.demo-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse 2s ease infinite}
+.demo-badge span{font-size:0.68rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold)}
+.demo-title{font-family:'Cormorant Garamond',serif;font-size:clamp(2.5rem,4.5vw,4rem);font-weight:300;color:var(--white);line-height:1.1;margin-bottom:1.25rem}
+.demo-title em{font-style:italic;color:var(--gold-light)}
+.demo-sub{font-size:1rem;color:var(--text-muted);line-height:1.7;font-weight:300;margin-bottom:3rem;max-width:500px;margin-left:auto;margin-right:auto}
+.demo-form{display:grid;grid-template-columns:1fr 1fr;gap:1rem;text-align:left;margin-bottom:1rem}
+.form-group label{font-size:0.72rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:0.6rem}
+.form-group input,.form-group select{
+  width:100%;padding:14px 16px;border-radius:10px;
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  color:var(--white);font-size:0.9rem;font-family:'Outfit',sans-serif;
+  outline:none;transition:all 0.25s ease
+}
+.form-group input::placeholder{color:rgba(255,255,255,0.2)}
+.form-group input:focus,.form-group select:focus{border-color:rgba(201,168,76,0.4);background:rgba(201,168,76,0.04)}
+.form-group select option{background:#111}
+.demo-submit{
+  width:100%;padding:16px;border-radius:12px;
+  font-size:1rem;font-weight:700;letter-spacing:0.04em;
+  cursor:pointer;border:none;transition:all 0.35s ease
+}
+.demo-note{font-size:0.75rem;color:var(--text-muted);margin-top:1rem}
+
+/* ══════════════════════════════════ */
+/* FOOTER                             */
+/* ══════════════════════════════════ */
+footer{
+  background:#060605;border-top:1px solid rgba(255,255,255,0.05);
+  padding:clamp(3rem,6vh,5rem) clamp(1.5rem,5vw,5rem) clamp(1.5rem,3vh,2.5rem)
+}
+.footer-inner{max-width:1440px;margin:0 auto}
+.footer-top{display:grid;grid-template-columns:2fr 1fr 1fr;gap:clamp(2rem,5vw,5rem);margin-bottom:clamp(2.5rem,5vh,4rem)}
+.footer-brand p{font-size:0.85rem;color:var(--text-muted);line-height:1.75;font-weight:300;max-width:320px;margin-top:1rem}
+.footer-brand small{font-size:0.72rem;color:rgba(255,255,255,0.2);display:block;margin-top:1.25rem}
+.footer-col-title{font-size:0.75rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1.25rem}
+.footer-links{list-style:none;display:flex;flex-direction:column;gap:0.75rem}
+.footer-links a{font-size:0.85rem;color:rgba(255,255,255,0.3);text-decoration:none;font-weight:300;transition:color 0.25s}
+.footer-links a:hover{color:var(--white)}
+.footer-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);margin-bottom:1.75rem}
+.footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.footer-copy{font-size:0.78rem;color:rgba(255,255,255,0.2)}
+.footer-legal{display:flex;gap:1.5rem}
+.footer-legal a{font-size:0.78rem;color:rgba(255,255,255,0.2);text-decoration:none;transition:color 0.25s}
+.footer-legal a:hover{color:rgba(255,255,255,0.5)}
+
+/* ══════════════════════════════════ */
+/* ANIMATIONS                         */
+/* ══════════════════════════════════ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.85)}}
+
+.reveal{opacity:0;transform:translateY(32px);transition:opacity 0.8s cubic-bezier(0.16,1,0.3,1),transform 0.8s cubic-bezier(0.16,1,0.3,1)}
+.reveal.in{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:0.1s}
+.reveal-delay-2{transition-delay:0.2s}
+.reveal-delay-3{transition-delay:0.3s}
+
+/* ══════════════════════════════════ */
+/* RESPONSIVE                         */
+/* ══════════════════════════════════ */
+@media(max-width:1100px){
+  .features-grid{grid-template-columns:repeat(2,1fr)}
+  .scanner-section{grid-template-columns:1fr}
+  .hero-content{grid-template-columns:1fr;gap:3rem;padding-top:4rem;min-height:auto}
+  .hero-right{max-width:520px;margin:0 auto}
+  .laptop-wrap{transform:perspective(1200px) rotateY(0deg) rotateX(3deg);animation:none;max-width:100%}
+}
+@media(max-width:768px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:0}
+  .stats-item{padding:1.5rem 1rem;border-right:none;border-bottom:1px solid rgba(255,255,255,0.05)}
+  .stats-item:nth-child(odd){border-right:1px solid rgba(255,255,255,0.05)}
+  .steps-grid{grid-template-columns:1fr;gap:2rem}
+  .steps-grid::before{display:none}
+  .testimonials-grid{grid-template-columns:1fr}
+  .pricing-grid{grid-template-columns:1fr;max-width:440px}
+  .demo-form{grid-template-columns:1fr}
+  .footer-top{grid-template-columns:1fr}
+  .scanner-stats{gap:1rem}
+  .features-grid{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .hero-headline{font-size:2.75rem}
+  .hero-sub{font-size:0.95rem}
+  .laptop-wrap{transform:none}
+}
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- NAVBAR                                                       -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<nav class="navbar fixed top-0 left-0 right-0 z-50">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between h-16">
-
-      <!-- Logo -->
-      <a href="#" class="flex items-center gap-2.5 flex-shrink-0">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1a1200,#2a1f00);border:1px solid rgba(212,175,55,0.35);">
-          <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
-            <path d="M20 4L6 14v22h28V14L20 4z" stroke="#D4AF37" stroke-width="2" fill="rgba(212,175,55,0.1)"/>
-            <path d="M15 36V24h10v12" stroke="#D4AF37" stroke-width="2"/>
-            <circle cx="20" cy="10" r="2" fill="#D4AF37"/>
-          </svg>
-        </div>
-        <div>
-          <span class="font-display font-bold text-lg" style="color:#D4AF37;letter-spacing:-0.02em;">The GuestInn</span>
-        </div>
-      </a>
-
-      <!-- Desktop nav links -->
-      <div class="hidden md:flex items-center gap-8">
-        <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
-        <a href="#how-it-works" class="text-sm text-gray-400 hover:text-white transition-colors">How It Works</a>
-        <a href="#pricing" class="text-sm text-gray-400 hover:text-white transition-colors">Pricing</a>
-        <a href="#testimonials" class="text-sm text-gray-400 hover:text-white transition-colors">Reviews</a>
-        <a href="#faq" class="text-sm text-gray-400 hover:text-white transition-colors">FAQ</a>
-      </div>
-
-      <!-- CTA buttons -->
-      <div class="hidden md:flex items-center gap-3">
-        <a href="#demo" class="text-sm font-semibold px-4 py-2 rounded-xl btn-outline">Login</a>
-        <a href="#demo" class="text-sm font-semibold px-5 py-2.5 rounded-xl btn-gold">Book a Demo →</a>
-      </div>
-
-      <!-- Mobile hamburger -->
-      <button id="menuBtn" class="md:hidden w-10 h-10 flex items-center justify-center rounded-xl glass" onclick="toggleMenu()">
-        <svg id="menuIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="2">
-          <path d="M3 6h18M3 12h18M3 18h18"/>
-        </svg>
-      </button>
+<!-- ══════════════════════════════════ -->
+<!-- NAVBAR                             -->
+<!-- ══════════════════════════════════ -->
+<nav id="mainNav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
+        <path d="M20 4L6 14v22h28V14L20 4z" stroke="#C9A84C" stroke-width="1.8" fill="rgba(201,168,76,0.08)"/>
+        <path d="M15 36V24h10v12" stroke="#C9A84C" stroke-width="1.8"/>
+        <circle cx="20" cy="10" r="2" fill="#C9A84C"/>
+      </svg>
     </div>
-
-    <!-- Mobile menu -->
-    <div id="mobileMenu" class="mobile-menu md:hidden pb-4">
-      <div class="flex flex-col gap-1 pt-2">
-        <a href="#features" class="px-3 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" onclick="toggleMenu()">Features</a>
-        <a href="#how-it-works" class="px-3 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" onclick="toggleMenu()">How It Works</a>
-        <a href="#pricing" class="px-3 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" onclick="toggleMenu()">Pricing</a>
-        <a href="#testimonials" class="px-3 py-3 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" onclick="toggleMenu()">Reviews</a>
-        <div class="flex gap-2 mt-2 px-2">
-          <a href="#demo" class="flex-1 text-center text-sm font-semibold py-3 rounded-xl btn-outline">Login</a>
-          <a href="#demo" class="flex-1 text-center text-sm font-semibold py-3 rounded-xl btn-gold">Book Demo</a>
-        </div>
-      </div>
-    </div>
+    <span class="nav-logo-text">The GuestInn</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">How it Works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#testimonials">Reviews</a>
+    <a href="#faq">FAQ</a>
   </div>
+  <div class="nav-actions">
+    <a href="#demo" class="btn-ghost">Login</a>
+    <a href="#demo" class="btn-gold">Book a Demo →</a>
+  </div>
+  <button class="nav-hamburger" onclick="toggleMobileNav()" aria-label="Menu">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(201,168,76,0.8)" stroke-width="2">
+      <path d="M3 6h18M3 12h18M3 18h18"/>
+    </svg>
+  </button>
 </nav>
+<div id="mobileNav" class="mobile-nav">
+  <a href="#features" onclick="closeMobileNav()">Features</a>
+  <a href="#how-it-works" onclick="closeMobileNav()">How it Works</a>
+  <a href="#pricing" onclick="closeMobileNav()">Pricing</a>
+  <a href="#testimonials" onclick="closeMobileNav()">Reviews</a>
+  <a href="#faq" onclick="closeMobileNav()">FAQ</a>
+  <a href="#demo" class="btn-ghost" onclick="closeMobileNav()">Login</a>
+  <a href="#demo" class="btn-gold" onclick="closeMobileNav()">Book a Demo →</a>
+</div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- HERO                                                         -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section class="relative min-h-screen flex items-center pt-16 noise hero-bg overflow-hidden">
+<!-- ══════════════════════════════════ -->
+<!-- HERO                               -->
+<!-- ══════════════════════════════════ -->
+<section id="hero">
+  <div class="hero-bg-image"></div>
+  <div class="hero-overlay-1"></div>
+  <div class="hero-overlay-2"></div>
+  <div class="hero-overlay-3"></div>
+  <div class="hero-light-beam"></div>
+  <div class="hero-light-beam-2"></div>
+  <div class="hero-grain"></div>
 
-  <!-- Background glow orbs -->
-  <div class="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-20 pointer-events-none" style="background:radial-gradient(ellipse,rgba(212,175,55,0.4) 0%,transparent 70%);filter:blur(60px);"></div>
-  <div class="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full opacity-10 pointer-events-none" style="background:radial-gradient(ellipse,rgba(0,112,243,0.5) 0%,transparent 70%);filter:blur(80px);"></div>
-
-  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-20">
-    <div class="grid lg:grid-cols-2 gap-12 items-center">
-
-      <!-- Left: Copy -->
-      <div>
-        <!-- Badge -->
-        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6 anim-fade-up"
-          style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.25);">
-          <div class="w-2 h-2 rounded-full" style="background:#D4AF37;animation:pulse-gold 2s infinite;"></div>
-          <span class="text-xs font-semibold tracking-widest" style="color:#D4AF37;">AI-POWERED HOTEL MANAGEMENT</span>
-        </div>
-
-        <h1 class="font-display font-black leading-[1.05] mb-6 anim-fade-up-2" style="font-size:clamp(2.5rem,6vw,4.5rem);">
-          <span class="text-white">The GuestInn:</span><br/>
-          <span class="text-gold-gradient">AI-Powered</span><br/>
-          <span class="text-white">Hospitality</span>
-        </h1>
-
-        <p class="text-gray-400 text-lg leading-relaxed mb-8 max-w-md anim-fade-up-3">
-          Smart automation. Happier guests. Higher revenue — all in one platform built for modern hoteliers.
-        </p>
-
-        <!-- CTA buttons -->
-        <div class="flex flex-wrap gap-3 mb-10 anim-fade-up-4">
-          <a href="#demo" class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl btn-gold text-base">
-            Book a Demo
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </a>
-          <a href="#features" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl btn-outline text-base">
-            Explore Features
-          </a>
-        </div>
-
-        <!-- Social proof -->
-        <div class="flex items-center gap-4 anim-fade-up-4">
-          <div class="flex -space-x-2">
-            <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm" style="border-color:#D4AF37;background:#1a1400;">🏨</div>
-            <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm" style="border-color:#D4AF37;background:#1a1400;">🏩</div>
-            <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm" style="border-color:#D4AF37;background:#1a1400;">🏪</div>
-            <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold" style="border-color:#D4AF37;background:rgba(212,175,55,0.15);color:#D4AF37;font-size:11px;">+</div>
-          </div>
-          <p class="text-sm text-gray-400">
-            Trusted by <span class="font-bold text-white">2,500+</span> Hotels Worldwide
-          </p>
-        </div>
+  <div class="hero-content">
+    <!-- LEFT -->
+    <div class="hero-left">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        <span>AI-Powered Hotel Management</span>
       </div>
 
-      <!-- Right: Dashboard Mockup -->
-      <div class="relative lg:block float-anim">
-        <!-- Glow behind screen -->
-        <div class="absolute inset-0 rounded-3xl pointer-events-none" style="background:radial-gradient(ellipse at center,rgba(212,175,55,0.15) 0%,transparent 70%);filter:blur(30px);transform:scale(1.1);"></div>
+      <h1 class="hero-headline">
+        <em>The GuestInn</em><br/>
+        <strong>AI-Powered</strong><br/>
+        Hospitality
+      </h1>
 
-        <!-- Laptop frame -->
-        <div class="relative rounded-2xl overflow-hidden mockup-screen" style="transform:perspective(1000px) rotateY(-5deg) rotateX(2deg);">
+      <p class="hero-sub">
+        Smart automation. Happier guests. Higher revenue — all in one platform crafted for modern hoteliers who demand the extraordinary.
+      </p>
 
-          <!-- Screen header bar -->
-          <div class="flex items-center gap-2 px-4 py-3" style="background:#0d0d0d;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <div class="flex gap-1.5">
-              <div class="w-3 h-3 rounded-full" style="background:#ff5f57;"></div>
-              <div class="w-3 h-3 rounded-full" style="background:#febc2e;"></div>
-              <div class="w-3 h-3 rounded-full" style="background:#28c840;"></div>
-            </div>
-            <div class="flex-1 mx-4">
-              <div class="glass rounded px-3 py-1 flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full" style="background:rgba(34,197,94,0.6);"></div>
-                <span class="text-gray-500 text-xs">app.theguestinn.com/dashboard</span>
-              </div>
-            </div>
-          </div>
+      <div class="hero-cta">
+        <a href="#demo" class="btn-gold">
+          Book a Demo
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="#features" class="btn-ghost">Explore Features</a>
+      </div>
 
-          <!-- Dashboard content -->
-          <div class="p-4" style="background:linear-gradient(160deg,#0d0d0d 0%,#0A0A0A 100%);">
-
-            <!-- Top bar -->
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <p class="text-white font-bold text-sm">Welcome back, Manager 👋</p>
-                <p class="text-gray-600" style="font-size:10px;">Here's what's happening at The GuestInn</p>
-              </div>
-              <div class="flex items-center gap-2">
-                <div class="glass rounded-xl px-3 py-1.5 flex items-center gap-1.5">
-                  <div class="w-1.5 h-1.5 rounded-full bg-green-400" style="animation:pulse-blue 1.5s infinite;"></div>
-                  <span style="color:#D4AF37;font-size:10px;font-weight:700;">AI Receptionist</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Stats row -->
-            <div class="grid grid-cols-3 gap-2 mb-3">
-              <div class="glass-gold rounded-xl p-2.5">
-                <p class="text-gray-500 mb-1" style="font-size:9px;font-weight:600;">TOTAL REVENUE</p>
-                <p class="font-black" style="color:#D4AF37;font-size:16px;letter-spacing:-0.02em;">₹24,58,000</p>
-                <p class="text-green-400 mt-0.5" style="font-size:9px;">↑ 15.8% vs yesterday</p>
-              </div>
-              <div class="glass rounded-xl p-2.5">
-                <p class="text-gray-500 mb-1" style="font-size:9px;font-weight:600;">OCCUPANCY RATE</p>
-                <p class="font-black text-white" style="font-size:22px;letter-spacing:-0.02em;">68%</p>
-                <p class="text-green-400 mt-0.5" style="font-size:9px;">↑ 5.3% vs yesterday</p>
-              </div>
-              <div class="glass rounded-xl p-2.5">
-                <p class="text-gray-500 mb-1" style="font-size:9px;font-weight:600;">TODAY'S BOOKINGS</p>
-                <p class="font-black text-white" style="font-size:22px;letter-spacing:-0.02em;">132</p>
-                <p class="text-blue-400 mt-0.5" style="font-size:9px;">↑ 12.8% vs yesterday</p>
-              </div>
-            </div>
-
-            <!-- Room grid + Revenue chart -->
-            <div class="grid grid-cols-2 gap-2 mb-3">
-              <!-- Room Occupancy -->
-              <div class="glass rounded-xl p-2.5">
-                <p class="text-gray-400 font-semibold mb-2" style="font-size:9px;letter-spacing:0.08em;">ROOM OCCUPANCY · Tower A</p>
-                <div class="grid gap-0.5" style="grid-template-columns:repeat(8,1fr);">
-                  <!-- 40 room cells, varied statuses -->
-                  <script>
-                    // Will be rendered in the static mockup
-                  </script>
-                  <!-- Row 1 -->
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-res rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-vac rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <!-- Row 2 -->
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-vac rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-res rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <!-- Row 3 -->
-                  <div class="room-cell-vac rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-vac rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-oor rounded aspect-square"></div>
-                  <!-- Row 4 -->
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-res rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-vac rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <!-- Row 5 -->
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-vac rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                  <div class="room-cell-res rounded aspect-square"></div>
-                  <div class="room-cell-occ rounded aspect-square"></div>
-                </div>
-                <!-- Legend -->
-                <div class="flex flex-wrap gap-x-2 gap-y-0.5 mt-2">
-                  <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full bg-green-400"></div><span class="text-gray-600" style="font-size:8px;">Occupied</span></div>
-                  <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full" style="background:#D4AF37;"></div><span class="text-gray-600" style="font-size:8px;">Reserved</span></div>
-                  <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full bg-red-500"></div><span class="text-gray-600" style="font-size:8px;">Vacant</span></div>
-                </div>
-              </div>
-
-              <!-- Revenue chart -->
-              <div class="glass rounded-xl p-2.5">
-                <div class="flex items-center justify-between mb-2">
-                  <p class="text-gray-400 font-semibold" style="font-size:9px;">REVENUE OVERVIEW</p>
-                  <span class="text-gray-600" style="font-size:8px;">This Week</span>
-                </div>
-                <svg viewBox="0 0 140 60" class="w-full" style="height:60px;">
-                  <defs>
-                    <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#D4AF37" stop-opacity="0.3"/>
-                      <stop offset="100%" stop-color="#D4AF37" stop-opacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  <path d="M0 50 L20 42 L40 38 L60 30 L80 25 L100 18 L120 12 L140 8 L140 60 L0 60 Z" fill="url(#rg)"/>
-                  <path class="revenue-line" d="M0 50 L20 42 L40 38 L60 30 L80 25 L100 18 L120 12 L140 8" fill="none" stroke="#D4AF37" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                <p class="font-black mt-1" style="color:#D4AF37;font-size:14px;">₹24,58,000</p>
-                <p class="text-green-400" style="font-size:8px;">↑ 8.3% vs last week</p>
-              </div>
-            </div>
-
-            <!-- AI Insight strip -->
-            <div class="rounded-xl p-2.5 flex items-center gap-2" style="background:rgba(0,112,243,0.08);border:1px solid rgba(0,112,243,0.2);">
-              <div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(0,112,243,0.2);">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0070F3" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 8v4M12 16h.01"/></svg>
-              </div>
-              <p class="text-gray-400" style="font-size:9px;line-height:1.4;"><span class="font-bold" style="color:#0070F3;">AI Insight:</span> High demand for Deluxe Rooms detected this weekend. Consider dynamic pricing +12%.</p>
-            </div>
-          </div>
+      <div class="hero-trust">
+        <div class="hero-avatars">
+          <div class="hero-avatar">🏨</div>
+          <div class="hero-avatar">🏩</div>
+          <div class="hero-avatar">🏪</div>
+          <div class="hero-avatar" style="background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.4);font-size:0.7rem;font-weight:700;color:var(--gold);">+</div>
         </div>
+        <p class="hero-trust-text">Trusted by <strong>2,500+</strong> Hotels Worldwide</p>
+      </div>
+    </div>
+
+    <!-- RIGHT: LAPTOP MOCKUP -->
+    <div class="hero-right">
+      <div class="laptop-glow"></div>
+      <div class="laptop-wrap">
+        <div class="laptop-body">
+          <div class="laptop-screen-outer" style="position:relative">
+            <div class="screen-reflection"></div>
+            <!-- Notch bar -->
+            <div class="laptop-notch-bar">
+              <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+              <div class="url-bar">
+                <div class="url-bar-dot"></div>
+                <span class="url-bar-text">app.theguestinn.com/dashboard</span>
+              </div>
+            </div>
+            <!-- Dashboard -->
+            <div class="dash">
+              <!-- Header -->
+              <div class="dash-header">
+                <div>
+                  <div class="dash-greeting">Welcome back, Manager 👋</div>
+                  <div class="dash-greeting-sub">Here's what's happening at The GuestInn today</div>
+                </div>
+                <div class="ai-badge-live">
+                  <div class="dot"></div>
+                  <span>AI Active</span>
+                </div>
+              </div>
+
+              <!-- Stats -->
+              <div class="dash-stats">
+                <div class="stat-c gold-c">
+                  <div class="stat-label">Total Revenue</div>
+                  <div class="stat-value gold">₹24.5L</div>
+                  <div class="stat-trend">↑ 15.8% today</div>
+                </div>
+                <div class="stat-c">
+                  <div class="stat-label">Occupancy</div>
+                  <div class="stat-value white">68%</div>
+                  <div class="stat-trend">↑ 5.3% today</div>
+                </div>
+                <div class="stat-c">
+                  <div class="stat-label">Bookings</div>
+                  <div class="stat-value white">132</div>
+                  <div class="stat-trend blue">↑ 12.8%</div>
+                </div>
+              </div>
+
+              <!-- Room grid + Chart -->
+              <div class="dash-mid">
+                <div class="room-panel">
+                  <div class="room-panel-label">Room Occupancy · Tower A</div>
+                  <div class="room-grid">
+                    <!-- 40 cells -->
+                    <div class="rc occ"></div><div class="rc occ"></div><div class="rc res"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc vac"></div><div class="rc occ"></div><div class="rc occ"></div>
+                    <div class="rc occ"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc vac"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc res"></div><div class="rc occ"></div>
+                    <div class="rc vac"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc vac"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc oor"></div>
+                    <div class="rc occ"></div><div class="rc res"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc vac"></div><div class="rc occ"></div><div class="rc occ"></div>
+                    <div class="rc occ"></div><div class="rc occ"></div><div class="rc vac"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc occ"></div><div class="rc res"></div><div class="rc occ"></div>
+                  </div>
+                  <div class="room-legend">
+                    <div class="room-legend-item"><div class="room-legend-dot" style="background:#22c55e"></div><span class="room-legend-text">Occupied</span></div>
+                    <div class="room-legend-item"><div class="room-legend-dot" style="background:#C9A84C"></div><span class="room-legend-text">Reserved</span></div>
+                    <div class="room-legend-item"><div class="room-legend-dot" style="background:#ef4444"></div><span class="room-legend-text">Vacant</span></div>
+                  </div>
+                </div>
+
+                <div class="rev-panel">
+                  <div class="rev-panel-header">
+                    <span class="rev-panel-label">Revenue</span>
+                    <span class="rev-panel-week">This Week</span>
+                  </div>
+                  <div class="rev-graph">
+                    <svg viewBox="0 0 160 70" style="width:100%;height:70px;overflow:visible">
+                      <defs>
+                        <linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stop-color="#C9A84C" stop-opacity="0.25"/>
+                          <stop offset="100%" stop-color="#C9A84C" stop-opacity="0"/>
+                        </linearGradient>
+                        <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                      </defs>
+                      <path d="M0 58 L22 50 L44 44 L66 34 L88 27 L110 19 L132 11 L160 6 L160 70 L0 70 Z" fill="url(#rg2)"/>
+                      <path class="rev-line" d="M0 58 L22 50 L44 44 L66 34 L88 27 L110 19 L132 11 L160 6" fill="none" stroke="#C9A84C" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+                      <circle cx="160" cy="6" r="3" fill="#E8C76B" style="animation:pulse 2s infinite"/>
+                    </svg>
+                  </div>
+                  <div class="rev-value">₹24,58,000</div>
+                  <div class="rev-trend">↑ 8.3% vs last week</div>
+                </div>
+              </div>
+
+              <!-- AI Insight -->
+              <div class="dash-insight">
+                <div class="insight-icon">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zM12 8v4M12 16h.01"/></svg>
+                </div>
+                <div class="insight-text"><strong>AI Insight:</strong> High demand for Deluxe Rooms this weekend. Dynamic pricing +12% recommended.</div>
+              </div>
+            </div>
+          </div>
+          <div class="laptop-chin"><div class="laptop-chin-notch"></div></div>
+        </div>
+        <div class="laptop-stand"></div>
+        <div class="laptop-foot"></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- QUICK STATS BAR                                              -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section class="py-8 relative">
-  <div class="section-divider mb-8"></div>
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="stat-card rounded-2xl p-5 text-center reveal">
-        <p class="font-display font-black text-4xl text-gold-gradient">2,500+</p>
-        <p class="text-gray-500 text-sm mt-1">Hotels Worldwide</p>
-      </div>
-      <div class="stat-card rounded-2xl p-5 text-center reveal" style="transition-delay:0.1s;">
-        <p class="font-display font-black text-4xl text-gold-gradient">98%</p>
-        <p class="text-gray-500 text-sm mt-1">Customer Satisfaction</p>
-      </div>
-      <div class="stat-card rounded-2xl p-5 text-center reveal" style="transition-delay:0.2s;">
-        <p class="font-display font-black text-4xl text-gold-gradient">40%</p>
-        <p class="text-gray-500 text-sm mt-1">Average Revenue Increase</p>
-      </div>
-      <div class="stat-card rounded-2xl p-5 text-center reveal" style="transition-delay:0.3s;">
-        <p class="font-display font-black text-4xl text-gold-gradient">24/7</p>
-        <p class="text-gray-500 text-sm mt-1">AI Receptionist Active</p>
-      </div>
+<!-- ══════════════════════════════════ -->
+<!-- STATS BAR                          -->
+<!-- ══════════════════════════════════ -->
+<div class="stats-bar">
+  <div class="stats-divider"></div>
+  <div class="stats-grid reveal">
+    <div class="stats-item">
+      <div class="stats-num">2,500+</div>
+      <div class="stats-label">Hotels Worldwide</div>
+    </div>
+    <div class="stats-item">
+      <div class="stats-num">98%</div>
+      <div class="stats-label">Customer Satisfaction</div>
+    </div>
+    <div class="stats-item">
+      <div class="stats-num">40%</div>
+      <div class="stats-label">Average Revenue Increase</div>
+    </div>
+    <div class="stats-item">
+      <div class="stats-num">24/7</div>
+      <div class="stats-label">AI Receptionist Active</div>
     </div>
   </div>
-  <div class="section-divider mt-8"></div>
-</section>
+  <div class="stats-divider"></div>
+</div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- FEATURES                                                     -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section id="features" class="py-20">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-    <!-- Header -->
-    <div class="text-center mb-16 reveal">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.25);">
-        <span class="text-xs font-semibold tracking-widest" style="color:#D4AF37;">ALL-IN-ONE PLATFORM</span>
-      </div>
-      <h2 class="font-display font-black text-4xl md:text-5xl text-white mb-4">Everything your hotel needs</h2>
-      <p class="text-gray-400 text-lg max-w-xl mx-auto">From reservations to revenue management — run your hotel smarter and grow faster.</p>
+<!-- ══════════════════════════════════ -->
+<!-- FEATURES                           -->
+<!-- ══════════════════════════════════ -->
+<section id="features">
+  <div class="section-wrap">
+    <div class="section-header reveal">
+      <div class="section-eyebrow"><span>All-in-One Platform</span></div>
+      <h2 class="section-title">Everything your hotel <em>needs</em></h2>
+      <p class="section-sub">From reservations to revenue management — run your hotel smarter and grow faster than ever before.</p>
     </div>
 
-    <!-- Feature grid -->
-    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-
+    <div class="features-grid reveal">
       <!-- AI Receptionist -->
-      <div class="feature-card rounded-2xl p-6 reveal" style="transition-delay:0s;">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2);">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="18" cy="18" r="3"/><path d="M18 16v2l1 1"/></svg>
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="18" cy="18" r="3"/><path d="M18 16v2l1 1"/></svg>
         </div>
-        <h3 class="font-bold text-white text-lg mb-2">AI Receptionist</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">24/7 guest assistance. Answers queries, handles check-ins, escalates issues — all automatically.</p>
-        <div class="mt-4 flex items-center gap-1.5">
-          <div class="w-2 h-2 rounded-full bg-green-400" style="animation:pulse-gold 1.5s infinite;"></div>
-          <span class="text-xs text-green-400 font-medium">Always Online</span>
+        <div class="feature-title">AI Receptionist</div>
+        <div class="feature-desc">24/7 intelligent guest assistance. Answers queries, manages check-ins, and escalates — automatically, flawlessly.</div>
+        <div class="feature-tag" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18);color:var(--gold)">
+          <div style="width:5px;height:5px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite"></div>
+          Always Online
         </div>
       </div>
 
       <!-- Smart Automation -->
-      <div class="feature-card rounded-2xl p-6 reveal" style="transition-delay:0.1s;">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style="background:rgba(0,112,243,0.1);border:1px solid rgba(0,112,243,0.2);">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0070F3" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
         </div>
-        <h3 class="font-bold text-white text-lg mb-2">Smart Automation</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Streamline operations — from housekeeping assignments to maintenance alerts, fully automated.</p>
-        <div class="mt-4 flex items-center gap-1.5">
-          <div class="w-2 h-2 rounded-full bg-blue-400"></div>
-          <span class="text-xs text-blue-400 font-medium">Zero manual work</span>
+        <div class="feature-title">Smart Automation</div>
+        <div class="feature-desc">Streamline every operation — housekeeping, maintenance, billing — with zero manual intervention required.</div>
+        <div class="feature-tag" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18);color:#60a5fa">
+          Zero manual work
         </div>
       </div>
 
       <!-- Real-time Insights -->
-      <div class="feature-card rounded-2xl p-6 reveal" style="transition-delay:0.2s;">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2);">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.6"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
         </div>
-        <h3 class="font-bold text-white text-lg mb-2">Real-time Insights</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Live revenue tracking, occupancy heatmaps, and AI-driven demand forecasting in one dashboard.</p>
-        <div class="mt-4 flex items-center gap-1.5">
-          <div class="w-2 h-2 rounded-full" style="background:#D4AF37;"></div>
-          <span class="text-xs font-medium" style="color:#D4AF37;">Data-driven decisions</span>
+        <div class="feature-title">Real-time Insights</div>
+        <div class="feature-desc">Live revenue tracking, occupancy heatmaps, and AI-driven demand forecasting — unified in one elegant dashboard.</div>
+        <div class="feature-tag" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18);color:var(--gold)">
+          Data-driven decisions
         </div>
       </div>
 
-      <!-- Revenue Maximizer -->
-      <div class="feature-card rounded-2xl p-6 reveal" style="transition-delay:0.3s;">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.8"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <!-- Revenue -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.18)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.6"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
-        <h3 class="font-bold text-white text-lg mb-2">Maximize Revenue</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Dynamic pricing engine adjusts rates in real-time based on occupancy, demand, and events.</p>
-        <div class="mt-4 flex items-center gap-1.5">
-          <div class="w-2 h-2 rounded-full bg-green-400"></div>
-          <span class="text-xs text-green-400 font-medium">Avg. +40% revenue</span>
+        <div class="feature-title">Maximize Revenue</div>
+        <div class="feature-desc">Dynamic pricing engine adjusts rates in real-time based on occupancy, demand signals, and local events.</div>
+        <div class="feature-tag" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.18);color:#4ade80">
+          Avg. +40% revenue
         </div>
       </div>
     </div>
 
-    <!-- Feature highlight: AI Scan -->
-    <div class="mt-6 glass rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 reveal">
-      <!-- AI Scan button visual -->
-      <div class="flex-shrink-0 relative w-28 h-28">
-        <div class="absolute inset-0 rounded-full border-2 border-dashed rotate-ring opacity-30" style="border-color:rgba(0,112,243,0.5);"></div>
-        <button class="ai-scan-btn w-full h-full rounded-full flex flex-col items-center justify-center"
-          style="background:radial-gradient(circle at center,#001a3a 0%,#000d1a 60%,#000508 100%);border:2px solid rgba(0,112,243,0.5);">
-          <span class="font-black text-2xl text-white" style="letter-spacing:-0.02em;">AI</span>
-          <span class="font-bold text-xs" style="color:#0070F3;letter-spacing:0.12em;">SCAN</span>
-        </button>
-      </div>
-      <div class="flex-1 text-center md:text-left">
-        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full mb-3" style="background:rgba(0,112,243,0.1);border:1px solid rgba(0,112,243,0.25);">
-          <span class="text-xs font-semibold" style="color:#0070F3;">NEW FEATURE</span>
-        </div>
-        <h3 class="font-display font-black text-2xl text-white mb-2">AI Document Scanner</h3>
-        <p class="text-gray-400 text-sm leading-relaxed max-w-lg">Point your phone camera at any guest ID — Aadhaar, Passport, PAN card. Our AI extracts all details in seconds and saves directly to the guest database. No typing. No errors.</p>
-      </div>
-      <div class="flex-shrink-0 grid grid-cols-2 gap-3">
-        <div class="text-center p-3 rounded-xl" style="background:rgba(0,112,243,0.08);border:1px solid rgba(0,112,243,0.15);">
-          <p class="font-black text-2xl" style="color:#0070F3;">3s</p>
-          <p class="text-gray-500 text-xs">Scan time</p>
-        </div>
-        <div class="text-center p-3 rounded-xl" style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.15);">
-          <p class="font-black text-2xl text-green-400">99%</p>
-          <p class="text-gray-500 text-xs">Accuracy</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- HOW IT WORKS                                                 -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section id="how-it-works" class="py-20 relative" style="background:linear-gradient(180deg,#0A0A0A 0%,#0d0b00 50%,#0A0A0A 100%);">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-    <div class="text-center mb-16 reveal">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.25);">
-        <span class="text-xs font-semibold tracking-widest" style="color:#D4AF37;">SIMPLE ONBOARDING</span>
-      </div>
-      <h2 class="font-display font-black text-4xl md:text-5xl text-white mb-4">Up and running in 24 hours</h2>
-      <p class="text-gray-400 text-lg max-w-xl mx-auto">No complex setup. No IT team required. Just onboard and let the AI work.</p>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-8">
-      <div class="text-center reveal">
-        <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 font-display font-black text-2xl"
-          style="background:linear-gradient(135deg,#1a1200,#2a1f00);border:2px solid rgba(212,175,55,0.4);color:#D4AF37;">1</div>
-        <h3 class="font-bold text-white text-xl mb-3">Register Your Hotel</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Fill a simple form with your hotel details. We create your private workspace in minutes.</p>
-      </div>
-      <div class="text-center reveal" style="transition-delay:0.15s;">
-        <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 font-display font-black text-2xl"
-          style="background:linear-gradient(135deg,#001a3a,#000d1a);border:2px solid rgba(0,112,243,0.4);color:#0070F3;">2</div>
-        <h3 class="font-bold text-white text-xl mb-3">Configure & Connect</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Set room categories, pricing, and team access. Connect your existing booking channels in one click.</p>
-      </div>
-      <div class="text-center reveal" style="transition-delay:0.3s;">
-        <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 font-display font-black text-2xl"
-          style="background:linear-gradient(135deg,#0a1a0a,#051005);border:2px solid rgba(34,197,94,0.4);color:#22c55e;">3</div>
-        <h3 class="font-bold text-white text-xl mb-3">Go Live & Grow</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Your AI receptionist starts working immediately. Watch revenue grow on the live dashboard.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- TESTIMONIALS                                                 -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section id="testimonials" class="py-20">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-    <div class="text-center mb-16 reveal">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.25);">
-        <span class="text-xs font-semibold tracking-widest" style="color:#D4AF37;">HOTEL OWNERS SAY</span>
-      </div>
-      <h2 class="font-display font-black text-4xl md:text-5xl text-white mb-4">Real results, real hotels</h2>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-4">
-      <div class="testimonial-card rounded-2xl p-6 reveal">
-        <div class="flex gap-1 mb-4">
-          <span style="color:#D4AF37;">★★★★★</span>
-        </div>
-        <p class="text-gray-300 text-sm leading-relaxed mb-6">"Pehle hamare receptionist raat ko available nahi hote the. Ab AI 24/7 handle karta hai. Revenue 35% badh gaya pehle 3 mahine mein."</p>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2);">🏨</div>
-          <div>
-            <p class="font-bold text-white text-sm">Rajesh Sharma</p>
-            <p class="text-gray-600 text-xs">Owner, Hotel Sunrise, Jaipur</p>
+    <!-- AI Scanner Section -->
+    <div class="scanner-section reveal">
+      <div class="scanner-visual">
+        <div class="scanner-orb">
+          <div class="scanner-ring-1"></div>
+          <div class="scanner-ring-2"></div>
+          <div class="scanner-center">
+            <span class="scanner-ai-label">AI</span>
+            <span class="scanner-sub-label">SCAN</span>
           </div>
         </div>
+        <div style="text-align:center">
+          <div style="font-size:0.78rem;color:var(--text-muted);font-weight:300">Point · Capture · Done</div>
+        </div>
       </div>
 
-      <div class="testimonial-card rounded-2xl p-6 reveal" style="transition-delay:0.1s;">
-        <div class="flex gap-1 mb-4">
-          <span style="color:#D4AF37;">★★★★★</span>
-        </div>
-        <p class="text-gray-300 text-sm leading-relaxed mb-6">"Document scanning feature bohot useful hai. Earlier ID manually enter karte the, errors hote the. Ab 3 seconds mein sab ho jaata hai. Bilkul accurate."</p>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg" style="background:rgba(0,112,243,0.1);border:1px solid rgba(0,112,243,0.2);">🏩</div>
-          <div>
-            <p class="font-bold text-white text-sm">Priya Mehta</p>
-            <p class="text-gray-600 text-xs">Manager, The Grand Inn, Mumbai</p>
+      <div class="scanner-info">
+        <div class="scanner-badge"><span>New Feature</span></div>
+        <h3 class="scanner-title">AI Document<br/><em style="color:var(--gold-light);font-style:italic">Scanner</em></h3>
+        <p class="scanner-desc">Point your phone at any guest ID — Aadhaar, Passport, PAN card. Our AI extracts all details in seconds and saves directly to the guest database. No typing. No errors. Pure efficiency.</p>
+        <div class="scanner-stats">
+          <div class="scanner-stat">
+            <div class="scanner-stat-num" style="color:#60a5fa">3s</div>
+            <div class="scanner-stat-label">Scan time</div>
           </div>
-        </div>
-      </div>
-
-      <div class="testimonial-card rounded-2xl p-6 reveal" style="transition-delay:0.2s;">
-        <div class="flex gap-1 mb-4">
-          <span style="color:#D4AF37;">★★★★★</span>
-        </div>
-        <p class="text-gray-300 text-sm leading-relaxed mb-6">"AI insights ne bataya ki weekend pe Deluxe rooms ki demand zyada hogi. Humne pricing adjust ki aur 42% zyada revenue mila us weekend. Incredible."</p>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);">🏪</div>
-          <div>
-            <p class="font-bold text-white text-sm">Amit Patel</p>
-            <p class="text-gray-600 text-xs">Owner, Saffron Stays, Ahmedabad</p>
+          <div class="scanner-stat">
+            <div class="scanner-stat-num" style="color:#4ade80">99%</div>
+            <div class="scanner-stat-label">Accuracy</div>
+          </div>
+          <div class="scanner-stat">
+            <div class="scanner-stat-num" style="color:var(--gold)">6+</div>
+            <div class="scanner-stat-label">ID Types</div>
           </div>
         </div>
       </div>
@@ -796,305 +1080,347 @@
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- PRICING                                                      -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section id="pricing" class="py-20 relative" style="background:linear-gradient(180deg,#0A0A0A 0%,#0d0b00 50%,#0A0A0A 100%);">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-    <div class="text-center mb-16 reveal">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.25);">
-        <span class="text-xs font-semibold tracking-widest" style="color:#D4AF37;">TRANSPARENT PRICING</span>
-      </div>
-      <h2 class="font-display font-black text-4xl md:text-5xl text-white mb-4">Simple plans, no surprises</h2>
-      <p class="text-gray-400 text-lg max-w-xl mx-auto">Start free. Scale as you grow. Cancel anytime.</p>
+<!-- ══════════════════════════════════ -->
+<!-- HOW IT WORKS                       -->
+<!-- ══════════════════════════════════ -->
+<section id="how-it-works">
+  <div class="section-wrap">
+    <div class="section-header reveal">
+      <div class="section-eyebrow"><span>Simple Onboarding</span></div>
+      <h2 class="section-title">Up and running in <em>24 hours</em></h2>
+      <p class="section-sub">No complex setup. No IT team required. Just onboard and let the AI work for you.</p>
     </div>
 
-    <div class="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+    <div class="steps-grid">
+      <div class="step-card reveal">
+        <div class="step-num gold-step">1</div>
+        <div class="step-title">Register Your Hotel</div>
+        <p class="step-desc">Fill a simple form with your hotel details. We create your private, secure workspace in minutes — no technical knowledge needed.</p>
+      </div>
+      <div class="step-card reveal reveal-delay-1">
+        <div class="step-num blue-step">2</div>
+        <div class="step-title">Configure & Connect</div>
+        <p class="step-desc">Set room categories, pricing structures, and team access. Connect your existing booking channels in a single click.</p>
+      </div>
+      <div class="step-card reveal reveal-delay-2">
+        <div class="step-num green-step">3</div>
+        <div class="step-title">Go Live & Grow</div>
+        <p class="step-desc">Your AI receptionist starts working immediately. Watch revenue grow in real-time on the live analytics dashboard.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
+<!-- ══════════════════════════════════ -->
+<!-- TESTIMONIALS                       -->
+<!-- ══════════════════════════════════ -->
+<section id="testimonials">
+  <div class="section-wrap">
+    <div class="section-header reveal">
+      <div class="section-eyebrow"><span>Hotel Owners Say</span></div>
+      <h2 class="section-title">Real results, <em>real hotels</em></h2>
+    </div>
+
+    <div class="testimonials-grid">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-quote">"Pehle hamare receptionist raat ko available nahi hote the. Ab AI 24/7 handle karta hai. Revenue 35% badh gaya pehle 3 mahine mein."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">🏨</div>
+          <div>
+            <div class="testimonial-name">Rajesh Sharma</div>
+            <div class="testimonial-role">Owner, Hotel Sunrise, Jaipur</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-1">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-quote">"Document scanning feature bohot useful hai. Earlier ID manually enter karte the, errors hote the. Ab 3 seconds mein sab ho jaata hai. Bilkul accurate."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">🏩</div>
+          <div>
+            <div class="testimonial-name">Priya Mehta</div>
+            <div class="testimonial-role">Manager, The Grand Inn, Mumbai</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-2">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-quote">"AI insights ne bataya ki weekend pe Deluxe rooms ki demand zyada hogi. Pricing adjust ki aur 42% zyada revenue mila us weekend. Incredible."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.2)">🏪</div>
+          <div>
+            <div class="testimonial-name">Amit Patel</div>
+            <div class="testimonial-role">Owner, Saffron Stays, Ahmedabad</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ -->
+<!-- PRICING                            -->
+<!-- ══════════════════════════════════ -->
+<section id="pricing">
+  <div class="section-wrap">
+    <div class="section-header reveal">
+      <div class="section-eyebrow"><span>Transparent Pricing</span></div>
+      <h2 class="section-title">Simple plans, <em>no surprises</em></h2>
+      <p class="section-sub">Start free. Scale as you grow. Cancel anytime — no questions asked.</p>
+    </div>
+
+    <div class="pricing-grid">
       <!-- Starter -->
-      <div class="glass rounded-2xl p-6 reveal">
-        <p class="text-gray-400 font-semibold text-sm mb-2">Starter</p>
-        <p class="font-display font-black text-4xl text-white mb-1">Free</p>
-        <p class="text-gray-600 text-sm mb-6">Perfect to try out</p>
-        <ul class="space-y-3 mb-8">
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> Up to 20 rooms</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> Basic dashboard</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> Manual check-in</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-gray-600">✗</span> AI Receptionist</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-gray-600">✗</span> Document scanner</li>
+      <div class="pricing-card reveal">
+        <div class="pricing-tier">Starter</div>
+        <div class="pricing-price">Free</div>
+        <div class="pricing-period">Perfect to explore</div>
+        <ul class="pricing-features">
+          <li><span class="check">✓</span> Up to 20 rooms</li>
+          <li><span class="check">✓</span> Basic dashboard</li>
+          <li><span class="check">✓</span> Manual check-in</li>
+          <li><span class="cross">✗</span> AI Receptionist</li>
+          <li><span class="cross">✗</span> Document scanner</li>
         </ul>
-        <a href="#demo" class="block text-center py-3 rounded-xl btn-outline font-semibold text-sm">Get Started Free</a>
+        <a href="#demo" class="pricing-btn btn-ghost">Get Started Free</a>
       </div>
 
-      <!-- Pro (popular) -->
-      <div class="pricing-popular rounded-2xl p-6 reveal" style="transition-delay:0.1s;">
-        <div class="flex items-center justify-between mb-2">
-          <p class="font-semibold text-sm" style="color:#D4AF37;">Pro</p>
-          <span class="px-2.5 py-1 rounded-full text-xs font-bold" style="background:rgba(212,175,55,0.2);color:#D4AF37;">MOST POPULAR</span>
-        </div>
-        <p class="font-display font-black text-4xl text-white mb-1">₹4,999<span class="text-lg text-gray-400 font-normal">/mo</span></p>
-        <p class="text-gray-500 text-sm mb-6">For growing hotels</p>
-        <ul class="space-y-3 mb-8">
-          <li class="flex items-center gap-2.5 text-sm text-gray-300"><span class="text-green-400">✓</span> Up to 100 rooms</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-300"><span class="text-green-400">✓</span> AI Receptionist (24/7)</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-300"><span class="text-green-400">✓</span> Document AI Scanner</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-300"><span class="text-green-400">✓</span> Real-time insights</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-300"><span class="text-green-400">✓</span> Revenue analytics</li>
+      <!-- Pro -->
+      <div class="pricing-card popular reveal reveal-delay-1">
+        <div class="pricing-popular-badge"><span>Most Popular</span></div>
+        <div class="pricing-tier" style="color:var(--gold)">Pro</div>
+        <div class="pricing-price">₹4,999<span>/mo</span></div>
+        <div class="pricing-period">For growing hotels</div>
+        <ul class="pricing-features">
+          <li><span class="check">✓</span> Up to 100 rooms</li>
+          <li><span class="check">✓</span> AI Receptionist (24/7)</li>
+          <li><span class="check">✓</span> Document AI Scanner</li>
+          <li><span class="check">✓</span> Real-time insights</li>
+          <li><span class="check">✓</span> Revenue analytics</li>
         </ul>
-        <a href="#demo" class="block text-center py-3 rounded-xl btn-gold font-semibold text-sm">Start Free Trial →</a>
+        <a href="#demo" class="pricing-btn btn-gold">Start Free Trial →</a>
       </div>
 
       <!-- Enterprise -->
-      <div class="glass rounded-2xl p-6 reveal" style="transition-delay:0.2s;">
-        <p class="text-gray-400 font-semibold text-sm mb-2">Enterprise</p>
-        <p class="font-display font-black text-4xl text-white mb-1">Custom</p>
-        <p class="text-gray-600 text-sm mb-6">For hotel chains</p>
-        <ul class="space-y-3 mb-8">
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> Unlimited rooms</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> Multi-property support</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> Custom AI training</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> Dedicated support</li>
-          <li class="flex items-center gap-2.5 text-sm text-gray-400"><span class="text-green-400">✓</span> SLA guarantee</li>
+      <div class="pricing-card reveal reveal-delay-2">
+        <div class="pricing-tier">Enterprise</div>
+        <div class="pricing-price">Custom</div>
+        <div class="pricing-period">For hotel chains</div>
+        <ul class="pricing-features">
+          <li><span class="check">✓</span> Unlimited rooms</li>
+          <li><span class="check">✓</span> Multi-property support</li>
+          <li><span class="check">✓</span> Custom AI training</li>
+          <li><span class="check">✓</span> Dedicated support</li>
+          <li><span class="check">✓</span> SLA guarantee</li>
         </ul>
-        <a href="#demo" class="block text-center py-3 rounded-xl btn-outline font-semibold text-sm">Contact Sales</a>
+        <a href="#demo" class="pricing-btn btn-ghost">Contact Sales</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- FAQ                                                          -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section id="faq" class="py-20">
-  <div class="max-w-3xl mx-auto px-4 sm:px-6">
-
-    <div class="text-center mb-12 reveal">
-      <h2 class="font-display font-black text-4xl md:text-5xl text-white mb-4">Common questions</h2>
+<!-- ══════════════════════════════════ -->
+<!-- FAQ                                -->
+<!-- ══════════════════════════════════ -->
+<section id="faq">
+  <div class="section-wrap">
+    <div class="section-header reveal">
+      <div class="section-eyebrow"><span>Questions</span></div>
+      <h2 class="section-title">Common <em>questions</em></h2>
     </div>
 
-    <div class="space-y-0 reveal">
-      <div class="faq-item py-5 cursor-pointer" onclick="toggleFaq(this)">
-        <div class="flex items-center justify-between gap-4">
-          <p class="font-semibold text-white text-base">Kya mujhe technical knowledge chahiye?</p>
-          <span class="faq-icon text-gray-400 text-2xl flex-shrink-0 leading-none">+</span>
+    <div class="faq-list reveal">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          Kya mujhe technical knowledge chahiye?
+          <div class="faq-icon">+</div>
         </div>
-        <div class="faq-answer">
-          <p class="text-gray-500 text-sm leading-relaxed pt-3">Bilkul nahi. The GuestInn ek simple mobile-first app hai. Agar aap WhatsApp use kar sakte ho, toh yeh bhi easily use kar sakte ho. Humara onboarding team puri setup mein help karta hai.</p>
-        </div>
+        <div class="faq-a"><p>Bilkul nahi. The GuestInn ek simple mobile-first app hai. Agar aap WhatsApp use kar sakte ho, toh yeh bhi easily use kar sakte ho. Humara onboarding team puri setup mein help karta hai.</p></div>
       </div>
-
-      <div class="faq-item py-5 cursor-pointer" onclick="toggleFaq(this)">
-        <div class="flex items-center justify-between gap-4">
-          <p class="font-semibold text-white text-base">Kya multiple hotels manage kar sakte hain?</p>
-          <span class="faq-icon text-gray-400 text-2xl flex-shrink-0 leading-none">+</span>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          Kya multiple hotels manage kar sakte hain?
+          <div class="faq-icon">+</div>
         </div>
-        <div class="faq-answer">
-          <p class="text-gray-500 text-sm leading-relaxed pt-3">Haan, Enterprise plan mein aap ek hi account se multiple properties manage kar sakte ho. Har hotel ka apna alag dashboard, data aur staff access hota hai.</p>
-        </div>
+        <div class="faq-a"><p>Haan, Enterprise plan mein aap ek hi account se multiple properties manage kar sakte ho. Har hotel ka apna alag dashboard, data aur staff access hota hai.</p></div>
       </div>
-
-      <div class="faq-item py-5 cursor-pointer" onclick="toggleFaq(this)">
-        <div class="flex items-center justify-between gap-4">
-          <p class="font-semibold text-white text-base">Kya guest data safe hai?</p>
-          <span class="faq-icon text-gray-400 text-2xl flex-shrink-0 leading-none">+</span>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          Kya guest data safe hai?
+          <div class="faq-icon">+</div>
         </div>
-        <div class="faq-answer">
-          <p class="text-gray-500 text-sm leading-relaxed pt-3">Haan. Humara platform Supabase (PostgreSQL) use karta hai jo enterprise-grade encryption ke saath aata hai. Har hotel ka data isolated hota hai — koi dusra hotel aapka data nahi dekh sakta.</p>
-        </div>
+        <div class="faq-a"><p>Haan. Humara platform enterprise-grade encryption ke saath aata hai. Har hotel ka data isolated hota hai — koi dusra hotel aapka data nahi dekh sakta.</p></div>
       </div>
-
-      <div class="faq-item py-5 cursor-pointer" onclick="toggleFaq(this)">
-        <div class="flex items-center justify-between gap-4">
-          <p class="font-semibold text-white text-base">Free trial kab tak hai?</p>
-          <span class="faq-icon text-gray-400 text-2xl flex-shrink-0 leading-none">+</span>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          Free trial kab tak hai?
+          <div class="faq-icon">+</div>
         </div>
-        <div class="faq-answer">
-          <p class="text-gray-500 text-sm leading-relaxed pt-3">Pro plan ka 14-day free trial hai — credit card ki zarurat nahi. Trial ke baad aap decide karo. Cancel karne par koi charges nahi.</p>
-        </div>
+        <div class="faq-a"><p>Pro plan ka 14-day free trial hai — credit card ki zarurat nahi. Trial ke baad aap decide karo. Cancel karne par koi charges nahi.</p></div>
       </div>
-
-      <div class="faq-item py-5 cursor-pointer" onclick="toggleFaq(this)">
-        <div class="flex items-center justify-between gap-4">
-          <p class="font-semibold text-white text-base">AI Scanner kaunse ID types support karta hai?</p>
-          <span class="faq-icon text-gray-400 text-2xl flex-shrink-0 leading-none">+</span>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          AI Scanner kaunse ID types support karta hai?
+          <div class="faq-icon">+</div>
         </div>
-        <div class="faq-answer">
-          <p class="text-gray-500 text-sm leading-relaxed pt-3">Aadhaar Card, PAN Card, Passport, Driving License, Voter ID — sab support hote hain. Foreign passports bhi scan kiye ja sakte hain.</p>
-        </div>
+        <div class="faq-a"><p>Aadhaar Card, PAN Card, Passport, Driving License, Voter ID — sab support hote hain. Foreign passports bhi scan kiye ja sakte hain with 99% accuracy.</p></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- DEMO / LEAD CAPTURE                                          -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<section id="demo" class="py-20 relative overflow-hidden">
-  <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 60% 80% at 50% 50%,rgba(212,175,55,0.07) 0%,transparent 70%);"></div>
+<!-- ══════════════════════════════════ -->
+<!-- CTA / DEMO                         -->
+<!-- ══════════════════════════════════ -->
+<section id="demo">
+  <div class="demo-glow"></div>
+  <div class="section-wrap">
+    <div class="demo-wrap reveal">
+      <div class="demo-badge"><span class="dot"></span><span>Limited Slots Available</span></div>
+      <h2 class="demo-title">Ready to transform<br/><em>your hotel?</em></h2>
+      <p class="demo-sub">Book a free 30-minute demo and see The GuestInn live — on your own hotel's data.</p>
 
-  <div class="max-w-2xl mx-auto px-4 sm:px-6 text-center relative z-10">
-    <div class="reveal">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.25);">
-        <div class="w-2 h-2 rounded-full" style="background:#D4AF37;animation:pulse-gold 2s infinite;"></div>
-        <span class="text-xs font-semibold tracking-widest" style="color:#D4AF37;">LIMITED SLOTS AVAILABLE</span>
-      </div>
-
-      <h2 class="font-display font-black text-4xl md:text-5xl text-white mb-4">Ready to transform<br/> your hotel?</h2>
-      <p class="text-gray-400 text-lg mb-10">Book a free 30-minute demo and see The GuestInn live on your own hotel's data.</p>
-
-      <!-- Lead form -->
-      <div class="glass rounded-2xl p-6 md:p-8 text-left">
-        <div class="grid sm:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label class="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1.5">Your Name</label>
-            <input type="text" placeholder="Rajesh Sharma" class="inp w-full px-4 py-3 rounded-xl text-sm" />
-          </div>
-          <div>
-            <label class="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1.5">Hotel Name</label>
-            <input type="text" placeholder="Hotel Sunrise" class="inp w-full px-4 py-3 rounded-xl text-sm" />
-          </div>
-          <div>
-            <label class="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1.5">Phone Number</label>
-            <input type="tel" placeholder="+91 98765 43210" class="inp w-full px-4 py-3 rounded-xl text-sm" />
-          </div>
-          <div>
-            <label class="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1.5">Number of Rooms</label>
-            <select class="inp w-full px-4 py-3 rounded-xl text-sm">
-              <option style="background:#111;">1-20 rooms</option>
-              <option style="background:#111;">21-50 rooms</option>
-              <option style="background:#111;">51-100 rooms</option>
-              <option style="background:#111;">100+ rooms</option>
-            </select>
-          </div>
+      <div class="demo-form">
+        <div class="form-group">
+          <label>Your Name</label>
+          <input type="text" placeholder="Rajesh Sharma"/>
         </div>
-        <button onclick="submitLead(this)" class="w-full py-4 rounded-xl btn-gold font-bold text-base transition-all">
-          Book Free Demo →
-        </button>
-        <p class="text-gray-600 text-xs text-center mt-3">No spam. No credit card. Just a conversation.</p>
+        <div class="form-group">
+          <label>Hotel Name</label>
+          <input type="text" placeholder="Hotel Sunrise"/>
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" placeholder="+91 98765 43210"/>
+        </div>
+        <div class="form-group">
+          <label>Number of Rooms</label>
+          <select>
+            <option>1–20 rooms</option>
+            <option>21–50 rooms</option>
+            <option>51–100 rooms</option>
+            <option>100+ rooms</option>
+          </select>
+        </div>
       </div>
+      <button class="demo-submit btn-gold" onclick="submitDemo(this)">Book Free Demo →</button>
+      <p class="demo-note">No spam. No credit card. Just a conversation.</p>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- FOOTER                                                       -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<footer style="background:#080808;border-top:1px solid rgba(255,255,255,0.06);">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="grid md:grid-cols-4 gap-8 mb-10">
-      <div class="md:col-span-2">
-        <div class="flex items-center gap-2.5 mb-4">
-          <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1a1200,#2a1f00);border:1px solid rgba(212,175,55,0.35);">
+<!-- ══════════════════════════════════ -->
+<!-- FOOTER                             -->
+<!-- ══════════════════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#" class="nav-logo" style="text-decoration:none">
+          <div class="nav-logo-icon">
             <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
-              <path d="M20 4L6 14v22h28V14L20 4z" stroke="#D4AF37" stroke-width="2" fill="rgba(212,175,55,0.1)"/>
-              <path d="M15 36V24h10v12" stroke="#D4AF37" stroke-width="2"/>
-              <circle cx="20" cy="10" r="2" fill="#D4AF37"/>
+              <path d="M20 4L6 14v22h28V14L20 4z" stroke="#C9A84C" stroke-width="1.8" fill="rgba(201,168,76,0.08)"/>
+              <path d="M15 36V24h10v12" stroke="#C9A84C" stroke-width="1.8"/>
+              <circle cx="20" cy="10" r="2" fill="#C9A84C"/>
             </svg>
           </div>
-          <span class="font-display font-bold text-lg" style="color:#D4AF37;">The GuestInn</span>
-        </div>
-        <p class="text-gray-600 text-sm leading-relaxed max-w-xs">Smart automation. Happier guests. Higher revenue. The AI-powered hotel management platform built for modern hoteliers.</p>
-        <p class="text-gray-700 text-xs mt-4">Powered by Groq AI · Built with ❤️</p>
+          <span class="nav-logo-text">The GuestInn</span>
+        </a>
+        <p>Smart automation. Happier guests. Higher revenue. The AI-powered hotel management platform built for modern hoteliers.</p>
+        <small>Powered by Groq AI · Built with ❤️ for Indian Hospitality</small>
       </div>
       <div>
-        <p class="font-semibold text-white text-sm mb-4">Product</p>
-        <ul class="space-y-3">
-          <li><a href="#features" class="text-gray-600 text-sm hover:text-white transition-colors">Features</a></li>
-          <li><a href="#pricing" class="text-gray-600 text-sm hover:text-white transition-colors">Pricing</a></li>
-          <li><a href="#how-it-works" class="text-gray-600 text-sm hover:text-white transition-colors">How It Works</a></li>
-          <li><a href="#demo" class="text-gray-600 text-sm hover:text-white transition-colors">Book Demo</a></li>
+        <div class="footer-col-title">Product</div>
+        <ul class="footer-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#demo">Book Demo</a></li>
         </ul>
       </div>
       <div>
-        <p class="font-semibold text-white text-sm mb-4">Contact</p>
-        <ul class="space-y-3">
-          <li><a href="mailto:hello@theguestinn.com" class="text-gray-600 text-sm hover:text-white transition-colors">hello@theguestinn.com</a></li>
-          <li><a href="tel:+911800001234" class="text-gray-600 text-sm hover:text-white transition-colors">1800-000-1234 (Free)</a></li>
-          <li><a href="#" class="text-gray-600 text-sm hover:text-white transition-colors">WhatsApp Support</a></li>
+        <div class="footer-col-title">Contact</div>
+        <ul class="footer-links">
+          <li><a href="mailto:hello@theguestinn.com">hello@theguestinn.com</a></li>
+          <li><a href="tel:+911800001234">1800-000-1234 (Free)</a></li>
+          <li><a href="#">WhatsApp Support</a></li>
         </ul>
       </div>
     </div>
-
-    <div class="section-divider mb-6"></div>
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-      <p class="text-gray-700 text-xs">© 2024 The GuestInn. All rights reserved.</p>
-      <div class="flex gap-4">
-        <a href="#" class="text-gray-700 text-xs hover:text-gray-400 transition-colors">Privacy Policy</a>
-        <a href="#" class="text-gray-700 text-xs hover:text-gray-400 transition-colors">Terms of Service</a>
+    <div class="footer-divider"></div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2024 The GuestInn. All rights reserved.</div>
+      <div class="footer-legal">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
       </div>
     </div>
   </div>
 </footer>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- SCRIPTS                                                      -->
-<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════ -->
+<!-- SCRIPTS                            -->
+<!-- ══════════════════════════════════ -->
 <script>
-  // ── Mobile menu ──
-  function toggleMenu() {
-    const menu = document.getElementById('mobileMenu');
-    menu.classList.toggle('open');
-  }
+// ── Nav scroll effect ──
+const nav = document.getElementById('mainNav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 40);
+});
 
-  // ── FAQ toggle ──
-  function toggleFaq(el) {
-    el.classList.toggle('open');
-  }
+// ── Mobile nav ──
+function toggleMobileNav() {
+  document.getElementById('mobileNav').classList.toggle('open');
+}
+function closeMobileNav() {
+  document.getElementById('mobileNav').classList.remove('open');
+}
 
-  // ── Scroll reveal ──
-  const revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-      }
-    });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+// ── FAQ ──
+function toggleFaq(el) {
+  el.classList.toggle('open');
+}
 
-  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
-
-  // ── Lead form submit ──
-  function submitLead(btn) {
-    const orig = btn.textContent;
-    btn.textContent = 'Sending...';
-    btn.disabled = true;
-
-    setTimeout(() => {
-      btn.textContent = '✓ Demo Booked! We\'ll call you shortly.';
-      btn.style.background = 'linear-gradient(135deg, #064e3b, #065f46)';
-      btn.style.color = '#fff';
-      btn.style.boxShadow = '0 4px 24px rgba(34,197,94,0.3)';
-    }, 1200);
-  }
-
-  // ── Smooth scroll offset for fixed nav ──
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function(e) {
-      const target = document.querySelector(this.getAttribute('href'));
-      if (target) {
-        e.preventDefault();
-        const y = target.getBoundingClientRect().top + window.pageYOffset - 72;
-        window.scrollTo({ top: y, behavior: 'smooth' });
-      }
-    });
+// ── Scroll reveal ──
+const ro = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); }
   });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
-  // ── Counter animation for stats ──
-  function animateCounters() {
-    document.querySelectorAll('.stat-card p:first-child').forEach(el => {
-      el.style.animation = 'countUp 0.6s ease both';
-    });
-  }
-
-  const statsObserver = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting) {
-      animateCounters();
-      statsObserver.disconnect();
+// ── Smooth scroll ──
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', function(e) {
+    const t = document.querySelector(this.getAttribute('href'));
+    if (t) {
+      e.preventDefault();
+      window.scrollTo({ top: t.getBoundingClientRect().top + window.pageYOffset - 80, behavior: 'smooth' });
     }
   });
+});
 
-  const statsSection = document.querySelector('.stat-card');
-  if (statsSection) statsObserver.observe(statsSection);
+// ── Demo submit ──
+function submitDemo(btn) {
+  btn.textContent = 'Submitting...';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '✓ Demo Booked! We\'ll call you shortly.';
+    btn.style.background = 'linear-gradient(135deg,#064e3b,#065f46)';
+    btn.style.color = '#fff';
+    btn.style.boxShadow = '0 4px 24px rgba(34,197,94,0.3)';
+  }, 1200);
+}
+
+// ── Subtle parallax on hero bg ──
+const heroBg = document.querySelector('.hero-bg-image');
+window.addEventListener('scroll', () => {
+  const s = window.scrollY;
+  if (heroBg && s < window.innerHeight) {
+    heroBg.style.transform = `scale(1.08) translateY(${s * 0.25}px)`;
+  }
+}, { passive: true });
 </script>
 </body>
 </html>
