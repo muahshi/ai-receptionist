@@ -28,47 +28,71 @@ export async function POST(request) {
         return Response.json({ error: "Image data required" }, { status: 400 });
       }
 
+      // Use meta-llama vision model — supports image input on Groq
       const response = await groq.chat.completions.create({
-        model: "llava-v1.5-7b-4096-preview",
-        max_tokens: 500,
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        max_tokens: 600,
+        temperature: 0.1,
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "image_url",
-                image_url: { url: `data:image/jpeg;base64,${imageBase64}` },
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`,
+                },
               },
               {
                 type: "text",
-                text: `You are an ID document scanner for an Indian hotel.
-Extract from this ID (Aadhaar/PAN/Passport/DL):
-Return ONLY valid JSON — no extra text:
-{
-  "name": "",
-  "dob": "",
-  "address": "",
-  "idNumber": "",
-  "idType": "",
-  "gender": ""
-}
-Empty string if field not visible.`,
+                text: `You are an expert OCR system for Indian identity documents (Aadhaar, PAN, Passport, Driving License, Voter ID).
+
+Look at this ID card image carefully and extract ALL visible text fields.
+
+Return ONLY a raw JSON object — no markdown, no code block, no explanation:
+{"name":"","dob":"","address":"","idNumber":"","idType":"","gender":""}
+
+Rules:
+- name: full name of the person
+- dob: date of birth in DD/MM/YYYY format
+- address: complete address if visible
+- idNumber: Aadhaar number (XXXX XXXX XXXX), PAN (ABCDE1234F), Passport number, DL number, etc.
+- idType: one of Aadhaar / PAN / Passport / Driving License / Voter ID
+- gender: M or F or Other
+- Use empty string "" for any field not visible in the image
+- Do NOT invent or guess any data`,
               },
             ],
           },
         ],
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
+      const rawContent = response.choices[0]?.message?.content?.trim() || "{}";
       let extracted = {};
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) extracted = JSON.parse(jsonMatch[0]);
-      } catch {
-        extracted = { name: "", dob: "", address: "", idNumber: "", idType: "", gender: "" };
+        // Strip markdown code fences if present
+        const cleaned = rawContent
+          .replace(/^```json\s*/i, "")
+          .replace(/^```\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          extracted = JSON.parse(jsonMatch[0]);
+        }
+      } catch (parseErr) {
+        console.error("JSON parse error:", parseErr.message, "Raw:", rawContent);
+        extracted = { name:"", dob:"", address:"", idNumber:"", idType:"", gender:"" };
       }
 
-      return Response.json({ success: true, data: extracted });
+      // Sanitize — remove nulls, keep only strings
+      const clean = {};
+      for (const k of ["name","dob","address","idNumber","idType","gender"]) {
+        clean[k] = typeof extracted[k] === "string" ? extracted[k].trim() : "";
+      }
+
+      console.log("ID Scan extracted:", clean);
+      return Response.json({ success: true, data: clean });
     }
 
     // ── AI INSIGHT ──────────────────────────────────────────────────────────
