@@ -27,7 +27,7 @@ const blankGuest = () => ({
 /* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════ */
-export default function ScannerView({ user, onSuccess, onBack }) {
+export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack }) {
   const [step,       setStep]    = useState(S.GUEST_COUNT);
   const [guestCount, setCount]   = useState(1);
   const [guests,     setGuests]  = useState([blankGuest()]);
@@ -51,7 +51,7 @@ export default function ScannerView({ user, onSuccess, onBack }) {
   const streamRef = useRef(null);
 
   useEffect(() => {
-    setVacant(getRooms().filter(r => r.status === "vacant"));
+    setVacant(getRooms(hotelId).filter(r => r.status === "vacant"));
     return () => stopCam();
   }, []);
 
@@ -164,7 +164,7 @@ export default function ScannerView({ user, onSuccess, onBack }) {
     setSub(true);
     if (navigator.vibrate) navigator.vibrate([50,30,50,30,200]);
     try {
-      const b = createBooking({
+      const b = createBooking(hotelId, {
         ...guests[0], ...booking, status:"active",
         extraGuests: guests.length>1 ? guests.slice(1) : undefined,
         roomType: vacantRooms.find(r=>r.id===booking.roomId)?.type||"standard",

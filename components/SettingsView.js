@@ -3,14 +3,14 @@ import { useState, useEffect } from "react";
 import { Hotel, Phone, Download, Trash2, Shield } from "lucide-react";
 import { getHotelConfig, saveHotelConfig, exportAllData, exportCSV } from "../lib/db";
 
-export default function SettingsView({ user, onLogout }) {
+export default function SettingsView({ hotelId, hotel, user, onLogout }) {
   const [cfg, setCfg]   = useState(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { setCfg(getHotelConfig()); }, []);
+  useEffect(() => { setCfg(getHotelConfig(hotelId)); }, []);
 
   const save = () => {
-    saveHotelConfig(cfg);
+    saveHotelConfig(hotelId, cfg);
     setSaved(true);
     if (navigator.vibrate) navigator.vibrate(50);
     setTimeout(() => setSaved(false), 2000);

@@ -4,13 +4,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { Download, FileText, TrendingUp } from "lucide-react";
 import { getWeeklyRevenue, getTodayBookings, getBookings, exportCSV, exportAllData } from "../lib/db";
 
-export default function ReportsView({ user }) {
+export default function ReportsView({ hotelId, hotel, user }) {
   const [weekly, setWeekly] = useState([]);
   const [all, setAll]       = useState([]);
 
   useEffect(() => {
-    setWeekly(getWeeklyRevenue());
-    setAll(getBookings());
+    setWeekly(getWeeklyRevenue(hotelId));
+    setAll(getBookings(hotelId));
   }, []);
 
   const total   = all.reduce((s,b) => s+(b.totalAmount||0), 0);
