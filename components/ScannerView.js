@@ -94,32 +94,43 @@ export default function ScannerView({ user, onSuccess, onBack }) {
       canvas.height = videoRef.current.videoHeight || 480;
       canvas.getContext("2d").drawImage(videoRef.current, 0, 0);
       const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
-      const res    = await fetch("/api/groq", {
+      const res  = await fetch("/api/groq", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ imageBase64:base64, type:"id_scan" }),
       });
       const data = await res.json();
       clearInterval(piv); setScanPct(100);
+
+      // Debug log — visible in browser console
+      console.log("[Scanner] API response:", data);
+
       if (data.success && data.data) {
         const d = data.data;
+        console.log("[Scanner] Extracted fields:", d);
+
+        // Only update fields that are non-empty strings
         updateGuest(curGuest, prev => ({
           ...prev,
-          guestName : d.name    || prev.guestName,
-          address   : d.address || prev.address,
-          idNumber  : d.idNumber|| prev.idNumber,
-          idType    : d.idType  || prev.idType,
-          gender    : d.gender  || prev.gender,
-          dob       : d.dob     || prev.dob,
+          guestName : (d.name    && d.name.trim())    ? d.name.trim()    : prev.guestName,
+          address   : (d.address && d.address.trim())  ? d.address.trim() : prev.address,
+          idNumber  : (d.idNumber&& d.idNumber.trim()) ? d.idNumber.trim(): prev.idNumber,
+          idType    : (d.idType  && d.idType.trim())   ? d.idType.trim()  : prev.idType,
+          gender    : (d.gender  && d.gender.trim())   ? d.gender.trim()  : prev.gender,
+          dob       : (d.dob     && d.dob.trim())      ? d.dob.trim()     : prev.dob,
           frontScanned: step === S.SCAN_FRONT ? true : prev.frontScanned,
           backScanned : step === S.SCAN_BACK  ? true : prev.backScanned,
         }));
         if (navigator.vibrate) navigator.vibrate([50,30,100]);
+      } else {
+        console.warn("[Scanner] No data extracted. Error:", data.error);
       }
+
       setTimeout(() => {
         setScanning(false); setScanPct(0);
         setStep(step === S.SCAN_FRONT ? S.SCAN_BACK : S.REVIEW);
       }, 400);
-    } catch {
+    } catch(err) {
+      console.error("[Scanner] Network/parse error:", err);
       clearInterval(piv); setScanning(false); setScanPct(0); setStep(S.REVIEW);
     }
   };
