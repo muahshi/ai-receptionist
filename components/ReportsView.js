@@ -2,20 +2,29 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Download, FileText, TrendingUp } from "lucide-react";
-import { getWeeklyRevenue, getTodayBookings, getBookings, exportCSV, exportAllData } from "../lib/db";
+import { getWeeklyRevenue, getBookings, getBookingsSync, exportCSV, exportAllData } from "../lib/db";
 
 export default function ReportsView({ hotelId, hotel, user }) {
-  const [weekly, setWeekly] = useState([]);
-  const [all, setAll]       = useState([]);
+  const [weekly,  setWeekly]  = useState([]);
+  const [all,     setAll]     = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!hotelId) return;
+    // 1. Load from localStorage cache instantly — no crash
     setWeekly(getWeeklyRevenue(hotelId));
-    setAll(getBookings(hotelId));
-  }, []);
+    setAll(getBookingsSync(hotelId));
+    setLoading(false);
+    // 2. Fetch fresh from Supabase in background
+    getBookings(hotelId).then(data => {
+      setAll(data);
+      setWeekly(getWeeklyRevenue(hotelId));
+    }).catch(() => {});
+  }, [hotelId]);
 
-  const total   = all.reduce((s,b) => s+(b.totalAmount||0), 0);
-  const nights  = all.reduce((s,b) => s+(b.nights||0), 0);
-  const avgRate = all.length ? Math.round(all.reduce((s,b) => s+(b.ratePerNight||0),0)/all.length) : 0;
+  const total   = all.reduce((s, b) => s + (b.totalAmount || 0), 0);
+  const nights  = all.reduce((s, b) => s + (b.nights || 0), 0);
+  const avgRate = all.length ? Math.round(all.reduce((s, b) => s + (b.ratePerNight || 0), 0) / all.length) : 0;
 
   const Tip = ({ active, payload, label }) => active && payload?.length ? (
     <div className="card px-3 py-2 rounded-xl text-xs">
@@ -29,12 +38,12 @@ export default function ReportsView({ hotelId, hotel, user }) {
       <div className="flex items-center justify-between flex-shrink-0">
         <h2 className="font-black text-xl" style={{ color:"#D4AF37" }}>Reports</h2>
         <div className="flex gap-2">
-          <button onClick={exportCSV}
+          <button onClick={() => exportCSV(hotelId)}
             className="card px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs text-gray-400 active:scale-95">
             <FileText size={13}/> CSV
           </button>
           {user?.role === "owner" && (
-            <button onClick={exportAllData}
+            <button onClick={() => exportAllData(hotelId)}
               className="px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold active:scale-95"
               style={{ background:"linear-gradient(135deg,#b8960c,#D4AF37)", color:"#000" }}>
               <Download size={13}/> Export
@@ -43,12 +52,12 @@ export default function ReportsView({ hotelId, hotel, user }) {
         </div>
       </div>
 
-      {/* Summary */}
+      {/* Summary cards */}
       <div className="grid grid-cols-3 gap-2 flex-shrink-0">
         {[
-          { label:"Total Revenue", value:`₹${(total/1000).toFixed(1)}K`, icon:"💰" },
-          { label:"Total Nights",  value:nights,                          icon:"🌙" },
-          { label:"Avg Rate",      value:`₹${avgRate}`,                   icon:"📊" },
+          { label:"Total Revenue", value:`₹${(total / 1000).toFixed(1)}K`, icon:"💰" },
+          { label:"Total Nights",  value: nights,                           icon:"🌙" },
+          { label:"Avg Rate",      value:`₹${avgRate}`,                    icon:"📊" },
         ].map(c => (
           <div key={c.label} className="card rounded-2xl p-3 text-center">
             <p className="text-2xl mb-1">{c.icon}</p>
@@ -58,7 +67,7 @@ export default function ReportsView({ hotelId, hotel, user }) {
         ))}
       </div>
 
-      {/* Chart */}
+      {/* Revenue chart */}
       <div className="card rounded-2xl p-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <p className="text-gray-500 text-xs uppercase tracking-widest">7 Din Ki Kamayi</p>
@@ -68,11 +77,11 @@ export default function ReportsView({ hotelId, hotel, user }) {
           <BarChart data={weekly} margin={{ top:0, right:0, left:-22, bottom:0 }}>
             <XAxis dataKey="date" tick={{ fill:"#555", fontSize:10 }} axisLine={false} tickLine={false}/>
             <YAxis tick={{ fill:"#555", fontSize:9 }} axisLine={false} tickLine={false}
-              tickFormatter={v => v > 0 ? `${(v/1000).toFixed(0)}K` : "0"}/>
+              tickFormatter={v => v > 0 ? `${(v / 1000).toFixed(0)}K` : "0"}/>
             <Tooltip content={<Tip/>} cursor={{ fill:"rgba(212,175,55,0.04)" }}/>
-            <Bar dataKey="revenue" radius={[4,4,0,0]}>
+            <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
               {weekly.map((_, i) => (
-                <Cell key={i} fill={i === weekly.length-1 ? "#D4AF37" : "rgba(212,175,55,0.25)"}/>
+                <Cell key={i} fill={i === weekly.length - 1 ? "#D4AF37" : "rgba(212,175,55,0.25)"}/>
               ))}
             </Bar>
           </BarChart>
@@ -86,19 +95,33 @@ export default function ReportsView({ hotelId, hotel, user }) {
           <span className="text-xs" style={{ color:"#D4AF37" }}>{all.length} total</span>
         </div>
         <div className="flex-1 scroll-y divide-y divide-white/5">
-          {all.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center h-full py-8">
+              <div className="w-6 h-6 border-2 rounded-full animate-spin"
+                style={{ borderColor:"rgba(212,175,55,0.2)", borderTopColor:"#D4AF37" }}/>
+            </div>
+          ) : all.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-700 text-sm">Koi booking nahi hai abhi</p>
             </div>
-          ) : [...all].reverse().map(b => (
+          ) : [...all].slice(0, 50).map(b => (
             <div key={b.id} className="px-4 py-3 flex items-center justify-between">
-              <div>
-                <p className="text-white text-sm font-semibold">{b.guestName}</p>
-                <p className="text-gray-600 text-xs">Room {b.roomId} • {new Date(b.createdAt).toLocaleDateString("en-IN")}</p>
+              <div className="flex-1 min-w-0 mr-3">
+                <p className="text-white text-sm font-semibold truncate">{b.guestName}</p>
+                <p className="text-gray-600 text-xs">
+                  Room {b.roomId} • {new Date(b.createdAt).toLocaleDateString("en-IN")}
+                </p>
               </div>
-              <div className="text-right">
-                <p className="font-bold text-sm" style={{ color:"#D4AF37" }}>₹{b.totalAmount?.toLocaleString("en-IN")}</p>
-                <p className="text-gray-700 text-xs">{b.paymentMode}</p>
+              <div className="text-right flex-shrink-0">
+                <p className="font-bold text-sm" style={{ color:"#D4AF37" }}>
+                  ₹{Number(b.totalAmount || 0).toLocaleString("en-IN")}
+                </p>
+                <span className="text-xs px-1.5 py-0.5 rounded-full"
+                  style={b.status === "active"
+                    ? { background:"rgba(34,197,94,0.12)", color:"#22c55e" }
+                    : { background:"rgba(255,255,255,0.05)", color:"#555" }}>
+                  {b.status === "active" ? "Active" : "Checked Out"}
+                </span>
               </div>
             </div>
           ))}
