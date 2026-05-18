@@ -1,168 +1,132 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+"use client";
+import { useState, useEffect } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Download, FileText, TrendingUp } from "lucide-react";
+import { getWeeklyRevenue, getBookings, getBookingsSync, exportCSV, exportAllData } from "../lib/db";
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+export default function ReportsView({ hotelId, hotel, user }) {
+  const [weekly,  setWeekly]  = useState([]);
+  const [all,     setAll]     = useState([]);
+  const [loading, setLoading] = useState(true);
 
-:root {
-  --gold: #D4AF37;
-  --gold-light: #F5C842;
-  --gold-dim: rgba(212,175,55,0.15);
-  --blue: #0070F3;
-  --blue-glow: rgba(0,112,243,0.4);
-  --bg: #0A0A0A;
-  --bg2: #111111;
-  --bg3: #181818;
-  --border: rgba(255,255,255,0.08);
-  --border-gold: rgba(212,175,55,0.3);
-}
+  useEffect(() => {
+    if (!hotelId) return;
+    // 1. Load from localStorage cache instantly — no crash
+    setWeekly(getWeeklyRevenue(hotelId));
+    setAll(getBookingsSync(hotelId));
+    setLoading(false);
+    // 2. Fetch fresh from Supabase in background
+    getBookings(hotelId).then(data => {
+      setAll(data);
+      setWeekly(getWeeklyRevenue(hotelId));
+    }).catch(() => {});
+  }, [hotelId]);
 
-* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; margin: 0; padding: 0; }
+  const total   = all.reduce((s, b) => s + (b.totalAmount || 0), 0);
+  const nights  = all.reduce((s, b) => s + (b.nights || 0), 0);
+  const avgRate = all.length ? Math.round(all.reduce((s, b) => s + (b.ratePerNight || 0), 0) / all.length) : 0;
 
-html, body {
-  height: 100%; height: -webkit-fill-available;
-  overflow: hidden; overscroll-behavior: none;
-  font-family: 'Inter', sans-serif;
-  background: #0A0A0A; color: #fff;
-}
+  const Tip = ({ active, payload, label }) => active && payload?.length ? (
+    <div className="card px-3 py-2 rounded-xl text-xs">
+      <p style={{ color:"#D4AF37" }}>{label}</p>
+      <p className="text-white font-bold">₹{payload[0].value.toLocaleString("en-IN")}</p>
+    </div>
+  ) : null;
 
-/* ── Scrollable areas ───────────────────────────────────────── */
-.scroll-y { overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-.scroll-y::-webkit-scrollbar { display: none; }
-.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-.scroll-x::-webkit-scrollbar { display: none; }
+  return (
+    <div className="h-full flex flex-col gap-3 px-3 py-2 overflow-hidden">
+      <div className="flex items-center justify-between flex-shrink-0">
+        <h2 className="font-black text-xl" style={{ color:"#D4AF37" }}>Reports</h2>
+        <div className="flex gap-2">
+          <button onClick={() => exportCSV(hotelId)}
+            className="card px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs text-gray-400 active:scale-95">
+            <FileText size={13}/> CSV
+          </button>
+          {user?.role === "owner" && (
+            <button onClick={() => exportAllData(hotelId)}
+              className="px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold active:scale-95"
+              style={{ background:"linear-gradient(135deg,#b8960c,#D4AF37)", color:"#000" }}>
+              <Download size={13}/> Export
+            </button>
+          )}
+        </div>
+      </div>
 
-/* ── Glass card ─────────────────────────────────────────────── */
-.card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-.card-gold {
-  background: rgba(212,175,55,0.06);
-  border: 1px solid rgba(212,175,55,0.2);
-  border-radius: 16px;
-}
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-2 flex-shrink-0">
+        {[
+          { label:"Total Revenue", value:`₹${(total / 1000).toFixed(1)}K`, icon:"💰" },
+          { label:"Total Nights",  value: nights,                           icon:"🌙" },
+          { label:"Avg Rate",      value:`₹${avgRate}`,                    icon:"📊" },
+        ].map(c => (
+          <div key={c.label} className="card rounded-2xl p-3 text-center">
+            <p className="text-2xl mb-1">{c.icon}</p>
+            <p className="text-white font-black text-lg">{c.value}</p>
+            <p className="text-gray-600 text-xs">{c.label}</p>
+          </div>
+        ))}
+      </div>
 
-/* ── Gold button ────────────────────────────────────────────── */
-.btn-gold {
-  background: linear-gradient(135deg, #b8960c 0%, #D4AF37 50%, #F5C842 100%);
-  color: #000; font-weight: 700; border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(212,175,55,0.35);
-  transition: all 0.2s;
-}
-.btn-gold:active { transform: scale(0.96); }
+      {/* Revenue chart */}
+      <div className="card rounded-2xl p-4 flex-shrink-0">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-gray-500 text-xs uppercase tracking-widest">7 Din Ki Kamayi</p>
+          <TrendingUp size={14} style={{ color:"#D4AF37" }}/>
+        </div>
+        <ResponsiveContainer width="100%" height={120}>
+          <BarChart data={weekly} margin={{ top:0, right:0, left:-22, bottom:0 }}>
+            <XAxis dataKey="date" tick={{ fill:"#555", fontSize:10 }} axisLine={false} tickLine={false}/>
+            <YAxis tick={{ fill:"#555", fontSize:9 }} axisLine={false} tickLine={false}
+              tickFormatter={v => v > 0 ? `${(v / 1000).toFixed(0)}K` : "0"}/>
+            <Tooltip content={<Tip/>} cursor={{ fill:"rgba(212,175,55,0.04)" }}/>
+            <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+              {weekly.map((_, i) => (
+                <Cell key={i} fill={i === weekly.length - 1 ? "#D4AF37" : "rgba(212,175,55,0.25)"}/>
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-/* ── Input ──────────────────────────────────────────────────── */
-.inp {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px; color: #fff; outline: none;
-  transition: all 0.2s;
-}
-.inp:focus { border-color: rgba(212,175,55,0.5); background: rgba(212,175,55,0.04); }
-.inp::placeholder { color: rgba(255,255,255,0.25); }
-
-/* ── Room grid cells ─────────────────────────────────────────── */
-.room-occupied {
-  background: linear-gradient(145deg, #16a34a, #15803d);
-  border: 1px solid rgba(34,197,94,0.5);
-  box-shadow: 0 0 8px rgba(34,197,94,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
-}
-.room-vacant {
-  background: linear-gradient(145deg, #ef4444, #dc2626);
-  border: 1px solid rgba(239,68,68,0.5);
-  box-shadow: 0 0 8px rgba(239,68,68,0.15);
-}
-.room-reserved {
-  background: linear-gradient(145deg, #eab308, #ca8a04);
-  border: 1px solid rgba(212,175,55,0.5);
-  box-shadow: 0 0 8px rgba(212,175,55,0.15);
-}
-.room-outoforder {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.1);
-}
-.room-cleaning {
-  background: linear-gradient(145deg, #3b82f6, #1d4ed8);
-  border: 1px solid rgba(99,102,241,0.5);
-}
-
-/* ── AI Scan button glow ────────────────────────────────────── */
-.ai-scan-ring {
-  position: relative;
-}
-.ai-scan-ring::before {
-  content: '';
-  position: absolute; inset: -8px;
-  border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 60%, rgba(0,112,243,0.6), transparent);
-  animation: spinRing 3s linear infinite;
-}
-.ai-scan-ring::after {
-  content: '';
-  position: absolute; inset: -16px;
-  border-radius: 50%;
-  background: conic-gradient(from 180deg, transparent 60%, rgba(212,175,55,0.4), transparent);
-  animation: spinRing 4s linear infinite reverse;
-}
-@keyframes spinRing {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Revenue chart line glow ─────────────────────────────────── */
-.revenue-glow-line {
-  filter: drop-shadow(0 0 6px #D4AF37) drop-shadow(0 0 12px rgba(212,175,55,0.5));
-}
-
-/* ── Animations ──────────────────────────────────────────────── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
-@keyframes pulse-gold {
-  0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4); }
-  50%     { box-shadow: 0 0 0 8px rgba(212,175,55,0);  }
-}
-@keyframes scanLine {
-  0%   { top: 5%;  opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { top: 93%; opacity: 0; }
-}
-@keyframes lockSeal {
-  0%   { transform: scale(0) rotate(-180deg); opacity: 0; }
-  70%  { transform: scale(1.2) rotate(8deg); }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
-.fade-up  { animation: fadeUp  0.4s ease forwards; }
-.slide-up { animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-.lock-seal { animation: lockSeal 0.7s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
-
-/* safe area */
-.safe-top    { padding-top:    env(safe-area-inset-top); }
-.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-
-/* scan frame corners */
-.scan-frame { position: relative; border: 2px solid var(--gold); border-radius: 12px; overflow: hidden; }
-.scan-frame::before,.scan-frame::after { content:''; position:absolute; width:20px; height:20px; border-color: var(--gold-light); border-style:solid; }
-.scan-frame::before { top:-2px; left:-2px; border-width:3px 0 0 3px; border-radius:8px 0 0 0; }
-.scan-frame::after  { bottom:-2px; right:-2px; border-width:0 3px 3px 0; border-radius:0 0 8px 0; }
-.scan-line { position:absolute; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--gold),transparent); box-shadow:0 0 8px var(--gold),0 0 16px var(--gold); animation:scanLine 2s ease-in-out infinite; }
-
-/* ── Additional dashboard animations ─────────────────────── */
-@keyframes bounce {
-  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
-  40%           { transform: scale(1); opacity: 1; }
-}
-@keyframes pulseDot {
-  0%,100% { box-shadow: 0 0 4px #22c55e; }
-  50%     { box-shadow: 0 0 10px #22c55e, 0 0 20px rgba(34,197,94,0.4); }
+      {/* Bookings list */}
+      <div className="card rounded-2xl flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
+          <p className="text-gray-500 text-xs uppercase tracking-widest">Recent Bookings</p>
+          <span className="text-xs" style={{ color:"#D4AF37" }}>{all.length} total</span>
+        </div>
+        <div className="flex-1 scroll-y divide-y divide-white/5">
+          {loading ? (
+            <div className="flex items-center justify-center h-full py-8">
+              <div className="w-6 h-6 border-2 rounded-full animate-spin"
+                style={{ borderColor:"rgba(212,175,55,0.2)", borderTopColor:"#D4AF37" }}/>
+            </div>
+          ) : all.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-700 text-sm">Koi booking nahi hai abhi</p>
+            </div>
+          ) : [...all].slice(0, 50).map(b => (
+            <div key={b.id} className="px-4 py-3 flex items-center justify-between">
+              <div className="flex-1 min-w-0 mr-3">
+                <p className="text-white text-sm font-semibold truncate">{b.guestName}</p>
+                <p className="text-gray-600 text-xs">
+                  Room {b.roomId} • {new Date(b.createdAt).toLocaleDateString("en-IN")}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="font-bold text-sm" style={{ color:"#D4AF37" }}>
+                  ₹{Number(b.totalAmount || 0).toLocaleString("en-IN")}
+                </p>
+                <span className="text-xs px-1.5 py-0.5 rounded-full"
+                  style={b.status === "active"
+                    ? { background:"rgba(34,197,94,0.12)", color:"#22c55e" }
+                    : { background:"rgba(255,255,255,0.05)", color:"#555" }}>
+                  {b.status === "active" ? "Active" : "Checked Out"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
