@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   RefreshCw, ExternalLink, Check, Brain, Wrench, Star, Users, Home,
-  Menu, Bell, Bed, Calendar, UserCircle, Settings, BarChart3
+  Menu, Bell, Bed, Calendar, UserCircle, Settings, BarChart3, ChevronDown
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import {
@@ -25,7 +25,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   const [refreshing, setRefresh] = useState(false);
   const [copied, setCopied] = useState(false);
   const [aiScan, setAiScan] = useState(false);
-  const scanRef = useRef(null);
 
   const load = useCallback(() => {
     if (!hotelId) return;
@@ -101,7 +100,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   });
   const floors = Object.keys(byFloor).map(Number).sort((a, b) => b - a);
 
-  // Status config — matching 2nd image exactly
+  // Status config - matching 2nd image
   const roomConfig = (r) => {
     if (r.status === "occupied")
       return {
@@ -109,7 +108,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         border: "rgba(34,197,94,0.7)",
         text: "#4ade80",
         glow: "rgba(34,197,94,0.35)",
-        icon: "user",
+        hasIcon: true,
         label: "Occupied"
       };
     if (r.status === "reserved")
@@ -118,7 +117,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         border: "rgba(212,175,55,0.7)",
         text: "#fbbf24",
         glow: "rgba(212,175,55,0.3)",
-        icon: "pin",
+        hasIcon: false,
         label: "Reserved"
       };
     if (r.status === "cleaning")
@@ -127,7 +126,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         border: "rgba(99,102,241,0.7)",
         text: "#818cf8",
         glow: "rgba(99,102,241,0.3)",
-        icon: "broom",
+        hasIcon: false,
         label: "Cleaning"
       };
     if (r.status === "out_of_order")
@@ -136,7 +135,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         border: "rgba(75,85,99,0.5)",
         text: "#9ca3af",
         glow: "transparent",
-        icon: "wrench",
+        hasIcon: true,
         label: "Out of Order"
       };
     return {
@@ -144,56 +143,48 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
       border: "rgba(239,68,68,0.6)",
       text: "#f87171",
       glow: "rgba(239,68,68,0.2)",
-      icon: null,
+      hasIcon: false,
       label: "Vacant"
     };
   };
 
-  // Stats
   const occupied = rooms.filter(r => r.status === "occupied").length;
   const vacant = rooms.filter(r => r.status === "vacant").length;
   const reserved = rooms.filter(r => r.status === "reserved").length;
   const cleaning = rooms.filter(r => r.status === "cleaning").length;
   const outOfOrder = rooms.filter(r => r.status === "out_of_order").length;
-  const total = rooms.length;
+  const total = rooms.length || 1;
 
-  const occupancyPercent = total > 0 ? Math.round((occupied / total) * 100) : 0;
-  const reservedPercent = total > 0 ? Math.round((reserved / total) * 100) : 0;
-  const vacantPercent = total > 0 ? Math.round((vacant / total) * 100) : 0;
-  const outOfOrderPercent = total > 0 ? Math.round((outOfOrder / total) * 100) : 0;
+  const occupancyPercent = Math.round((occupied / total) * 100);
+  const reservedPercent = Math.round((reserved / total) * 100);
+  const vacantPercent = Math.round((vacant / total) * 100);
+  const outOfOrderPercent = Math.round((outOfOrder / total) * 100);
 
-  const Tip = ({ active, payload }) => active && payload?.length ? (
-    <div style={{
-      background: "rgba(0,0,0,0.9)",
-      border: "1px solid rgba(212,175,55,0.4)",
-      borderRadius: 10,
-      padding: "8px 12px",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.5)"
-    }}>
-      <p style={{ color: "#D4AF37", fontSize: 12, fontWeight: 800 }}>
-        ₹{payload[0].value.toLocaleString("en-IN")}
-      </p>
-    </div>
-  ) : null;
+  const Tip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    return (
+      <div style={{
+        background: "rgba(0,0,0,0.9)",
+        border: "1px solid rgba(212,175,55,0.4)",
+        borderRadius: 10,
+        padding: "8px 12px",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.5)"
+      }}>
+        <p style={{ color: "#D4AF37", fontSize: 12, fontWeight: 800 }}>
+          ₹{payload[0].value.toLocaleString("en-IN")}
+        </p>
+      </div>
+    );
+  };
 
   const todayBookings = getTodayBookings(hotelId);
   const pendingCheckIns = todayBookings.filter(b => b.status === "active").length;
 
-  // Room icon renderer
-  const RoomIcon = ({ type, color }) => {
-    if (type === "user") return <UserCircle size={14} color={color} />;
-    if (type === "pin") return <span style={{ fontSize: 10 }}>📌</span>;
-    if (type === "broom") return <span style={{ fontSize: 10 }}>🧹</span>;
-    if (type === "wrench") return <Wrench size={12} color={color} />;
-    return null;
-  };
-
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ background: "#080808" }}>
-      {/* Scrollable content */}
-      <div className="flex-1 scroll-y" style={{ paddingBottom: 90 }}>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", background: "#080808" }}>
+      <div className="scroll-y" style={{ flex: 1, paddingBottom: 90 }}>
 
-        {/* ═══ TOP NAV BAR ═══ */}
+        {/* TOP NAV BAR */}
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -205,14 +196,14 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             width: 40, height: 40, borderRadius: 12,
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
-            display: "flex", alignItems: "center", justifyContent: "center"
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer"
           }}>
             <Menu size={20} color="rgba(255,255,255,0.6)" />
           </button>
 
           <div style={{ textAlign: "center" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              {/* Hotel Logo */}
               <div style={{
                 width: 28, height: 28,
                 background: "linear-gradient(135deg, #D4AF37, #F5C842)",
@@ -243,7 +234,8 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative"
+            position: "relative",
+            cursor: "pointer"
           }}>
             <Bell size={20} color="rgba(255,255,255,0.6)" />
             <div style={{
@@ -255,7 +247,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
           </button>
         </div>
 
-        {/* ═══ AI RECEPTIONIST CARD ═══ */}
+        {/* AI RECEPTIONIST CARD */}
         <div style={{ padding: "0 16px", marginBottom: 14 }}>
           <div style={{
             background: "linear-gradient(135deg, rgba(20,20,20,0.95), rgba(12,12,12,0.95))",
@@ -266,7 +258,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             alignItems: "center",
             gap: 14
           }}>
-            {/* Avatar */}
             <div style={{ position: "relative", flexShrink: 0 }}>
               <div style={{
                 width: 52, height: 52, borderRadius: "50%",
@@ -278,7 +269,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               }}>
                 <UserCircle size={32} color="#D4AF37" />
               </div>
-              {/* Sound wave indicator */}
               <div style={{
                 position: "absolute", bottom: -2, right: -2,
                 width: 20, height: 20, borderRadius: "50%",
@@ -286,29 +276,18 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                 border: "2px solid #080808",
                 display: "flex", alignItems: "center", justifyContent: "center"
               }}>
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 1,
-                  height: 8
-                }}>
-                  {[1, 2, 3].map(i => (
-                    <div key={i} style={{
-                      width: 2, borderRadius: 1,
-                      background: "#fff",
-                      animation: `soundWave 1s ease-in-out infinite`,
-                      animationDelay: `${i * 0.15}s`,
-                      height: i === 2 ? 8 : 5
-                    }} />
-                  ))}
+                <div style={{ display: "flex", alignItems: "center", gap: 1, height: 8 }}>
+                  <div style={{ width: 2, height: 4, borderRadius: 1, background: "#fff" }} />
+                  <div style={{ width: 2, height: 8, borderRadius: 1, background: "#fff" }} />
+                  <div style={{ width: 2, height: 5, borderRadius: 1, background: "#fff" }} />
                 </div>
               </div>
-              {/* Online dot */}
               <div style={{
                 position: "absolute", top: 0, right: 0,
                 width: 12, height: 12, borderRadius: "50%",
                 background: "#22c55e",
                 border: "2px solid #080808",
-                boxShadow: "0 0 6px #22c55e",
-                animation: "pulseDot 2s infinite"
+                boxShadow: "0 0 6px #22c55e"
               }} />
             </div>
 
@@ -331,14 +310,15 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                 border: "1px solid rgba(212,175,55,0.2)",
                 borderRadius: 10,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0
+                flexShrink: 0,
+                cursor: "pointer"
               }}>
               <RefreshCw size={14} style={{ color: "#D4AF37" }} className={refreshing ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
 
-        {/* ═══ BOOKING LINK ═══ */}
+        {/* BOOKING LINK */}
         <div style={{ padding: "0 16px", marginBottom: 14 }}>
           <button onClick={copyLink} style={{
             width: "100%",
@@ -348,7 +328,8 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             padding: "10px 14px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
+            cursor: "pointer"
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <ExternalLink size={12} style={{ color: "#D4AF37" }} />
@@ -367,7 +348,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
 
         <div style={{ padding: "0 14px" }}>
 
-          {/* ═══ LIVE REVENUE CARD ═══ */}
+          {/* LIVE REVENUE CARD */}
           <div style={{
             margin: "14px 0",
             background: "linear-gradient(135deg, rgba(18,14,0,0.95), rgba(8,6,0,0.95))",
@@ -377,14 +358,12 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             position: "relative",
             overflow: "hidden"
           }}>
-            {/* Background glow */}
             <div style={{
               position: "absolute", top: -50, right: -30,
               width: 200, height: 200,
               background: "radial-gradient(circle, rgba(212,175,55,0.15) 0%, transparent 70%)",
               pointerEvents: "none"
             }} />
-
             <p style={{
               fontSize: 10, letterSpacing: "0.15em",
               color: "rgba(212,175,55,0.5)",
@@ -393,7 +372,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             }}>
               LIVE REVENUE
             </p>
-
             <p style={{
               fontSize: 34, fontWeight: 900, color: "#D4AF37",
               letterSpacing: "-0.02em", lineHeight: 1.1, marginBottom: 4,
@@ -401,11 +379,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             }}>
               ₹{stats.todayRevenue.toLocaleString("en-IN")}.00
             </p>
-
             <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>
               Today&apos;s Total Revenue
             </p>
-
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 5,
               background: "rgba(34,197,94,0.12)",
@@ -416,8 +392,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                 ↑ {pct}% vs yesterday
               </span>
             </div>
-
-            {/* Sparkline with glow dot */}
             <div style={{ marginTop: 14, height: 60, position: "relative" }}>
               <ResponsiveContainer width="100%" height={60}>
                 <AreaChart data={revData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
@@ -435,11 +409,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                     strokeWidth={2.5}
                     fill="url(#rg2)"
                     dot={false}
-                    style={{ filter: "drop-shadow(0 0 8px rgba(212,175,55,0.8))" }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {/* Glow dot at end */}
               {revData.length > 0 && (
                 <div style={{
                   position: "absolute",
@@ -453,7 +425,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             </div>
           </div>
 
-          {/* ═══ ROOM OCCUPANCY GRID ═══ */}
+          {/* ROOM OCCUPANCY GRID */}
           <div style={{
             background: "rgba(255,255,255,0.02)",
             border: "1px solid rgba(255,255,255,0.06)",
@@ -461,7 +433,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             padding: "18px 14px",
             marginBottom: 14
           }}>
-            {/* Header */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               marginBottom: 14
@@ -487,7 +458,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </div>
             </div>
 
-            {/* Legend */}
             <div style={{
               display: "flex", flexWrap: "wrap", gap: "8px 16px",
               marginBottom: 16, justifyContent: "center"
@@ -509,11 +479,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               ))}
             </div>
 
-            {/* Room grid — 3D square tiles */}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {floors.map(fl => (
                 <div key={fl} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {/* Floor label */}
                   <span style={{
                     fontSize: 9, color: "rgba(255,255,255,0.25)",
                     width: 20, textAlign: "right",
@@ -521,7 +489,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   }}>
                     {String(fl).padStart(2, "0")}
                   </span>
-                  {/* Room buttons */}
                   <div style={{ display: "flex", gap: 5, flex: 1, flexWrap: "wrap" }}>
                     {byFloor[fl].map(room => {
                       const c = roomConfig(room);
@@ -547,10 +514,10 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                             transition: "all 0.15s",
                             padding: "3px 2px"
                           }}
-                          onTouchStart={e => e.currentTarget.style.transform = "scale(0.92)"}
-                          onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}
                         >
-                          {c.icon && <RoomIcon type={c.icon} color={c.text} />}
+                          {c.hasIcon && (
+                            <UserCircle size={12} color={c.text} />
+                          )}
                           <span style={{
                             fontSize: 8, color: c.text,
                             fontWeight: 800, letterSpacing: "0.02em"
@@ -566,7 +533,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             </div>
           </div>
 
-          {/* ═══ STATS GRID WITH CENTER AI SCAN ═══ */}
+          {/* STATS GRID WITH CENTER AI SCAN */}
           <div style={{
             display: "grid",
             gridTemplateColumns: "1fr 130px 1fr",
@@ -575,7 +542,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             marginBottom: 14,
             alignItems: "center"
           }}>
-            {/* Top Left — Guest Check-in */}
+            {/* Top Left - Guest Check-in */}
             <div style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.07)",
@@ -601,7 +568,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </p>
             </div>
 
-            {/* Center — AI SCAN (spans 2 rows) */}
+            {/* Center - AI SCAN */}
             <div style={{
               gridRow: "1 / 3",
               display: "flex", alignItems: "center", justifyContent: "center"
@@ -622,44 +589,23 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   alignItems: "center", justifyContent: "center", gap: 6,
                   transition: "all 0.4s"
                 }}>
-                {/* Outer rotating ring */}
                 <div style={{
                   position: "absolute", inset: -12, borderRadius: "50%",
                   border: "2px solid transparent",
                   borderTopColor: "rgba(0,112,243,0.6)",
-                  borderRightColor: "rgba(0,112,243,0.2)",
-                  animation: "spinRing 3s linear infinite"
-                }} />
-                {/* Middle ring */}
+                  borderRightColor: "rgba(0,112,243,0.2)"
+                }} className="spin-slow" />
                 <div style={{
                   position: "absolute", inset: -6, borderRadius: "50%",
                   border: "1px solid transparent",
                   borderBottomColor: "rgba(212,175,55,0.4)",
-                  borderLeftColor: "rgba(212,175,55,0.15)",
-                  animation: "spinRing 4s linear infinite reverse"
-                }} />
-                {/* Inner dashed ring */}
+                  borderLeftColor: "rgba(212,175,55,0.15)"
+                }} className="spin-reverse" />
                 <div style={{
                   position: "absolute", inset: 4, borderRadius: "50%",
-                  border: "1px dashed rgba(0,112,243,0.3)",
-                  animation: "spinRing 8s linear infinite"
-                }} />
-                {/* Scan lines */}
-                <div style={{
-                  position: "absolute", inset: 0, borderRadius: "50%",
-                  overflow: "hidden"
-                }}>
-                  <div style={{
-                    position: "absolute", left: "10%", right: "10%",
-                    height: 1,
-                    background: "linear-gradient(90deg, transparent, rgba(0,112,243,0.4), transparent)",
-                    animation: "scanLineVertical 2s ease-in-out infinite"
-                  }} />
-                </div>
-                <Brain size={24} style={{
-                  color: "#60a5fa",
-                  filter: "drop-shadow(0 0 8px #60a5fa)"
-                }} />
+                  border: "1px dashed rgba(0,112,243,0.3)"
+                }} className="spin-slower" />
+                <Brain size={24} style={{ color: "#60a5fa" }} />
                 <span style={{
                   fontSize: 11, fontWeight: 900, color: "#60a5fa",
                   letterSpacing: "0.12em"
@@ -669,7 +615,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </button>
             </div>
 
-            {/* Top Right — Maintenance */}
+            {/* Top Right - Maintenance */}
             <div style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.07)",
@@ -695,7 +641,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </p>
             </div>
 
-            {/* Bottom Left — Housekeeping */}
+            {/* Bottom Left - Housekeeping */}
             <div style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.07)",
@@ -721,7 +667,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </p>
             </div>
 
-            {/* Bottom Right — Reviews */}
+            {/* Bottom Right - Reviews */}
             <div style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.07)",
@@ -748,7 +694,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             </div>
           </div>
 
-          {/* ═══ AI INSIGHTS ═══ */}
+          {/* AI INSIGHTS */}
           <div style={{
             background: "linear-gradient(135deg, rgba(0,30,80,0.3), rgba(0,15,40,0.2))",
             border: "1px solid rgba(0,112,243,0.2)",
@@ -760,7 +706,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             display: "flex",
             gap: 16
           }}>
-            {/* Left content */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <div style={{
@@ -780,14 +725,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </div>
               {iLoad ? (
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  {[0, 1, 2].map(i => (
-                    <div key={i} style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: "#60a5fa",
-                      animation: "bounce 1.2s infinite",
-                      animationDelay: `${i * 0.2}s`
-                    }} />
-                  ))}
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#60a5fa" }} />
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#60a5fa" }} />
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#60a5fa" }} />
                 </div>
               ) : (
                 <p style={{
@@ -808,20 +748,18 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </button>
             </div>
 
-            {/* Right — 3D Building illustration */}
+            {/* 3D Building illustration */}
             <div style={{
               width: 100, height: 100,
               flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
               position: "relative"
             }}>
-              {/* Wireframe building */}
               <div style={{
                 width: 60, height: 80,
                 position: "relative",
                 transform: "perspective(100px) rotateY(-15deg) rotateX(5deg)"
               }}>
-                {/* Building base */}
                 <div style={{
                   position: "absolute", bottom: 0, left: 5,
                   width: 50, height: 70,
@@ -829,29 +767,55 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   background: "linear-gradient(180deg, rgba(0,112,243,0.1), rgba(0,112,243,0.02))",
                   borderRadius: 2
                 }}>
-                  {/* Windows */}
-                  {[0, 1, 2, 3].map(row => (
-                    <div key={row} style={{
-                      position: "absolute",
-                      top: `${10 + row * 15}%`, left: "15%",
-                      width: "25%", height: "8%",
-                      background: "rgba(0,112,243,0.3)",
-                      borderRadius: 1,
-                      boxShadow: "0 0 4px rgba(0,112,243,0.4)"
-                    }} />
-                  ))}
-                  {[0, 1, 2, 3].map(row => (
-                    <div key={`r${row}`} style={{
-                      position: "absolute",
-                      top: `${10 + row * 15}%`, right: "15%",
-                      width: "25%", height: "8%",
-                      background: "rgba(0,112,243,0.3)",
-                      borderRadius: 1,
-                      boxShadow: "0 0 4px rgba(0,112,243,0.4)"
-                    }} />
-                  ))}
+                  <div style={{
+                    position: "absolute", top: "10%", left: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "25%", left: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "40%", left: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "55%", left: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "10%", right: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "25%", right: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "40%", right: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "55%", right: "15%",
+                    width: "25%", height: "8%",
+                    background: "rgba(0,112,243,0.3)",
+                    borderRadius: 1
+                  }} />
                 </div>
-                {/* Building top */}
                 <div style={{
                   position: "absolute", top: 0, left: 15,
                   width: 30, height: 25,
@@ -863,11 +827,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                     position: "absolute", top: "20%", left: "25%",
                     width: "50%", height: "15%",
                     background: "rgba(0,112,243,0.4)",
-                    borderRadius: 1,
-                    boxShadow: "0 0 6px rgba(0,112,243,0.5)"
+                    borderRadius: 1
                   }} />
                 </div>
-                {/* Glow ring */}
                 <div style={{
                   position: "absolute", bottom: -10, left: "50%",
                   transform: "translateX(-50%)",
@@ -880,7 +842,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             </div>
           </div>
 
-          {/* ═══ TODAY'S CHECK-INS ═══ */}
+          {/* TODAY'S CHECK-INS */}
           <div style={{
             background: "rgba(255,255,255,0.02)",
             border: "1px solid rgba(255,255,255,0.06)",
@@ -945,10 +907,10 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             ))}
           </div>
 
-        </div>{/* /padding div */}
-      </div>{/* /scroll */}
+        </div>
+      </div>
 
-      {/* ═══ BOTTOM NAVIGATION ═══ */}
+      {/* BOTTOM NAVIGATION */}
       <div style={{
         position: "fixed", bottom: 0, left: 0, right: 0,
         background: "linear-gradient(180deg, transparent, rgba(8,8,8,0.95) 20%, #080808)",
@@ -1006,11 +968,11 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         ))}
       </div>
 
-      {/* ═══ ROOM DETAIL MODAL ═══ */}
+      {/* ROOM DETAIL MODAL */}
       {selRoom && (
         <div
           style={{
-            position: "absolute", inset: 0, zIndex: 50,
+            position: "fixed", inset: 0, zIndex: 50,
             display: "flex", alignItems: "flex-end",
             background: "rgba(0,0,0,0.8)",
             backdropFilter: "blur(8px)"
@@ -1038,18 +1000,15 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             }}>
               <div style={{
                 width: 60, height: 60, borderRadius: 18,
-                ...(() => {
-                  const c = roomConfig(selRoom);
-                  return {
-                    background: c.bg,
-                    border: `2px solid ${c.border}`,
-                    boxShadow: `0 0 20px ${c.glow}`
-                  };
-                })(),
+                background: roomConfig(selRoom).bg,
+                border: `2px solid ${roomConfig(selRoom).border}`,
+                boxShadow: `0 0 20px ${roomConfig(selRoom).glow}`,
                 display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 2
               }}>
-                <RoomIcon type={roomConfig(selRoom).icon} color={roomConfig(selRoom).text} />
+                {roomConfig(selRoom).hasIcon && (
+                  <UserCircle size={16} color={roomConfig(selRoom).text} />
+                )}
                 <span style={{
                   fontSize: 12, color: roomConfig(selRoom).text, fontWeight: 800
                 }}>
@@ -1149,28 +1108,16 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         </div>
       )}
 
-      {/* Inline styles for animations */}
       <style>{`
         @keyframes pulseDot {
           0%,100% { box-shadow: 0 0 4px #22c55e; }
           50%      { box-shadow: 0 0 10px #22c55e, 0 0 20px rgba(34,197,94,0.4); }
         }
-        @keyframes bounce {
-          0%,80%,100% { transform: scale(0); opacity: 0.3; }
-          40%          { transform: scale(1); opacity: 1; }
-        }
+        .spin-slow { animation: spinRing 3s linear infinite; }
+        .spin-reverse { animation: spinRing 4s linear infinite reverse; }
+        .spin-slower { animation: spinRing 8s linear infinite; }
         @keyframes spinRing {
           to { transform: rotate(360deg); }
-        }
-        @keyframes soundWave {
-          0%, 100% { height: 4px; }
-          50% { height: 10px; }
-        }
-        @keyframes scanLineVertical {
-          0% { top: 10%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 90%; opacity: 0; }
         }
       `}</style>
     </div>
