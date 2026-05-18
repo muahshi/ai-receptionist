@@ -34,7 +34,7 @@ html, body {
   color: #fff;
 }
 
-/* ── Scrollable areas ───────────────────────────────────────── */
+/* Scrollable areas */
 .scroll-y {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -49,7 +49,7 @@ html, body {
 }
 .scroll-x::-webkit-scrollbar { display: none; }
 
-/* ── Glass card ─────────────────────────────────────────────── */
+/* Glass card */
 .card {
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
@@ -64,7 +64,7 @@ html, body {
   border-radius: 16px;
 }
 
-/* ── Gold button ────────────────────────────────────────────── */
+/* Gold button */
 .btn-gold {
   background: linear-gradient(135deg, #b8960c 0%, #D4AF37 50%, #F5C842 100%);
   color: #000;
@@ -75,7 +75,7 @@ html, body {
 }
 .btn-gold:active { transform: scale(0.96); }
 
-/* ── Input ──────────────────────────────────────────────────── */
+/* Input */
 .inp {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
@@ -90,7 +90,7 @@ html, body {
 }
 .inp::placeholder { color: rgba(255,255,255,0.25); }
 
-/* ── Room grid cells ─────────────────────────────────────────── */
+/* Room grid cells */
 .room-occupied {
   background: linear-gradient(145deg, #1a4a1a, #0d2e0d);
   border: 1px solid rgba(34,197,94,0.5);
@@ -115,33 +115,12 @@ html, body {
   border: 1px solid rgba(99,102,241,0.5);
 }
 
-/* ── AI Scan button glow ────────────────────────────────────── */
-.ai-scan-ring {
-  position: relative;
-}
-.ai-scan-ring::before {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 60%, rgba(0,112,243,0.6), transparent);
-  animation: spinRing 3s linear infinite;
-}
-.ai-scan-ring::after {
-  content: '';
-  position: absolute;
-  inset: -16px;
-  border-radius: 50%;
-  background: conic-gradient(from 180deg, transparent 60%, rgba(212,175,55,0.4), transparent);
-  animation: spinRing 4s linear infinite reverse;
-}
-
-/* ── Revenue chart line glow ─────────────────────────────────── */
+/* Revenue chart line glow */
 .revenue-glow-line {
   filter: drop-shadow(0 0 6px #D4AF37) drop-shadow(0 0 12px rgba(212,175,55,0.5));
 }
 
-/* ── Animations ──────────────────────────────────────────────── */
+/* Animations */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -206,6 +185,11 @@ html, body {
   50% { opacity: 1; }
 }
 
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
 .fade-up  { animation: fadeUp  0.4s ease forwards; }
 .slide-up { animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
 .lock-seal { animation: lockSeal 0.7s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
@@ -252,24 +236,24 @@ html, body {
   animation: scanLine 2s ease-in-out infinite;
 }
 
-/* ── Bottom Nav Active State ───────────────────────────────── */
+/* Bottom Nav Active State */
 .nav-item-active {
   background: linear-gradient(135deg, #D4AF37, #F5C842);
   border-radius: 50%;
   box-shadow: 0 0 16px rgba(212,175,55,0.4);
 }
 
-/* ── 3D Building Wireframe ─────────────────────────────────── */
+/* 3D Building Wireframe */
 .building-wireframe {
   transform: perspective(100px) rotateY(-15deg) rotateX(5deg);
 }
 
-/* ── Revenue sparkline glow dot ────────────────────────────── */
+/* Revenue sparkline glow dot */
 .sparkline-glow {
   filter: drop-shadow(0 0 8px rgba(212,175,55,0.8));
 }
 
-/* ── Card hover effects ────────────────────────────────────── */
+/* Card hover effects */
 .card-hover {
   transition: all 0.3s ease;
 }
@@ -278,7 +262,7 @@ html, body {
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 
-/* ── Status badges ─────────────────────────────────────────── */
+/* Status badges */
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -291,7 +275,7 @@ html, body {
   text-transform: uppercase;
 }
 
-/* ── Gradient text ─────────────────────────────────────────── */
+/* Gradient text */
 .gradient-text-gold {
   background: linear-gradient(135deg, #D4AF37, #F5C842);
   -webkit-background-clip: text;
@@ -299,7 +283,7 @@ html, body {
   background-clip: text;
 }
 
-/* ── AI Scan rings ─────────────────────────────────────────── */
+/* AI Scan rings */
 .ai-scan-outer-ring {
   position: absolute;
   inset: -12px;
@@ -328,7 +312,7 @@ html, body {
   animation: spinRing 8s linear infinite;
 }
 
-/* ── Room tile 3D effect ───────────────────────────────────── */
+/* Room tile 3D effect */
 .room-tile-3d {
   transition: all 0.15s ease;
   transform-style: preserve-3d;
@@ -337,17 +321,24 @@ html, body {
   transform: scale(0.92) translateZ(-10px);
 }
 
-/* ── Notification dot pulse ────────────────────────────────── */
+/* Notification dot pulse */
 .notification-dot {
   animation: pulse-gold 2s infinite;
 }
 
-/* ── Skeleton loading ──────────────────────────────────────── */
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
+/* Skeleton loading */
 .skeleton {
   animation: skeleton-pulse 1.5s ease-in-out infinite;
   background: rgba(255,255,255,0.05);
+}
+
+/* Spin animations for AI Scan */
+.spin-slow {
+  animation: spinRing 3s linear infinite;
+}
+.spin-reverse {
+  animation: spinRing 4s linear infinite reverse;
+}
+.spin-slower {
+  animation: spinRing 8s linear infinite;
 }
