@@ -28,12 +28,12 @@
 html{scroll-behavior:smooth;font-size:16px}
 body{background:var(--bg);color:var(--white);font-family:'Outfit',sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
-/* ── CUSTOM SCROLLBAR ── */
+/* ── SCROLLBAR CONFIG ── */
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.3);border-radius:4px}
 
-/* ── TYPOGRAPHY & GRADIENTS ── */
+/* ── TYPOGRAPHY & INTERACTIVE EFFECTS ── */
 .font-display{font-family:'Cormorant Garamond',serif}
 .text-gold{color:var(--gold)}
 .text-gold-grad{
@@ -43,7 +43,7 @@ body{background:var(--bg);color:var(--white);font-family:'Outfit',sans-serif;ove
 .text-muted{color:var(--text-muted)}
 .text-sub{color:var(--text-sub)}
 
-/* ── CARDS & UTILITIES ── */
+/* ── GLASS CONTAINER ARCHITECTURE ── */
 .glass{
   background:rgba(255,255,255,0.02);
   border:1px solid var(--border-white);
@@ -55,7 +55,7 @@ body{background:var(--bg);color:var(--white);font-family:'Outfit',sans-serif;ove
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)
 }
 
-/* ── INTERACTIVE BUTTONS ── */
+/* ── PREMIUM INCENTIVE BUTTONS ── */
 .btn-gold{
   background:linear-gradient(135deg,#91711E,#C9A84C 50%,#E8C76B);
   color:#090907;font-weight:700;letter-spacing:0.02em;
@@ -78,7 +78,7 @@ body{background:var(--bg);color:var(--white);font-family:'Outfit',sans-serif;ove
 .btn-ghost:hover{background:rgba(201,168,76,0.08);border-color:rgba(201,168,76,0.5);transform:translateY(-2px)}
 
 /* ══════════════════════════════════ */
-/* NAVIGATION BAR                     */
+/* GLOBAL NAVIGATION FRAMEWORK       */
 /* ══════════════════════════════════ */
 nav{
   position:fixed;top:0;left:0;right:0;z-index:100;
@@ -109,7 +109,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 @media(max-width:960px){.nav-links, .nav-actions{display:none}.nav-hamburger{display:flex}.mobile-nav.open{display:flex}}
 
 /* ══════════════════════════════════ */
-/* HERO COMMAND CENTER                */
+/* SYSTEM INTERACTIVE HERO ENGINE     */
 /* ══════════════════════════════════ */
 #hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden;padding-top:76px}
 .hero-bg-image{
@@ -119,7 +119,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 }
 @keyframes heroParallax{from{transform:scale(1.05) translateY(0)}to{transform:scale(1.12) translateY(-15px)}}
 
-/* Cinematic Multi-Layer Overlays */
+/* High-Gloss Cinematic Layers */
 .hero-overlay-dark{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(10,10,9,0.6) 0%,rgba(10,10,9,0.3) 40%,rgba(10,10,9,0.9) 85%,#0A0A09 100%)}
 .hero-overlay-radial{position:absolute;inset:0;z-index:2;background:radial-gradient(ellipse 85% 75% at 25% 50%,rgba(10,10,9,0.85) 0%,transparent 65%)}
 .hero-overlay-gold{position:absolute;inset:0;z-index:3;background:radial-gradient(circle 50% 50% at 50% 0%,rgba(201,168,76,0.07) 0%,transparent 60%)}
@@ -141,7 +141,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
   align-items:center;min-height:calc(100vh - 76px)
 }
 
-/* ── HERO GRAPHICS & WORKFLOW CONTEXT ── */
+/* Hero Metrics & Text Controls */
 .hero-left{display:flex;flex-direction:column}
 .hero-badge{
   display:inline-flex;align-items:center;gap:10px;padding:7px 16px;border-radius:100px;margin-bottom:2rem;
@@ -165,10 +165,9 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .hero-trust-text{font-size:0.85rem;color:var(--text-muted);font-weight:300}
 .hero-trust-text strong{color:var(--white);font-weight:500}
 
-/* ── LAPTOP INTERACTIVE MONITOR ── */
+/* LAPTOP DESIGN PREVIEW */
 .hero-right{display:flex;align-items:center;justify-content:center;position:relative}
 
-/* Floating Product System Tags */
 .floating-tag{
   position:absolute;z-index:20;padding:6px 14px;border-radius:8px;font-size:0.75rem;font-weight:500;
   display:flex;align-items:center;gap:8px;box-shadow:0 15px 35px rgba(0,0,0,0.6);
@@ -195,9 +194,9 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .screen-bar .dots{display:flex;gap:5px}.screen-bar .dot{width:7px;height:7px;border-radius:50%}
 .screen-url{margin:0 auto;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:4px;width:60%;height:14px;display:flex;align-items:center;padding:0 8px;font-size:7px;color:rgba(255,255,255,0.3);font-family:monospace}
 
-/* UI Panel Details */
+/* Real-time Simulated Panel UI */
 .dashboard-view{padding:10px;background:#0A0A0A}
-.dv-header{display:flex;justify-content:between;align-items:center;margin-bottom:10px}
+.dv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .dv-title{font-size:10px;font-weight:600}
 .dv-pulse{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2)}
 .dv-pulse-dot{width:4px;height:4px;border-radius:50%;background:#22c55e;animation:pulseGlow 1.5s infinite}
@@ -222,7 +221,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .laptop-base{height:8px;background:linear-gradient(180deg,#1D1D1B,#111);border-radius:0 0 10px 10px}
 
 /* ══════════════════════════════════ */
-/* TRUST METRICS STRIP                */
+/* TRUST STRIP GRID                   */
 /* ══════════════════════════════════ */
 .trust-strip{max-width:1440px;margin:0 auto;padding:0 clamp(1.5rem,5vw,4rem)}
 .ts-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.25),transparent)}
@@ -243,7 +242,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .feat-title{font-size:1.1rem;font-weight:600;margin-bottom:0.6rem;letter-spacing:-0.01em}
 .feat-desc{font-size:0.85rem;color:var(--text-muted);line-height:1.65;font-weight:300}
 
-/* ── OPERATIONS SPLIT SECTION ── */
+/* Operations Split Highlight */
 .ops-split{margin-top:5rem;display:grid;grid-template-columns:1fr 1.2fr;gap:2rem;align-items:center}
 .ops-visual{background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.04);border-radius:20px;padding:3rem;display:flex;justify-content:center;position:relative}
 .ops-orb-container{position:relative;width:140px;height:140px}
@@ -255,11 +254,10 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
   box-shadow:0 0 40px rgba(59,130,246,0.25)
 }
 @keyframes spinRing{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-
 .ops-text-badge{display:inline-flex;padding:5px 12px;border-radius:20px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:1.25rem}
 
 /* ══════════════════════════════════ */
-/* OPERATIONS PLATFORM LAYER          */
+/* OPERATIONS COMPREHENSIVE ENGINE    */
 /* ══════════════════════════════════ */
 #operations{padding:clamp(4rem,7vh,8rem) 0;background:var(--bg2);border-top:1px solid rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.02)}
 .ops-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:3.5rem}
@@ -270,7 +268,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .ops-card-desc{font-size:0.88rem;color:var(--text-muted);line-height:1.6;font-weight:300}
 
 /* ══════════════════════════════════ */
-/* WHY HOTELS SWITCH (COMPARE)         */
+/* COMPARATIVE VALUE PROPOSITION      */
 /* ══════════════════════════════════ */
 #compare{padding:clamp(4rem,7vh,8rem) 0}
 .compare-table{width:100%;border-collapse:collapse;margin-top:3.5rem;border:1px solid rgba(255,255,255,0.04)}
@@ -282,7 +280,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .check-icon{color:#4ade80;margin-right:8px}
 
 /* ══════════════════════════════════ */
-/* VALUE-BASED PRICING                */
+/* INVENTORY-BASED SCALE PRICING      */
 /* ══════════════════════════════════ */
 #pricing{padding:clamp(4rem,7vh,8rem) 0;background:var(--bg2)}
 .price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:3.5rem;max-width:1140px;margin-left:auto;margin-right:auto}
@@ -299,7 +297,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .price-btn{display:block;text-align:center;padding:14px;border-radius:10px;font-size:0.85rem;font-weight:600;text-decoration:none;transition:all 0.3s}
 
 /* ══════════════════════════════════ */
-/* ENTERPRISE TRUST & REGIONS         */
+/* TRUST CONTEXT & REGIONAL METRICS   */
 /* ══════════════════════════════════ */
 #social-proof{padding:clamp(4rem,7vh,8rem) 0}
 .proof-container{background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.04);border-radius:24px;padding:3.5rem;text-align:center}
@@ -307,11 +305,11 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .proof-flex{display:flex;justify-content:center;gap:3rem;flex-wrap:wrap}
 .proof-tag{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:400;color:var(--text-sub);letter-spacing:0.02em}
 
-/* ── FAQ INTERACTIVE LAYER ── */
+/* FAQ Interactive Configuration */
 .faq-wrap{max-width:800px;margin:3.5rem auto 0;display:flex;flex-direction:column}
 .faq-node{border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer}
 .faq-node:first-child{border-top:1px solid rgba(255,255,255,0.04)}
-.faq-trigger{display:flex;justify-content:between;align-items:center;padding:1.6rem 0;font-size:1rem;font-weight:500;transition:color 0.25s}
+.faq-trigger{display:flex;justify-content:space-between;align-items:center;padding:1.6rem 0;font-size:1rem;font-weight:500;transition:color 0.25s}
 .faq-node:hover .faq-trigger, .faq-node.active .faq-trigger{color:var(--gold-light)}
 .faq-indicator{width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:transform 0.3s}
 .faq-node.active .faq-indicator{transform:rotate(45deg);color:var(--gold)}
@@ -320,7 +318,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .faq-content p{font-size:0.9rem;color:var(--text-muted);line-height:1.7;font-weight:300;padding-bottom:1.5rem}
 
 /* ══════════════════════════════════ */
-/* CONVERSION ACTION (CTA)            */
+/* LEAD CONVERSION ENGINE (CTA)       */
 /* ══════════════════════════════════ */
 #demo{padding:clamp(4rem,10vh,9rem) 0;position:relative}
 .demo-radial{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:500px;pointer-events:none;background:radial-gradient(ellipse,rgba(201,168,76,0.05) 0%,transparent 70%);filter:blur(50px)}
@@ -336,7 +334,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 .submit-trigger{width:100%;padding:16px;border-radius:10px;font-size:0.95rem;font-weight:700;letter-spacing:0.02em;cursor:pointer;border:none}
 
 /* ══════════════════════════════════ */
-/* FOOTER SYSTEM                      */
+/* GLOBAL FOOTER CONTROL              */
 /* ══════════════════════════════════ */
 footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4rem clamp(1.5rem,5vw,4rem) 2rem}
 .footer-wrap{max-width:1440px;margin:0 auto}
@@ -351,8 +349,7 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
 .footer-base{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;font-size:0.78rem;color:rgba(255,255,255,0.2)}
 .footer-legals{display:flex;gap:1.5rem}.footer-legals a{color:rgba(255,255,255,0.2);text-decoration:none}
 
-/* ── ANIMATION ARCHITECTURE ── */
-@keyframes pulseGlow{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.92)}}
+/* Scroll Pipeline Reveals */
 .scroll-reveal{opacity:0;transform:translateY(24px);transition:opacity 0.8s cubic-bezier(0.16,1,0.3,1),transform 0.8s cubic-bezier(0.16,1,0.3,1)}
 .scroll-reveal.visible{opacity:1;transform:translateY(0)}
 
@@ -395,7 +392,7 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
     <a href="#features">Architecture</a>
     <a href="#operations">Operations</a>
     <a href="#compare">Why Switch</a>
-    <a href="#pricing">Pricing</a>
+    <a href="#pricing">Tariff Models</a>
   </div>
   <div class="nav-actions">
     <a href="#demo" class="btn-ghost">Console Login</a>
@@ -543,7 +540,7 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
     <div class="section-header scroll-reveal" style="text-align:center; margin-bottom:4rem">
       <div class="section-eyebrow"><span>System Architecture</span></div>
       <h2 class="section-title">Engineered for Operational <em>Control</em></h2>
-      <p class="section-sub">Replace fragmented legacy apps with a single robust system built to eliminate human dependencies.</p>
+      <p class="section-sub">Replace fragmented legacy PMS systems with a unified layout built to eliminate leakage.</p>
     </div>
 
     <div class="feat-grid scroll-reveal">
@@ -552,28 +549,28 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
         </div>
         <div class="feat-title">AI Guest Operations</div>
-        <div class="feat-desc">Automated, frictionless check-ins and conversational guest management executing flawlessly 24/7.</div>
+        <div class="feat-desc">Automated check-ins and conversational guest management executing flawlessly across communication layers 24/7.</div>
       </div>
       <div class="feat-card">
         <div class="feat-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M21 12H3M12 3v18"/></svg>
         </div>
         <div class="feat-title">Hotel Workflow Automation</div>
-        <div class="feat-desc">Instantly dispatches tasks across housekeeping, frontdesk, and logistics without manual coordination.</div>
+        <div class="feat-desc">Instantly routes and tracks live tasks across housekeeping, frontdesk, and staff parameters without delays.</div>
       </div>
       <div class="feat-card">
         <div class="feat-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.8"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
         </div>
         <div class="feat-title">Revenue Intelligence Ledger</div>
-        <div class="feat-desc">Locks room rates natively upon confirmation, preventing under-the-table manipulations or cash manipulation.</div>
+        <div class="feat-desc">Locks room rates natively upon transaction log setup, removing manual price modifications by on-desk clerks.</div>
       </div>
       <div class="feat-card">
         <div class="feat-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.8"><path d="M23 6l-9.5 9.5-5-5L1 18"/></svg>
         </div>
         <div class="feat-title">Dynamic Pricing Engine</div>
-        <div class="feat-desc">Proprietary AI adjusts your property inventory tariff based on demand density and local market movements.</div>
+        <div class="feat-desc">Proprietary logic adjustments optimize room inventory tariff parameters based on immediate demand metrics.</div>
       </div>
     </div>
 
@@ -583,19 +580,19 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
           <div class="ops-ring"></div>
           <div class="ops-ring-inner"></div>
           <div class="ops-center">
-            <span style="font-size:1.1rem; font-weight:700; color:#60a5fa; letter-spacing:0.1em">VISION SYSTEM</span>
+            <span style="font-size:1.1rem; font-weight:700; color:#60a5fa; letter-spacing:0.1em">VISION CORE</span>
           </div>
         </div>
       </div>
       <div style="padding:1rem">
-        <div class="ops-text-badge">Subsecond Processing</div>
-        <h3 style="font-family:'Cormorant Garamond',serif; font-size:2.2rem; font-weight:300; margin-bottom:1rem">High-Speed AI Document OCR Extraction</h3>
+        <div class="ops-text-badge">Subsecond Logic</div>
+        <h3 style="font-family:'Cormorant Garamond',serif; font-size:2.2rem; font-weight:300; margin-bottom:1rem">High-Speed AI Document OCR Processing</h3>
         <p style="font-size:0.92rem; color:var(--text-muted); line-height:1.7; font-weight:300; margin-bottom:1.5rem">
-          Eliminate manual database inputs entirely. Point your system camera at any valid government ID — Passport, Driver's License, or Indian regional credentials. The Groq-powered parsing mesh extracts metrics instantly and fills secure records without manager errors.
+          Eliminate manual frontdesk input entries. Point the device camera at any valid user credentials. The extraction network reads parameters instantly, auto-filling secure database records while avoiding staff configuration errors.
         </p>
         <div style="display:flex; gap:2rem">
-          <div><span style="font-size:1.8rem; font-weight:700; color:#60a5fa">3s</span><p style="font-size:0.75rem; color:var(--text-muted)">Processing Limit</p></div>
-          <div><span style="font-size:1.8rem; font-weight:700; color:#4ade80">0</span><p style="font-size:0.75rem; color:var(--text-muted)">Manual Interventions</p></div>
+          <div><span style="font-size:1.8rem; font-weight:700; color:#60a5fa">3s</span><p style="font-size:0.75rem; color:var(--text-muted)">Scan Limit</p></div>
+          <div><span style="font-size:1.8rem; font-weight:700; color:#4ade80">0</span><p style="font-size:0.75rem; color:var(--text-muted)">Manual Entry Mistakes</p></div>
         </div>
       </div>
     </div>
@@ -607,33 +604,33 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
     <div class="section-header scroll-reveal" style="text-align:center">
       <div class="section-eyebrow"><span>Operational Depth</span></div>
       <h2 class="section-title">Built for Real <em>Hotel Operators</em></h2>
-      <p class="section-sub">Comprehensive tools designed for daily enterprise ground control, ensuring flawless execution across departments.</p>
+      <p class="section-sub">Comprehensive operational modules designed for multi-tenant deployment across hospitality workflows.</p>
     </div>
 
     <div class="ops-grid scroll-reveal">
       <div class="ops-card">
-        <div class="ops-card-title"><span class="ops-card-dot"></span>Reception Management Hub</div>
-        <div class="ops-card-desc">Complete front-desk visibility with immutable tracking of check-ins, departures, and tariff updates.</div>
+        <div class="ops-card-title"><span class="ops-card-dot"></span>Frontdesk Console Ledger</div>
+        <div class="ops-card-desc">Complete reception visibility with locked verification tracks for room check-ins and billing updates.</div>
       </div>
       <div class="ops-card">
-        <div class="ops-card-title"><span class="ops-card-dot"></span>Automated Housekeeping Matrix</div>
-        <div class="ops-card-desc">AI tracks room status and routes cleanup queues automatically upon guest departures.</div>
+        <div class="ops-card-title"><span class="ops-card-dot"></span>Automated Housekeeping Queues</div>
+        <div class="ops-card-desc">Maintains clean environment timelines by updating allocation tracks immediately on checkout logs.</div>
       </div>
       <div class="ops-card">
         <div class="ops-card-title"><span class="ops-card-dot"></span>Instant Multi-Channel Alerts</div>
-        <div class="ops-card-desc">Simultaneous notification broadcasts out via native JS modules to Owner, Manager, and Customer logs.</div>
+        <div class="ops-card-desc">Simultaneous automated notification triggers connect Owner, Manager, and Guest tracking nodes instantly.</div>
       </div>
       <div class="ops-card">
-        <div class="ops-card-title"><span class="ops-card-dot"></span>Multi-Property Controls</div>
-        <div class="ops-card-desc">Consolidate management across different geographic locations inside a single master secure layout.</div>
+        <div class="ops-card-title"><span class="ops-card-dot"></span>Multi-Property Control Hub</div>
+        <div class="ops-card-desc">Monitor operational load metrics across distinct hotel properties inside a single data layout.</div>
       </div>
       <div class="ops-card">
-        <div class="ops-card-title"><span class="ops-card-dot"></span>Dynamic OTA Channel Sync</div>
-        <div class="ops-card-desc">Sync inventory parameters across external channels instantly to remove booking over-allocation risks.</div>
+        <div class="ops-card-title"><span class="ops-card-dot"></span>Dynamic Channel Distribution</div>
+        <div class="ops-card-desc">Sync inventory parameters to external channels automatically, preventing over-allocation parameters.</div>
       </div>
       <div class="ops-card">
-        <div class="ops-card-title"><span class="ops-card-dot"></span>Smart Occupancy Heatmaps</div>
-        <div class="ops-card-desc">Advanced data structures visualization highlighting historical spatial traffic trends instantly.</div>
+        <div class="ops-card-title"><span class="ops-card-dot"></span>Spatial Occupancy Heatmaps</div>
+        <div class="ops-card-desc">Advanced data structures visualization highlighting historical metrics for optimal revenue analysis.</div>
       </div>
     </div>
   </div>
@@ -649,31 +646,31 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
     <table class="compare-table scroll-reveal">
       <thead>
         <tr>
-          <th>Operational Workflow</th>
-          <th>Legacy PMS / Manual Systems</th>
+          <th>Operational Core</th>
+          <th>Legacy PMS Systems / Registers</th>
           <th style="color:var(--gold)">The GuestInn OS Layer</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Check-In Executions</td>
-          <td class="val-before">Manual record books, typos, delayed processing</td>
-          <td class="val-after"><span class="check-icon">✓</span> 3-Second Automated Document Scan via Groq AI</td>
+          <td>Check-In Routines</td>
+          <td class="val-before">Manual ledger books, tracking errors, operational delay</td>
+          <td class="val-after"><span class="check-icon">✓</span> 3-Second High-Speed AI Scanner Parsing</td>
         </tr>
         <tr>
-          <td>Revenue Protection</td>
-          <td class="val-before">Unrecorded cash entries, unauthorized room discount overrides</td>
+          <td>Leakage Control</td>
+          <td class="val-before">Unrecorded cash logs, untracked guest adjustments</td>
           <td class="val-after"><span class="check-icon">✓</span> Locked Immutable Tariffs with Immediate Owner Alerts</td>
         </tr>
         <tr>
-          <td>Tariff Optimization</td>
-          <td class="val-before">Fixed pricing vectors causing low yield on surge dates</td>
-          <td class="val-after"><span class="check-icon">✓</span> AI Real-Time Dynamic Demand Pricing Adjustments</td>
+          <td>Tariff Yield Models</td>
+          <td class="val-before">Static prices causing low margins on peak demand dates</td>
+          <td class="val-after"><span class="check-icon">✓</span> Automated Real-Time Dynamic Yield Optimizations</td>
         </tr>
         <tr>
-          <td>Guest Updates</td>
-          <td class="val-before">Delayed bills, missing communication, high friction</td>
-          <td class="val-after"><span class="check-icon">✓</span> Instant Automated Triple-Channel Messaging Arrays</td>
+          <td>Team Logs Sync</td>
+          <td class="val-before">Delayed manual communication between desk and cleaning staff</td>
+          <td class="val-after"><span class="check-icon">✓</span> Instant Triple-Channel Automated Notification Arrays</td>
         </tr>
       </tbody>
     </table>
@@ -683,50 +680,53 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
 <section id="pricing">
   <div class="section-wrap" style="max-width:1440px; margin:0 auto; padding:0 clamp(1.5rem,5vw,4rem)">
     <div class="section-header scroll-reveal" style="text-align:center">
-      <div class="section-eyebrow"><span>Predictable Investment</span></div>
-      <h2 class="section-title">Scale Based on Your <em>Inventory</em></h2>
-      <p class="section-sub">Simple pricing designed to align with your room count. No hidden implementation overheads.</p>
+      <div class="section-eyebrow"><span>Inventory Pricing</span></div>
+      <h2 class="section-title">Simple Scaling Based on Your <em>Inventory</em></h2>
+      <p class="section-sub">Predictable structures aligned with your room capacity thresholds. No deployment setup overheads.</p>
     </div>
 
     <div class="price-grid scroll-reveal">
       <div class="price-card">
-        <div class="price-tier">Starter</div>
-        <div class="price-amt">Free</div>
-        <div class="price-context">Basic operational exploration</div>
+        <div class="price-tier">Starter Node</div>
+        <div class="price-amt">₹999<span>/mo</span></div>
+        <div class="price-context">Optimized for baseline boutique boutique properties</div>
         <ul class="price-list">
-          <li><span class="y">✓</span> Up to 20 rooms allocation</li>
-          <li><span class="y">✓</span> Basic PMS Hub Matrix</li>
-          <li><span class="n">✗</span> AI Conversational Assistant</li>
-          <li><span class="n">✗</span> High-Speed OCR Document AI</li>
+          <li><span class="y">✓</span> 1 – 20 Rooms Scale Capacity</li>
+          <li><span class="y">✓</span> Central PMS Hub Access</li>
+          <li><span class="y">✓</span> Real-time Occupancy Matrix</li>
+          <li><span class="y">✓</span> Core Financial Ledger Logs</li>
+          <li><span class="n">✗</span> Advanced Dynamic Pricing Mesh</li>
         </ul>
-        <a href="#demo" class="price-btn btn-ghost">Deploy Core Engine</a>
+        <a href="#demo" class="price-btn btn-ghost">Deploy Starter Node</a>
       </div>
 
       <div class="price-card featured">
-        <div class="price-badge"><span>Recommended</span></div>
-        <div class="price-tier" style="color:var(--gold)">Growth Suite</div>
-        <div class="price-amt">Hex Tariff<span>/mo</span></div>
-        <div class="price-context">Comprehensive AI automation</div>
+        <div class="price-badge"><span>Most Selected</span></div>
+        <div class="price-tier" style="color:var(--gold)">Standard Fleet</div>
+        <div class="price-amt">₹1,999<span>/mo</span></div>
+        <div class="price-context">Comprehensive setup for growth properties</div>
         <ul class="price-list">
-          <li><span class="y">✓</span> Up to 100 rooms architecture</li>
-          <li><span class="y">✓</span> Automated AI Ground Operations</li>
-          <li><span class="y">✓</span> Groq Document Scanning Engine</li>
+          <li><span class="y">✓</span> 21 – 50 Rooms Scale Capacity</li>
+          <li><span class="y">✓</span> High-Speed Document AI Scanner</li>
+          <li><span class="y">✓</span> 24/7 Conversational Automation</li>
           <li><span class="y">✓</span> Locked Revenue Leakage Alerts</li>
+          <li><span class="y">✓</span> Triple-Channel Alert Mesh</li>
         </ul>
         <a href="#demo" class="price-btn btn-gold" style="border:none">Initiate System Trial</a>
       </div>
 
       <div class="price-card">
-        <div class="price-tier">Enterprise</div>
-        <div class="price-amt">Custom</div>
-        <div class="price-context">High-volume hotel networks</div>
+        <div class="price-tier">Scale Mesh</div>
+        <div class="price-amt">₹2,999<span>/mo</span></div>
+        <div class="price-context">Built for deep commercial footprints</div>
         <ul class="price-list">
-          <li><span class="y">✓</span> Unlimited property nodes</li>
-          <li><span class="y">✓</span> Cross-Property Ledger Sync</li>
-          <li><span class="y">✓</span> Custom AI Agent Parameters</li>
-          <li><span class="y">✓</span> Dedicated Infrastructure SLAs</li>
+          <li><span class="y">✓</span> 51 – 100 Rooms Scale Capacity</li>
+          <li><span class="y">✓</span> Full Automated Operations Suite</li>
+          <li><span class="y">✓</span> Dynamic Tariff Pricing Optimization</li>
+          <li><span class="y">✓</span> Multi-Channel OTA Sync Pipelines</li>
+          <li><span class="y">✓</span> Priority Support Console Level</li>
         </ul>
-        <a href="#demo" class="price-btn btn-ghost">Contact Systems Desk</a>
+        <a href="#demo" class="price-btn btn-ghost">Deploy Scale Mesh</a>
       </div>
     </div>
   </div>
@@ -736,13 +736,13 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
   <div class="trust-strip"><div class="ts-divider"></div></div>
   <div class="section-wrap" style="max-width:1440px; margin:0 auto; padding:4rem clamp(1.5rem,5vw,4rem) 0">
     <div class="proof-container scroll-reveal">
-      <div class="proof-title">Regional Operational Footprint</div>
+      <div class="proof-title">Active Independent Deployment Clusters</div>
       <div class="proof-flex">
         <span class="proof-tag">Boutique Stays · Jaipur</span>
         <span class="proof-tag">Heritage Luxury · Udaipur</span>
         <span class="proof-tag">Business Stays · Mumbai</span>
-        <span class="proof-tag">Urban Hubs · Bhopal</span>
-        <span class="proof-tag">Eco Lodges · Goa</span>
+        <span class="proof-tag">Urban Core · Bhopal</span>
+        <span class="proof-tag">Coastal Stays · Goa</span>
       </div>
     </div>
   </div>
@@ -751,22 +751,22 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
 <section id="faq">
   <div class="section-wrap" style="max-width:1440px; margin:0 auto; padding:0 clamp(1.5rem,5vw,4rem)">
     <div class="section-header scroll-reveal" style="text-align:center">
-      <div class="section-eyebrow"><span>System Specifications</span></div>
-      <h2 class="section-title">Technical <em>Architecture</em> FAQs</h2>
+      <div class="section-eyebrow"><span>System Framework</span></div>
+      <h2 class="section-title">Technical <em>Specifications</em> FAQs</h2>
     </div>
 
     <div class="faq-wrap scroll-reveal">
       <div class="faq-node" onclick="handleFaqToggle(this)">
         <div class="faq-trigger">Is specialized hardware required for execution?<div class="faq-indicator">+</div></div>
-        <div class="faq-content"><p>No specialized physical hardware terminals are required. The GuestInn functions natively as a Progressive Web Application (PWA). Any modern smartphone, tablet, or baseline desktop console with active browser infrastructure can safely deploy the system layer.</p></div>
+        <div class="faq-content"><p>No specialized physical hardware terminals are required. The GuestInn functions natively as a Progressive Web Application (PWA). Any modern mobile phone, tablet console, or browser instance can access the system layer securely.</p></div>
       </div>
       <div class="faq-node" onclick="handleFaqToggle(this)">
-        <div class="faq-trigger">How does the system prevent property ledger fraud?<div class="faq-indicator">+</div></div>
-        <div class="faq-content"><p>Once check-in configurations and base tariffs are finalized by the operations clerk, the values are cryptographically locked inside our Supabase backend infrastructure. Any manual modifications trigger instant security notifications straight to the Owner's communication logs.</p></div>
+        <div class="faq-trigger">How does the system block property ledger fraud?<div class="faq-indicator">+</div></div>
+        <div class="faq-content"><p>Once operational check-ins and base room values are confirmed by the clerk, data structures lock completely. Any manual price edits or modifications trigger security logging alerts dispatched straight to the Owner's node.</p></div>
       </div>
       <div class="faq-node" onclick="handleFaqToggle(this)">
-        <div class="faq-trigger">How secure is isolated tenant database data?<div class="faq-indicator">+</div></div>
-        <div class="faq-content"><p>Every single registered property operates inside a strict multi-tenant database design. Row-Level Security parameters ensure your financial records, data structures, and operational summaries remain absolutely invisible to other system tenants.</p></div>
+        <div class="faq-trigger">How secure is isolated data architecture?<div class="faq-indicator">+</div></div>
+        <div class="faq-content"><p>Every single registered property operates inside an isolated tenant layer. Row-Level Security configurations ensure financial summaries, ledger databases, and client logs remain invisible to other platform operators.</p></div>
       </div>
     </div>
   </div>
@@ -777,20 +777,20 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
   <div class="section-wrap" style="max-width:1440px; margin:0 auto; padding:0 clamp(1.5rem,5vw,4rem)">
     <div class="demo-box scroll-reveal">
       <div class="hero-badge" style="margin-left:auto; margin-right:auto"><span class="hero-badge-pulse"></span><span>System Slots Open</span></div>
-      <h2 class="demo-title">Initialize Your Hotel's <em>AI Layer</em></h2>
-      <p class="demo-sub" style="margin-left:auto; margin-right:auto">Schedule a dedicated system deployment overview and see your live property metrics run with absolute AI autonomy.</p>
+      <h2 class="demo-title">Initialize Your Property's <em>AI Layer</em></h2>
+      <p class="demo-sub" style="margin-left:auto; margin-right:auto">Configure a dedicated system preview and watch your operational metrics balance with absolute AI autonomy.</p>
       
       <div class="demo-form-layout">
         <div class="field-block"><label>Operator Name</label><input type="text" placeholder="e.g., Mubashir Hasan"/></div>
         <div class="field-block"><label>Property Identity</label><input type="text" placeholder="e.g., Capital Hotel"/></div>
-        <div class="field-block"><label>Secure Phone Node</label><input type="tel" placeholder="+91 98765 43210"/></div>
+        <div class="field-block"><label>Secure Contact Node</label><input type="tel" placeholder="+91 98765 43210"/></div>
         <div class="field-block">
-          <label>Property Capacity</label>
+          <label>Inventory Capacity</label>
           <select>
-            <option>1–20 keys (Starter Node)</option>
-            <option>21–50 keys (Standard Operations)</option>
-            <option>51–100 keys (Scale Mesh)</option>
-            <option>100+ keys (Chain Architecture)</option>
+            <option>1 – 20 rooms (Starter Suite)</option>
+            <option>21 – 50 rooms (Standard Fleet)</option>
+            <option>51 – 100 rooms (Scale Mesh)</option>
+            <option>100+ rooms (Chain Node Setup)</option>
           </select>
         </div>
       </div>
@@ -812,22 +812,22 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
           </div>
           <span class="nav-logo-text">The GuestInn</span>
         </a>
-        <p>The AI-powered hotel operational platform built from the ground up to prevent data leakage and unlock maximum hospitality margins.</p>
-        <text>Infrastructure Engine: Optimized Groq Systems Framework.</text>
+        <p>The AI-powered hotel operational platform engineered to eliminate revenue data leakage and expand hospitality margins.</p>
+        <text>Infrastructure Engine: Optimized Groq Processing Systems Framework.</text>
       </div>
       <div>
-        <div class="footer-head">Platform System</div>
+        <div class="footer-head">Platform Core</div>
         <ul class="footer-nav-list">
           <li><a href="#features">Architecture</a></li>
           <li><a href="#operations">Operations Matrix</a></li>
-          <li><a href="#pricing">Tariff Models</a></li>
+          <li><a href="#pricing">Tariff Levels</a></li>
         </ul>
       </div>
       <div>
-        <div class="footer-head">Ground Support</div>
+        <div class="footer-head">Ground Control</div>
         <ul class="footer-nav-list">
           <li><a href="mailto:ops@theguestinn.ai">ops@theguestinn.ai</a></li>
-          <li><a href="#">Security Core Desk</a></li>
+          <li><a href="#">Security Response Desk</a></li>
         </ul>
       </div>
     </div>
@@ -840,23 +840,23 @@ footer{background:#070706;border-top:1px solid rgba(255,255,255,0.04);padding:4r
 </footer>
 
 <script>
-// Scroll Execution Navbar Effects
+// Scroll Execution Effects
 const navbar = document.getElementById('navbar');
 window.addEventListener('scroll', () => {
   navbar.classList.toggle('scrolled', window.scrollY > 30);
 }, { passive: true });
 
-// Mobile Interface Toggles
+// Mobile Navigation Mechanics
 function toggleMenu() {
   document.getElementById('mobileMenu').classList.toggle('open');
 }
 
-// Interactive Accordion States
+// Accordion Active Updates
 function handleFaqToggle(element) {
   element.classList.toggle('active');
 }
 
-// High-Performance Scroll View Port Animations
+// Viewport Intersection Observer Pipelines
 const scrollObserver = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (entry.isIntersecting) { entry.target.classList.add('visible'); }
@@ -864,7 +864,7 @@ const scrollObserver = new IntersectionObserver((entries) => {
 }, { threshold: 0.05, rootMargin: '0px 0px -20px 0px' });
 document.querySelectorAll('.scroll-reveal').forEach(el => scrollObserver.observe(el));
 
-// Fluid Pipeline Submit Mock Execution
+// Pipeline Submit Mock Actions
 function executeMockSubmit(button) {
   button.textContent = 'Allocating Infrastructure Node...';
   button.disabled = true;
