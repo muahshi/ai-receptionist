@@ -90,79 +90,145 @@ function AiScanReactor({ onClick }) {
 }
 
 /* ─── 3D Keycap ───────────────────────────────────────── */
-/* ── Dynamic grid sizing helper ──────────────────────────── */
+/* ── Dynamic grid sizing ──────────────────────────────────── */
 function getRoomGridLayout(totalRooms) {
-  // Cols per floor row based on total rooms
-  // Goal: fill full width, boxes scale with room count
-  if (totalRooms <= 10)  return { cols: 5,  gap: 6, fontSize: 10, badge: 16 };
-  if (totalRooms <= 20)  return { cols: 5,  gap: 5, fontSize: 9,  badge: 14 };
-  if (totalRooms <= 32)  return { cols: 8,  gap: 5, fontSize: 9,  badge: 13 };
-  if (totalRooms <= 48)  return { cols: 8,  gap: 4, fontSize: 8,  badge: 12 };
-  if (totalRooms <= 64)  return { cols: 8,  gap: 3, fontSize: 7,  badge: 11 };
-  if (totalRooms <= 80)  return { cols: 10, gap: 3, fontSize: 7,  badge: 10 };
-  return                        { cols: 10, gap: 2, fontSize: 6,  badge: 9  };
+  if (totalRooms <= 10)  return { cols:5,  gap:6, numSz:10, badgeSz:15, depth:7  };
+  if (totalRooms <= 20)  return { cols:5,  gap:5, numSz:9,  badgeSz:13, depth:6  };
+  if (totalRooms <= 32)  return { cols:8,  gap:4, numSz:8,  badgeSz:12, depth:5  };
+  if (totalRooms <= 48)  return { cols:8,  gap:3, numSz:7,  badgeSz:11, depth:5  };
+  if (totalRooms <= 64)  return { cols:10, gap:3, numSz:6,  badgeSz:10, depth:4  };
+  if (totalRooms <= 80)  return { cols:10, gap:2, numSz:6,  badgeSz:9,  depth:4  };
+  return                        { cols:10, gap:2, numSz:5,  badgeSz:8,  depth:3  };
 }
 
-function RoomKeycap({ room, onClick, layout }) {
-  const cfg = {
-    occupied:     { top:"linear-gradient(145deg,#183a18,#0c260c)", bevel:"#0a1e0a", glow:"rgba(34,197,94,0.55)",   badge:"#22c55e", text:"#86efac" },
-    reserved:     { top:"linear-gradient(145deg,#352500,#201600)", bevel:"#180f00", glow:"rgba(212,175,55,0.55)",  badge:"#D4AF37", text:"#fde68a" },
-    cleaning:     { top:"linear-gradient(145deg,#181840,#0c0c28)", bevel:"#080820", glow:"rgba(99,102,241,0.55)",  badge:"#818cf8", text:"#c7d2fe" },
-    out_of_order: { top:"rgba(14,14,18,0.96)",                      bevel:"#090909", glow:"rgba(75,85,99,0.3)",    badge:"#4b5563", text:"#9ca3af" },
-    vacant:       { top:"linear-gradient(145deg,#082010,#04120a)", bevel:"#021008", glow:"rgba(16,185,129,0.55)",  badge:"#10b981", text:"#6ee7b7" },
-  }[room.status] || { top:"linear-gradient(145deg,#082010,#04120a)", bevel:"#021008", glow:"rgba(16,185,129,0.55)", badge:"#10b981", text:"#6ee7b7" };
+/* ── Status config ────────────────────────────────────────── */
+function getRoomCfg(status) {
+  return {
+    occupied:    { face:"linear-gradient(160deg,#1d5c1d 0%,#0d360d 60%,#082208 100%)", right:"linear-gradient(180deg,#0d360d,#051405)", bottom:"#041004", glow:"#22c55e", glowA:"rgba(34,197,94,0.7)",  border:"rgba(34,197,94,0.8)",  badgeC:"#22c55e", numC:"#86efac",  label:"Occupied",    icon:"👤" },
+    reserved:    { face:"linear-gradient(160deg,#4a3500 0%,#2e2000 60%,#1a1200 100%)", right:"linear-gradient(180deg,#2e2000,#100b00)", bottom:"#0c0800", glow:"#D4AF37", glowA:"rgba(212,175,55,0.7)", border:"rgba(212,175,55,0.8)", badgeC:"#D4AF37", numC:"#fde68a",  label:"Reserved",    icon:"📌" },
+    cleaning:    { face:"linear-gradient(160deg,#1e1e5a 0%,#111138 60%,#08082a 100%)", right:"linear-gradient(180deg,#111138,#060618)", bottom:"#040412", glow:"#818cf8", glowA:"rgba(129,140,248,0.7)",border:"rgba(129,140,248,0.8)",badgeC:"#818cf8", numC:"#c7d2fe",  label:"Cleaning",    icon:"🧹" },
+    out_of_order:{ face:"linear-gradient(160deg,#1a1a1e 0%,#111113 60%,#090909 100%)", right:"linear-gradient(180deg,#111113,#060606)", bottom:"#040404", glow:"#6b7280", glowA:"rgba(107,114,128,0.4)",border:"rgba(107,114,128,0.5)",badgeC:"#4b5563", numC:"#9ca3af",  label:"Out of Order", icon:"🔧" },
+    vacant:      { face:"linear-gradient(160deg,#0d3520 0%,#072212 60%,#041209 100%)", right:"linear-gradient(180deg,#072212,#021008)", bottom:"#020a05", glow:"#10b981", glowA:"rgba(16,185,129,0.7)", border:"rgba(16,185,129,0.8)", badgeC:"#10b981", numC:"#6ee7b7",  label:"Vacant",      icon:"" },
+  }[status] || { face:"linear-gradient(160deg,#0d3520,#072212,#041209)", right:"linear-gradient(180deg,#072212,#021008)", bottom:"#020a05", glow:"#10b981", glowA:"rgba(16,185,129,0.7)", border:"rgba(16,185,129,0.8)", badgeC:"#10b981", numC:"#6ee7b7", label:"Vacant", icon:"" };
+}
 
-  const badgeSz = layout?.badge || 14;
-  const fontSz  = layout?.fontSize || 9;
+/* ── 3D Isometric Room Block ──────────────────────────────── */
+function RoomBlock({ room, onClick, layout }) {
+  const cfg = getRoomCfg(room.status);
+  const { numSz=9, badgeSz=13, depth=6 } = layout || {};
+  const hasImg = room.imageUrl; // future: room.imageUrl
 
   return (
-    <button onClick={()=>onClick(room)} style={{
-      width:"100%",
-      aspectRatio:"1 / 1.18", position:"relative",
-      background:"transparent", border:"none", cursor:"pointer", padding:0,
-      transform:"perspective(260px) rotateX(18deg)", transformOrigin:"center bottom",
-      transition:"transform 0.12s",
-    }}
-    onTouchStart={e=>{ e.currentTarget.style.transform="perspective(260px) rotateX(22deg) scale(0.93)"; }}
-    onTouchEnd={e=>{ e.currentTarget.style.transform="perspective(260px) rotateX(18deg)"; }}>
-      {/* Depth bevel */}
+    <button
+      onClick={()=>onClick(room)}
+      style={{
+        width:"100%", aspectRatio:"1/1.05",
+        position:"relative", background:"transparent",
+        border:"none", cursor:"pointer", padding:0,
+        /* Isometric perspective tilt */
+        transform:"perspective(400px) rotateX(20deg) rotateZ(0deg)",
+        transformOrigin:"center 90%",
+        transition:"transform 0.15s ease, filter 0.15s ease",
+        filter:`drop-shadow(0 ${depth+2}px ${depth*2}px rgba(0,0,0,0.7)) drop-shadow(0 0 ${depth*2}px ${cfg.glowA})`,
+      }}
+      onTouchStart={e=>{ e.currentTarget.style.transform="perspective(400px) rotateX(24deg) scale(0.92)"; e.currentTarget.style.filter=`drop-shadow(0 2px 4px rgba(0,0,0,0.9)) drop-shadow(0 0 8px ${cfg.glowA})`; }}
+      onTouchEnd={e=>{ e.currentTarget.style.transform="perspective(400px) rotateX(20deg)"; e.currentTarget.style.filter=`drop-shadow(0 ${depth+2}px ${depth*2}px rgba(0,0,0,0.7)) drop-shadow(0 0 ${depth*2}px ${cfg.glowA})`; }}
+    >
+      {/* ── Bottom depth face (shadow illusion) ── */}
       <div style={{
-        position:"absolute", inset:0, top:5, borderRadius:"8px 8px 10px 10px",
-        background:cfg.bevel,
-        boxShadow:`0 6px 16px rgba(0,0,0,0.85),0 0 10px ${cfg.glow},inset 0 1px rgba(255,255,255,0.04)`,
+        position:"absolute", inset:0, top:`${depth}px`,
+        borderRadius:"6px 6px 8px 8px",
+        background:cfg.bottom,
+        boxShadow:`0 4px 12px rgba(0,0,0,0.9), 0 0 ${depth*3}px ${cfg.glowA}`,
       }}/>
-      {/* Top keycap face */}
+
+      {/* ── Right depth side face ── */}
       <div style={{
-        position:"absolute", inset:0, bottom:5, borderRadius:"7px 7px 4px 4px",
-        background:cfg.top,
-        border:`1.5px solid ${cfg.badge}60`,
-        boxShadow:`0 0 12px ${cfg.glow},inset 0 0 10px rgba(0,0,0,0.5)`,
-        overflow:"hidden", display:"flex", flexDirection:"column",
-        alignItems:"center", justifyContent:"center", gap:2, padding:"3px 2px"
+        position:"absolute",
+        top:`${depth}px`, right:0, bottom:0,
+        width:`${depth+1}px`,
+        background:cfg.right,
+        borderRadius:"0 2px 4px 0",
+        opacity:0.9,
+      }}/>
+
+      {/* ── Front top face ── */}
+      <div style={{
+        position:"absolute", inset:0, bottom:`${depth}px`,
+        borderRadius:"7px 7px 5px 5px",
+        background: hasImg ? "transparent" : cfg.face,
+        border:`1.5px solid ${cfg.border}`,
+        boxShadow:`inset 0 0 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12)`,
+        overflow:"hidden",
+        display:"flex", flexDirection:"column",
+        alignItems:"center", justifyContent:"center",
+        gap:2, padding:"3px 2px",
       }}>
-        {/* Glass sheen */}
+        {/* Room image (future) */}
+        {hasImg && (
+          <img src={room.imageUrl} alt={`Room ${room.number}`} style={{
+            position:"absolute", inset:0, width:"100%", height:"100%",
+            objectFit:"cover", opacity:0.55,
+          }}/>
+        )}
+
+        {/* Top glass sheen */}
         <div style={{
-          position:"absolute", top:0, left:"8%", right:"8%", height:"38%",
-          background:"linear-gradient(180deg,rgba(255,255,255,0.2) 0%,rgba(255,255,255,0.03) 100%)",
-          borderRadius:"6px 6px 60% 60%"
+          position:"absolute", top:0, left:"6%", right:"6%", height:"35%",
+          background:"linear-gradient(180deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.02) 100%)",
+          borderRadius:"6px 6px 50% 50%", pointerEvents:"none",
+          zIndex:2,
         }}/>
-        {/* Underlight */}
-        <div style={{ position:"absolute", bottom:1, left:"12%", right:"12%", height:2.5, background:cfg.badge, filter:"blur(2.5px)", opacity:0.9 }}/>
-        {/* Badge */}
+
+        {/* Bottom underlight glow bar */}
         <div style={{
-          width:badgeSz, height:badgeSz, borderRadius:"50%", background:cfg.badge,
+          position:"absolute", bottom:1, left:"8%", right:"8%", height:2,
+          background:cfg.badgeC, filter:"blur(3px)", opacity:0.95,
+          zIndex:2,
+        }}/>
+
+        {/* Left edge light streak */}
+        <div style={{
+          position:"absolute", top:"10%", left:1, bottom:"10%", width:1.5,
+          background:`linear-gradient(180deg,transparent,${cfg.badgeC},transparent)`,
+          opacity:0.5, zIndex:2,
+        }}/>
+
+        {/* Badge circle with person icon */}
+        <div style={{
+          width:badgeSz, height:badgeSz, borderRadius:"50%",
+          background:`radial-gradient(circle, ${cfg.badgeC} 0%, ${cfg.badgeC}cc 100%)`,
           display:"flex", alignItems:"center", justifyContent:"center",
-          boxShadow:`0 0 7px ${cfg.badge}`, position:"relative", zIndex:1, flexShrink:0
+          boxShadow:`0 0 8px ${cfg.badgeC}, 0 0 16px ${cfg.glowA}`,
+          position:"relative", zIndex:3, flexShrink:0,
+          border:`1px solid ${cfg.badgeC}90`,
         }}>
-          <span style={{ color:"#fff", fontSize:Math.max(5,badgeSz*0.5), fontWeight:900, lineHeight:1 }}>▲</span>
+          {/* Person silhouette SVG */}
+          <svg viewBox="0 0 10 10" style={{width:badgeSz*0.6, height:badgeSz*0.6}}>
+            <circle cx="5" cy="3.2" r="1.8" fill="white" opacity="0.95"/>
+            <path d="M1.5,9 Q1.5,6.2 5,6.2 Q8.5,6.2 8.5,9Z" fill="white" opacity="0.95"/>
+          </svg>
         </div>
+
         {/* Room number */}
         <span style={{
-          fontSize:fontSz, color:cfg.text, fontWeight:900,
-          fontFamily:"'Courier New',monospace", letterSpacing:"0.02em", lineHeight:1,
-          position:"relative", zIndex:1, textShadow:`0 0 5px ${cfg.badge}`
-        }}>{room.number}</span>
+          fontSize:numSz, color:cfg.numC, fontWeight:900,
+          fontFamily:"'Courier New',monospace",
+          letterSpacing:"0.01em", lineHeight:1,
+          position:"relative", zIndex:3,
+          textShadow:`0 0 6px ${cfg.badgeC}, 0 1px 0 rgba(0,0,0,0.8)`,
+        }}>
+          {room.number}
+        </span>
       </div>
+
+      {/* Outer ambient glow ring (very subtle) */}
+      <div style={{
+        position:"absolute", inset:-2, bottom:depth-2,
+        borderRadius:"9px 9px 7px 7px",
+        border:`1px solid ${cfg.border}`,
+        opacity:0.4, pointerEvents:"none",
+      }}/>
     </button>
   );
 }
@@ -222,8 +288,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   const pendingCI=todayBookings.filter(b=>b.status==="active").length;
 
   const Tip=({active,payload})=>active&&payload?.length?(<div style={{background:"rgba(0,0,0,0.92)",border:"1px solid rgba(212,175,55,0.4)",borderRadius:8,padding:"5px 9px"}}><p style={{color:"#D4AF37",fontSize:11,fontWeight:800}}>₹{payload[0].value.toLocaleString("en-IN")}</p></div>):null;
-
-  const mCfg=selRoom?({occupied:{bg:"linear-gradient(145deg,#183a18,#0c260c)",border:"rgba(34,197,94,0.5)",text:"#4ade80",label:"Occupied"},reserved:{bg:"linear-gradient(145deg,#352500,#201600)",border:"rgba(212,175,55,0.5)",text:"#fbbf24",label:"Reserved"},cleaning:{bg:"linear-gradient(145deg,#181840,#0c0c28)",border:"rgba(99,102,241,0.5)",text:"#818cf8",label:"Cleaning"},out_of_order:{bg:"rgba(14,14,18,0.96)",border:"rgba(75,85,99,0.4)",text:"#6b7280",label:"Out of Order"},vacant:{bg:"linear-gradient(145deg,#082010,#04120a)",border:"rgba(16,185,129,0.5)",text:"#34d399",label:"Vacant"}}[selRoom.status]||{bg:"#111",border:"#333",text:"#888",label:"Unknown"}):null;
 
   const S=(p)=>({ background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.065)", borderRadius:14, padding:"12px 12px", boxShadow:"0 2px 18px rgba(0,0,0,0.5)", ...p });
 
@@ -357,8 +421,8 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                         }}>
                           {padded.map((room,ci)=>
                             room
-                              ? <RoomKeycap key={room.id} room={room} onClick={handleRoomClick} layout={layout}/>
-                              : <div key={`ph-${ci}`} style={{aspectRatio:"1/1.18",borderRadius:8,background:"rgba(255,255,255,0.012)",border:"1px dashed rgba(255,255,255,0.04)"}}/>
+                              ? <RoomBlock key={room.id} room={room} onClick={handleRoomClick} layout={layout}/>
+                              : <div key={`ph-${ci}`} style={{aspectRatio:"1/1.05",borderRadius:8,background:"rgba(255,255,255,0.008)",border:"1px dashed rgba(255,255,255,0.03)"}}/>
                           )}
                         </div>
                       </div>
@@ -471,44 +535,166 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         </div>
       </div>
 
-      {/* ── MODAL ── */}
-      {selRoom&&(
-        <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",alignItems:"flex-end",background:"rgba(0,0,0,0.82)",backdropFilter:"blur(6px)"}} onClick={()=>setSelRoom(null)}>
-          <div style={{width:"100%",background:"linear-gradient(180deg,#0c0f1a,#07090E)",borderRadius:"24px 24px 0 0",padding:24,border:"1px solid rgba(255,255,255,0.065)",borderBottom:"none",boxShadow:"0 -8px 40px rgba(0,0,0,0.7)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{width:36,height:3,background:"rgba(255,255,255,0.1)",borderRadius:3,margin:"0 auto 20px"}}/>
-            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18}}>
-              <div style={{width:54,height:54,borderRadius:16,flexShrink:0,background:mCfg.bg,border:`2px solid ${mCfg.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 18px ${mCfg.border}`}}>
-                <span style={{fontSize:10,color:mCfg.text,fontWeight:900,fontFamily:"'Courier New',monospace"}}>{selRoom.number}</span>
-              </div>
-              <div>
-                <p style={{fontSize:19,fontWeight:900,color:"#fff"}}>Room {selRoom.number}</p>
-                <p style={{fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:2}}>{selRoom.type||"Standard"} · Floor {selRoom.floor} · <span style={{color:mCfg.text}}>{mCfg.label}</span></p>
-              </div>
-            </div>
-            {selRoom.booking?(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.065)",borderRadius:16,padding:16}}>
-                  <p style={{fontSize:16,fontWeight:800,color:"#fff",marginBottom:4}}>{selRoom.booking.guestName}</p>
-                  <p style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginBottom:10}}>{selRoom.booking.guestPhone}</p>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,color:"rgba(255,255,255,0.35)"}}>{selRoom.booking.nights} raatein</span>
-                    <span style={{fontSize:15,fontWeight:800,color:"#D4AF37"}}>₹{Number(selRoom.booking.totalAmount||0).toLocaleString("en-IN")}</span>
+      {/* ── ROOM DETAIL MODAL ── */}
+      {selRoom&&(()=>{
+        const cfg = getRoomCfg(selRoom.status);
+        const imgs = selRoom.images || (selRoom.imageUrl ? [selRoom.imageUrl] : []);
+        return (
+          <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",alignItems:"flex-end",background:"rgba(0,0,0,0.85)",backdropFilter:"blur(8px)"}} onClick={()=>setSelRoom(null)}>
+            <div style={{
+              width:"100%", maxHeight:"88vh", overflowY:"auto",
+              background:"linear-gradient(180deg,#0c101c,#07090E)",
+              borderRadius:"26px 26px 0 0", padding:"0 0 24px",
+              border:"1px solid rgba(255,255,255,0.07)", borderBottom:"none",
+              boxShadow:"0 -12px 60px rgba(0,0,0,0.8)"
+            }} onClick={e=>e.stopPropagation()}>
+
+              {/* Drag handle */}
+              <div style={{width:40,height:4,background:"rgba(255,255,255,0.12)",borderRadius:2,margin:"12px auto 0"}}/>
+
+              {/* ── Status color header bar ── */}
+              <div style={{
+                background:`linear-gradient(135deg, ${cfg.glowA.replace("0.7","0.12")}, transparent)`,
+                borderBottom:`1px solid ${cfg.border.replace("0.8","0.15")}`,
+                padding:"14px 20px 14px",
+                display:"flex", alignItems:"center", gap:14,
+              }}>
+                {/* 3D mini block preview */}
+                <div style={{
+                  width:56, height:52, flexShrink:0, position:"relative",
+                  filter:`drop-shadow(0 4px 12px ${cfg.glowA})`
+                }}>
+                  {/* bottom */}
+                  <div style={{position:"absolute",inset:0,top:5,borderRadius:"7px 7px 9px 9px",background:cfg.bottom,boxShadow:`0 0 12px ${cfg.glowA}`}}/>
+                  {/* right side */}
+                  <div style={{position:"absolute",top:5,right:0,bottom:0,width:5,background:cfg.right,borderRadius:"0 2px 4px 0"}}/>
+                  {/* front face */}
+                  <div style={{position:"absolute",inset:0,bottom:5,borderRadius:"6px 6px 4px 4px",background:cfg.face,border:`1.5px solid ${cfg.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+                    <div style={{width:18,height:18,borderRadius:"50%",background:cfg.badgeC,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 8px ${cfg.badgeC}`}}>
+                      <svg viewBox="0 0 10 10" style={{width:11,height:11}}>
+                        <circle cx="5" cy="3.2" r="1.8" fill="white"/>
+                        <path d="M1.5,9 Q1.5,6.2 5,6.2 Q8.5,6.2 8.5,9Z" fill="white"/>
+                      </svg>
+                    </div>
+                    <span style={{fontSize:9,color:cfg.numC,fontWeight:900,fontFamily:"monospace",textShadow:`0 0 6px ${cfg.badgeC}`}}>{selRoom.number}</span>
                   </div>
                 </div>
-                <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:15,borderRadius:16,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 22px rgba(212,175,55,0.4)"}}>✓ Check-out Karo</button>
-              </div>
-            ):(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.065)",borderRadius:16,padding:16,textAlign:"center"}}>
-                  <p style={{fontSize:13,color:"rgba(255,255,255,0.3)",textTransform:"capitalize"}}>{selRoom.status?.replace("_"," ")}</p>
-                  <p style={{fontSize:11,color:"rgba(255,255,255,0.18)",marginTop:4}}>Base Rate: ₹{selRoom.baseRate}/raat</p>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                    <p style={{fontSize:22,fontWeight:900,color:"#fff",letterSpacing:"-0.02em"}}>Room {selRoom.number}</p>
+                    <div style={{padding:"2px 8px",borderRadius:20,background:`${cfg.glowA.replace("0.7","0.15")}`,border:`1px solid ${cfg.border}`,display:"flex",alignItems:"center",gap:4}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:cfg.badgeC,boxShadow:`0 0 5px ${cfg.badgeC}`}}/>
+                      <span style={{fontSize:10,fontWeight:700,color:cfg.numC,letterSpacing:"0.04em"}}>{cfg.label.toUpperCase()}</span>
+                    </div>
+                  </div>
+                  <p style={{fontSize:12,color:"rgba(255,255,255,0.35)"}}>
+                    {selRoom.type||"Standard Room"} · Floor {selRoom.floor} · ₹{(selRoom.baseRate||0).toLocaleString("en-IN")}/raat
+                  </p>
                 </div>
-                {selRoom.status==="vacant"&&(<button onClick={()=>{setSelRoom(null);onNewBooking&&onNewBooking(selRoom);}} style={{width:"100%",padding:15,borderRadius:16,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 22px rgba(212,175,55,0.4)"}}>+ Nayi Booking Karo</button>)}
               </div>
-            )}
+
+              <div style={{padding:"16px 20px 0"}}>
+
+                {/* ── IMAGE GALLERY ── */}
+                <div style={{marginBottom:16}}>
+                  {imgs.length > 0 ? (
+                    <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
+                      {imgs.map((src,i)=>(
+                        <div key={i} style={{flexShrink:0,width:i===0?200:120,height:i===0?130:120,borderRadius:14,overflow:"hidden",border:`1px solid ${cfg.border.replace("0.8","0.3")}`,boxShadow:`0 0 16px ${cfg.glowA.replace("0.7","0.3")}`}}>
+                          <img src={src} alt={`Room ${selRoom.number} view ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Placeholder image slots for future */
+                    <div style={{
+                      width:"100%", height:140, borderRadius:16,
+                      background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.08")},rgba(255,255,255,0.02))`,
+                      border:`1.5px dashed ${cfg.border.replace("0.8","0.3")}`,
+                      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8
+                    }}>
+                      <div style={{fontSize:32}}>🛏️</div>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.2)",textAlign:"center",lineHeight:1.4}}>
+                        Room photos yahan aayengi<br/>
+                        <span style={{fontSize:10,color:cfg.numC,opacity:0.6}}>Tap to add images (coming soon)</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── ROOM INFO GRID ── */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+                  {[
+                    {label:"Room Type",   val:selRoom.type||"Standard",    icon:"🏠"},
+                    {label:"Floor",       val:`Floor ${selRoom.floor}`,     icon:"🏢"},
+                    {label:"Base Rate",   val:`₹${(selRoom.baseRate||0).toLocaleString("en-IN")}/raat`, icon:"💰"},
+                    {label:"Capacity",    val:selRoom.capacity||"2 Adults", icon:"👥"},
+                  ].map(item=>(
+                    <div key={item.label} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"10px 12px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                        <span style={{fontSize:12}}>{item.icon}</span>
+                        <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}}>{item.label}</p>
+                      </div>
+                      <p style={{fontSize:13,color:"#fff",fontWeight:700}}>{item.val}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── ACTIVE BOOKING DETAILS ── */}
+                {selRoom.booking && (
+                  <div style={{background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.06")},rgba(0,0,0,0.2))`,border:`1px solid ${cfg.border.replace("0.8","0.2")}`,borderRadius:16,padding:16,marginBottom:16}}>
+                    <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Current Guest</p>
+                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                      <div style={{width:40,height:40,borderRadius:"50%",background:`${cfg.glowA.replace("0.7","0.15")}`,border:`1px solid ${cfg.border.replace("0.8","0.3")}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>👤</div>
+                      <div>
+                        <p style={{fontSize:16,fontWeight:800,color:"#fff",marginBottom:2}}>{selRoom.booking.guestName}</p>
+                        <p style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>{selRoom.booking.guestPhone}</p>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                      {[
+                        {label:"Raatein",  val:selRoom.booking.nights},
+                        {label:"Payment",  val:selRoom.booking.paymentMode||"Cash"},
+                        {label:"Total",    val:`₹${Number(selRoom.booking.totalAmount||0).toLocaleString("en-IN")}`},
+                      ].map(x=>(
+                        <div key={x.label} style={{textAlign:"center",padding:"8px 4px",background:"rgba(255,255,255,0.025)",borderRadius:10}}>
+                          <p style={{fontSize:14,fontWeight:900,color:"#D4AF37"}}>{x.val}</p>
+                          <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:2}}>{x.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── ACTION BUTTONS ── */}
+                {selRoom.booking ? (
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:16,borderRadius:16,fontWeight:800,fontSize:15,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.45)",letterSpacing:"0.02em"}}>
+                      ✓ Check-out Karo
+                    </button>
+                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:13,borderRadius:14,fontWeight:600,fontSize:13,background:"transparent",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer"}}>
+                      Close
+                    </button>
+                  </div>
+                ) : selRoom.status==="vacant" ? (
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    <button onClick={()=>{setSelRoom(null);onNewBooking&&onNewBooking(selRoom);}} style={{width:"100%",padding:16,borderRadius:16,fontWeight:800,fontSize:15,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.45)",letterSpacing:"0.02em"}}>
+                      + Nayi Booking Karo
+                    </button>
+                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:13,borderRadius:14,fontWeight:600,fontSize:13,background:"transparent",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer"}}>
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.5)",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer"}}>
+                    Close
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
