@@ -90,7 +90,20 @@ function AiScanReactor({ onClick }) {
 }
 
 /* ─── 3D Keycap ───────────────────────────────────────── */
-function RoomKeycap({ room, onClick }) {
+/* ── Dynamic grid sizing helper ──────────────────────────── */
+function getRoomGridLayout(totalRooms) {
+  // Cols per floor row based on total rooms
+  // Goal: fill full width, boxes scale with room count
+  if (totalRooms <= 10)  return { cols: 5,  gap: 6, fontSize: 10, badge: 16 };
+  if (totalRooms <= 20)  return { cols: 5,  gap: 5, fontSize: 9,  badge: 14 };
+  if (totalRooms <= 32)  return { cols: 8,  gap: 5, fontSize: 9,  badge: 13 };
+  if (totalRooms <= 48)  return { cols: 8,  gap: 4, fontSize: 8,  badge: 12 };
+  if (totalRooms <= 64)  return { cols: 8,  gap: 3, fontSize: 7,  badge: 11 };
+  if (totalRooms <= 80)  return { cols: 10, gap: 3, fontSize: 7,  badge: 10 };
+  return                        { cols: 10, gap: 2, fontSize: 6,  badge: 9  };
+}
+
+function RoomKeycap({ room, onClick, layout }) {
   const cfg = {
     occupied:     { top:"linear-gradient(145deg,#183a18,#0c260c)", bevel:"#0a1e0a", glow:"rgba(34,197,94,0.55)",   badge:"#22c55e", text:"#86efac" },
     reserved:     { top:"linear-gradient(145deg,#352500,#201600)", bevel:"#180f00", glow:"rgba(212,175,55,0.55)",  badge:"#D4AF37", text:"#fde68a" },
@@ -99,9 +112,12 @@ function RoomKeycap({ room, onClick }) {
     vacant:       { top:"linear-gradient(145deg,#082010,#04120a)", bevel:"#021008", glow:"rgba(16,185,129,0.55)",  badge:"#10b981", text:"#6ee7b7" },
   }[room.status] || { top:"linear-gradient(145deg,#082010,#04120a)", bevel:"#021008", glow:"rgba(16,185,129,0.55)", badge:"#10b981", text:"#6ee7b7" };
 
+  const badgeSz = layout?.badge || 14;
+  const fontSz  = layout?.fontSize || 9;
+
   return (
     <button onClick={()=>onClick(room)} style={{
-      flex:"1 1 0", minWidth:36, maxWidth:54,
+      width:"100%",
       aspectRatio:"1 / 1.18", position:"relative",
       background:"transparent", border:"none", cursor:"pointer", padding:0,
       transform:"perspective(260px) rotateX(18deg)", transformOrigin:"center bottom",
@@ -134,15 +150,15 @@ function RoomKeycap({ room, onClick }) {
         <div style={{ position:"absolute", bottom:1, left:"12%", right:"12%", height:2.5, background:cfg.badge, filter:"blur(2.5px)", opacity:0.9 }}/>
         {/* Badge */}
         <div style={{
-          width:13, height:13, borderRadius:"50%", background:cfg.badge,
+          width:badgeSz, height:badgeSz, borderRadius:"50%", background:cfg.badge,
           display:"flex", alignItems:"center", justifyContent:"center",
           boxShadow:`0 0 7px ${cfg.badge}`, position:"relative", zIndex:1, flexShrink:0
         }}>
-          <span style={{ color:"#fff", fontSize:7, fontWeight:900, lineHeight:1 }}>▲</span>
+          <span style={{ color:"#fff", fontSize:Math.max(5,badgeSz*0.5), fontWeight:900, lineHeight:1 }}>▲</span>
         </div>
         {/* Room number */}
         <span style={{
-          fontSize:8, color:cfg.text, fontWeight:900,
+          fontSize:fontSz, color:cfg.text, fontWeight:900,
           fontFamily:"'Courier New',monospace", letterSpacing:"0.02em", lineHeight:1,
           position:"relative", zIndex:1, textShadow:`0 0 5px ${cfg.badge}`
         }}>{room.number}</span>
@@ -294,38 +310,74 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
           </div>
 
           {/* ── ROOM GRID ── */}
-          <div style={{background:"linear-gradient(135deg,rgba(6,8,16,0.99),rgba(4,5,12,0.99))",border:"1px solid rgba(255,255,255,0.065)",borderRadius:20,padding:"16px 14px 14px",marginBottom:12,boxShadow:"0 4px 28px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.03)"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:13}}>🛏️</span>
-                <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.45)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Room Occupancy</p>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:5}}>
-                <span style={{fontSize:10,color:"rgba(212,175,55,0.55)",fontWeight:600}}>Tower A</span>
-                <span style={{fontSize:10,color:"rgba(255,255,255,0.25)"}}>▼</span>
-              </div>
-            </div>
-            {/* Keycap grid */}
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {floors.map(fl=>(
-                <div key={fl} style={{display:"flex",alignItems:"flex-end",gap:5}}>
-                  <span style={{fontSize:9,color:"rgba(255,255,255,0.2)",width:18,textAlign:"right",flexShrink:0,fontWeight:700,paddingBottom:4,fontFamily:"'Courier New',monospace"}}>{String(fl).padStart(2,"0")}</span>
-                  <div style={{display:"flex",gap:4,flex:1,flexWrap:"wrap"}}>
-                    {byFloor[fl].map(room=>(<RoomKeycap key={room.id} room={room} onClick={handleRoomClick}/>))}
+          {(() => {
+            const layout = getRoomGridLayout(total);
+            const gap    = layout.gap;
+            const cols   = layout.cols;
+            // Flat all rooms sorted by floor desc then room number
+            const allRoomsSorted = [...rooms].sort((a,b)=> b.floor!==a.floor ? b.floor-a.floor : a.number-b.number);
+            // Group into rows of `cols`
+            const rows = [];
+            for(let i=0; i<allRoomsSorted.length; i+=cols) rows.push(allRoomsSorted.slice(i,i+cols));
+
+            return (
+              <div style={{background:"linear-gradient(135deg,rgba(6,8,16,0.99),rgba(4,5,12,0.99))",border:"1px solid rgba(255,255,255,0.065)",borderRadius:20,padding:"16px 12px 14px",marginBottom:12,boxShadow:"0 4px 28px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.03)"}}>
+                {/* Header */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:13}}>🛏️</span>
+                    <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.45)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Room Occupancy</p>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{fontSize:10,color:"rgba(212,175,55,0.55)",fontWeight:600}}>Tower A</span>
+                    <span style={{fontSize:10,color:"rgba(255,255,255,0.25)"}}>▼</span>
                   </div>
                 </div>
-              ))}
-            </div>
-            {/* Legend */}
-            <div style={{display:"flex",flexWrap:"wrap",gap:"5px 12px",marginTop:14,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.05)"}}>
-              {[{c:"#22c55e",l:"Occupied",v:`${stats.occupancyPercent}%`},{c:"#D4AF37",l:"Reserved",v:`${reserved}`},{c:"#ef4444",l:"Vacant",v:`${vacant}`},{c:"#6b7280",l:"Out of Order",v:`${outOfOrder}`}].map(x=>(
-                <div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:x.c,boxShadow:`0 0 5px ${x.c}`}}/>
-                  <span style={{fontSize:9,color:"rgba(255,255,255,0.35)"}}>{x.l} ({x.v})</span>
+
+                {/* Full-width CSS Grid — every row fills 100% */}
+                <div style={{display:"flex",flexDirection:"column",gap:gap}}>
+                  {rows.map((rowRooms, rowIdx)=>{
+                    // Detect floor label from first room in row
+                    const floorLabel = rowRooms[0]?.floor;
+                    // Fill last row to full cols with placeholder
+                    const padded = [...rowRooms];
+                    while(padded.length < cols) padded.push(null);
+                    return (
+                      <div key={rowIdx} style={{display:"flex",alignItems:"flex-end",gap:gap}}>
+                        {/* Floor label */}
+                        <span style={{fontSize:8,color:"rgba(255,255,255,0.18)",width:16,textAlign:"right",flexShrink:0,fontWeight:700,paddingBottom:4,fontFamily:"'Courier New',monospace",lineHeight:1}}>
+                          {String(floorLabel).padStart(2,"0")}
+                        </span>
+                        {/* Room grid columns — equal width, fill full row */}
+                        <div style={{
+                          flex:1,
+                          display:"grid",
+                          gridTemplateColumns:`repeat(${cols}, 1fr)`,
+                          gap:gap
+                        }}>
+                          {padded.map((room,ci)=>
+                            room
+                              ? <RoomKeycap key={room.id} room={room} onClick={handleRoomClick} layout={layout}/>
+                              : <div key={`ph-${ci}`} style={{aspectRatio:"1/1.18",borderRadius:8,background:"rgba(255,255,255,0.012)",border:"1px dashed rgba(255,255,255,0.04)"}}/>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          </div>
+
+                {/* Legend */}
+                <div style={{display:"flex",flexWrap:"wrap",gap:"5px 12px",marginTop:14,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.05)"}}>
+                  {[{c:"#22c55e",l:"Occupied",v:`${occupied}`},{c:"#D4AF37",l:"Reserved",v:`${reserved}`},{c:"#ef4444",l:"Vacant",v:`${vacant}`},{c:"#6b7280",l:"Out of Order",v:`${outOfOrder}`}].map(x=>(
+                    <div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:x.c,boxShadow:`0 0 5px ${x.c}`}}/>
+                      <span style={{fontSize:9,color:"rgba(255,255,255,0.35)"}}>{x.l} ({x.v})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── QUICK TILES + AI SCAN ── */}
           <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,marginBottom:12,alignItems:"center"}}>
