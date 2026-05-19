@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { LayoutDashboard, CalendarDays, Users, Cpu, BarChart3, Bell, Menu, X, LogOut } from "lucide-react";
-import { getHotelConfig, getActiveHotelId, initializeRooms, getDemoHotels } from "../lib/db";
+import { getHotelConfig, getActiveHotelId, initializeRooms } from "../lib/db";
 
 const DashboardView = dynamic(() => import("../components/DashboardView"), { ssr: false });
 const ScannerView   = dynamic(() => import("../components/ScannerView"),   { ssr: false });
@@ -11,20 +11,20 @@ const SettingsView  = dynamic(() => import("../components/SettingsView"),  { ssr
 const LoginScreen   = dynamic(() => import("../components/LoginScreen"),   { ssr: false });
 
 const NAV = [
-  { id:"home",     Icon:LayoutDashboard, label:"Dashboard" },
-  { id:"scanner",  Icon:CalendarDays,    label:"Bookings"  },
-  { id:"guests",   Icon:Users,           label:"Guests"    },
-  { id:"reports",  Icon:Cpu,             label:"Operations"},
-  { id:"settings", Icon:BarChart3,       label:"Reports"   },
+  { id: "home",     Icon: LayoutDashboard, label: "Dashboard"  },
+  { id: "scanner",  Icon: CalendarDays,    label: "Bookings"   },
+  { id: "guests",   Icon: Users,           label: "Guests"     },
+  { id: "reports",  Icon: Cpu,             label: "Operations" },
+  { id: "settings", Icon: BarChart3,       label: "Reports"    },
 ];
 
 export default function App() {
-  const [tab,      setTab]      = useState("home");
-  const [user,     setUser]     = useState(null);
-  const [hotel,    setHotel]    = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [alerts,   setAlerts]   = useState(0);
-  const [menuOpen, setMenu]     = useState(false);
+  const [tab,      setTab]     = useState("home");
+  const [user,     setUser]    = useState(null);
+  const [hotel,    setHotel]   = useState(null);
+  const [loading,  setLoading] = useState(true);
+  const [alerts,   setAlerts]  = useState(0);
+  const [menuOpen, setMenu]    = useState(false);
 
   useEffect(() => {
     try {
@@ -34,7 +34,7 @@ export default function App() {
         setUser(u);
         const cfg = getHotelConfig(u.hotelId);
         setHotel(cfg);
-        initializeRooms(u.hotelId, cfg.totalRooms || 20);
+        initializeRooms(u.hotelId, cfg.totalRooms);
       }
     } catch {}
     setLoading(false);
@@ -44,7 +44,7 @@ export default function App() {
     setUser(u);
     const cfg = getHotelConfig(u.hotelId);
     setHotel(cfg);
-    initializeRooms(u.hotelId, cfg.totalRooms || 20);
+    initializeRooms(u.hotelId, cfg.totalRooms);
     setTab("home");
   };
 
@@ -60,153 +60,209 @@ export default function App() {
   }, []);
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center" style={{ background: "#07090E" }}>
-      <div className="w-10 h-10 border-2 rounded-full animate-spin"
-        style={{ borderColor: "rgba(212,175,55,0.15)", borderTopColor: "#D4AF37" }} />
+    <div style={{ height:"100dvh", display:"flex", alignItems:"center", justifyContent:"center", background:"#07090E" }}>
+      <div style={{ width:40, height:40, border:"2px solid rgba(212,175,55,0.15)", borderTopColor:"#D4AF37", borderRadius:"50%", animation:"spin 0.8s linear infinite" }}/>
     </div>
   );
 
-  if (!user) return <LoginScreen onLogin={onLogin} />;
+  if (!user) return <LoginScreen onLogin={onLogin}/>;
 
   const hotelName = hotel?.name || user.hotelName || "Hotel";
   const hotelId   = user.hotelId;
-  const hotelEmoji = hotel?.emoji || getDemoHotels().find(h=>h.id===hotelId)?.emoji || "🏨";
 
   return (
-    <div className="app-shell">
+    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#07090E" }}>
 
-      {/* ── TOP HEADER ──────────────────────────────────────── */}
-      <header className="flex-shrink-0 safe-top" style={{ padding: "8px 14px 6px" }}>
-        <div className="flex items-center justify-between">
+      {/* ══ TOP HEADER ══════════════════════════════════════════════ */}
+      <header style={{
+        flexShrink: 0,
+        background: "linear-gradient(180deg, rgba(8,10,18,0.98) 0%, rgba(5,7,14,0.95) 100%)",
+        borderBottom: "1px solid rgba(212,175,55,0.1)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+        paddingTop: "env(safe-area-inset-top)"
+      }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px 10px" }}>
+
           {/* Hamburger */}
-          <button onClick={() => setMenu(true)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <Menu size={18} style={{ color: "#D4AF37" }} />
+          <button onClick={() => setMenu(true)} style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: "rgba(212,175,55,0.06)",
+            border: "1px solid rgba(212,175,55,0.18)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 12px rgba(212,175,55,0.08)"
+          }}>
+            <Menu size={18} style={{ color: "#D4AF37" }}/>
           </button>
 
-          {/* Hotel Logo + Name */}
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-2">
-              {/* Hotel icon frame */}
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg"
-                style={{ background: "linear-gradient(135deg,#1a1200,#2e2000)", border: "1px solid rgba(212,175,55,0.35)" }}>
-                {hotelEmoji}
+          {/* Logo center */}
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {/* Hotel icon */}
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: "linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",
+                border: "1px solid rgba(212,175,55,0.3)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 12px rgba(212,175,55,0.15)"
+              }}>
+                <span style={{ fontSize: 16 }}>{hotel?.emoji || "🏨"}</span>
               </div>
-              <span className="font-black" style={{ fontSize: 20, color: "#D4AF37", letterSpacing: "-0.02em" }}>
+              <span style={{
+                fontSize: 20, fontWeight: 900, color: "#D4AF37",
+                letterSpacing: "-0.02em",
+                textShadow: "0 0 20px rgba(212,175,55,0.4), 0 0 40px rgba(212,175,55,0.15)"
+              }}>
                 {hotelName}
               </span>
             </div>
-            <span style={{ fontSize: 8, color: "rgba(212,175,55,0.5)", letterSpacing: "0.16em", fontWeight: 600 }}>
+            <span style={{
+              fontSize: 8, letterSpacing: "0.18em", fontWeight: 700,
+              color: "rgba(212,175,55,0.45)", textTransform: "uppercase"
+            }}>
               AI-POWERED HOTEL MANAGEMENT
             </span>
           </div>
 
           {/* Bell */}
-          <button className="w-10 h-10 rounded-xl flex items-center justify-center relative transition-all active:scale-90"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <Bell size={18} style={{ color: "#D4AF37" }} />
+          <button style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: "rgba(212,175,55,0.06)",
+            border: "1px solid rgba(212,175,55,0.18)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "relative",
+            boxShadow: "0 2px 12px rgba(212,175,55,0.08)"
+          }}>
+            <Bell size={18} style={{ color: "#D4AF37" }}/>
             {alerts > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-blue-500"
-                style={{ animation: "pulseDot 2s infinite" }} />
+              <div style={{
+                position: "absolute", top: 6, right: 6,
+                width: 10, height: 10, borderRadius: "50%",
+                background: "#008cff", border: "2px solid #07090E",
+                boxShadow: "0 0 8px #008cff",
+                animation: "livePulse 2s infinite"
+              }}/>
             )}
           </button>
         </div>
       </header>
 
-      {/* ── SLIDE-OUT MENU ──────────────────────────────────── */}
+      {/* ══ SLIDE-OUT MENU ══════════════════════════════════════════ */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/65" style={{ backdropFilter: "blur(6px)" }}
-            onClick={() => setMenu(false)} />
-          <div className="relative flex flex-col p-5"
-            style={{ width: 280, height: "100%", background: "#0d1117", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
-            <div className="flex items-center justify-between mb-7">
-              <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{hotelEmoji}</span>
+        <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex" }}>
+          <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.7)", backdropFilter:"blur(4px)" }} onClick={() => setMenu(false)}/>
+          <div style={{
+            position:"relative", width:280, height:"100%", display:"flex", flexDirection:"column", padding:20,
+            background:"linear-gradient(180deg,#0c0f1a,#07090E)",
+            borderRight:"1px solid rgba(212,175,55,0.1)",
+            boxShadow:"4px 0 40px rgba(0,0,0,0.6)"
+          }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <span style={{ fontSize:24 }}>{hotel?.emoji || "🏨"}</span>
                 <div>
-                  <p className="font-bold text-white text-sm">{hotelName}</p>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-                    {user.role === "owner" ? "👑 Owner" : "🔑 Manager"}
-                  </p>
+                  <p style={{ fontWeight:800, color:"#fff", fontSize:14 }}>{hotelName}</p>
+                  <p style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>{user.role==="owner"?"👑 Owner":"🔑 Manager"}</p>
                 </div>
               </div>
-              <button onClick={() => setMenu(false)}
-                className="p-2 rounded-xl active:scale-90"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <X size={15} className="text-gray-500" />
+              <button onClick={() => setMenu(false)} style={{ width:32, height:32, borderRadius:9, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <X size={15} style={{ color:"rgba(255,255,255,0.4)" }}/>
               </button>
             </div>
-
-            <div className="glass-gold rounded-xl p-4 mb-5">
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#D4AF37" }}>Hotel Info</p>
-              {[
-                ["📍 Location", hotel?.location || "India"],
-                ["🛏 Rooms",    hotel?.totalRooms || "—"],
-                ["📋 Plan",     (hotel?.plan || "starter").toUpperCase()],
-                ["🔑 Role",     user.role === "owner" ? "Owner" : "Manager"],
-              ].map(([l, v]) => (
-                <div key={l} className="flex justify-between py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{l}</span>
-                  <span className="text-xs font-semibold text-white">{v}</span>
+            <div style={{ background:"rgba(212,175,55,0.05)", border:"1px solid rgba(212,175,55,0.15)", borderRadius:14, padding:16, marginBottom:16 }}>
+              <p style={{ fontSize:10, fontWeight:700, letterSpacing:"0.12em", color:"#D4AF37", textTransform:"uppercase", marginBottom:12 }}>Hotel Info</p>
+              {[["📍 Location",hotel?.location||"India"],["🛏 Rooms",hotel?.totalRooms||"—"],["📋 Plan",(hotel?.plan||"starter").toUpperCase()],["🔑 Role",user.role==="owner"?"Owner":"Manager"]].map(([l,v])=>(
+                <div key={l} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{l}</span>
+                  <span style={{ fontSize:12, fontWeight:600, color:"#fff" }}>{v}</span>
                 </div>
               ))}
             </div>
-
-            <div className="glass rounded-xl p-3 mb-5">
-              <p className="text-xs font-semibold text-white mb-1.5">🔗 Guest Booking Link</p>
-              <p className="text-xs font-mono break-all" style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>
-                /booking/{hotelId}
-              </p>
-              <button
-                onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`); setMenu(false); }}
-                className="mt-2 w-full py-2 rounded-lg text-xs font-bold btn-outline-gold">
+            <div style={{ background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:14, padding:14, marginBottom:16 }}>
+              <p style={{ fontSize:12, fontWeight:600, color:"#fff", marginBottom:8 }}>🔗 Guest Booking Link</p>
+              <p style={{ fontSize:11, fontFamily:"monospace", color:"rgba(255,255,255,0.3)", wordBreak:"break-all" }}>/booking/{hotelId}</p>
+              <button onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`); setMenu(false); }} style={{ marginTop:10, width:"100%", padding:"8px", borderRadius:9, background:"rgba(212,175,55,0.08)", border:"1px solid rgba(212,175,55,0.2)", color:"#D4AF37", fontSize:11, fontWeight:700, cursor:"pointer" }}>
                 Copy Link
               </button>
             </div>
-
-            <div className="mt-auto">
-              <button onClick={onLogout}
-                className="w-full py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold text-red-400 transition-all active:scale-95"
-                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                <LogOut size={16} /> Hotel Switch / Logout
+            <div style={{ marginTop:"auto" }}>
+              <button onClick={onLogout} style={{ width:"100%", padding:12, borderRadius:13, display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontSize:13, fontWeight:600, color:"#f87171", background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.18)", cursor:"pointer" }}>
+                <LogOut size={15}/> Hotel Switch / Logout
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MAIN CONTENT ────────────────────────────────────── */}
-      <main className="flex-1 overflow-hidden">
-        {tab === "home"     && <DashboardView hotelId={hotelId} hotel={hotel} user={user} onNavigate={setTab} onNewBooking={onNew} />}
-        {tab === "scanner"  && <ScannerView   hotelId={hotelId} hotel={hotel} user={user} onSuccess={() => { onNew(); setTab("home"); }} onBack={() => setTab("home")} />}
-        {tab === "reports"  && <ReportsView   hotelId={hotelId} hotel={hotel} user={user} />}
-        {tab === "settings" && <SettingsView  hotelId={hotelId} hotel={hotel} user={user} onLogout={onLogout} />}
-        {tab === "guests"   && (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>Guests section coming soon</p>
+      {/* ══ MAIN CONTENT ════════════════════════════════════════════ */}
+      <main style={{ flex:1, overflow:"hidden" }}>
+        {tab==="home"    && <DashboardView hotelId={hotelId} hotel={hotel} user={user} onNavigate={setTab} onNewBooking={onNew}/>}
+        {tab==="scanner" && <ScannerView   hotelId={hotelId} hotel={hotel} user={user} onSuccess={()=>{ onNew(); setTab("home"); }} onBack={()=>setTab("home")}/>}
+        {tab==="reports" && <ReportsView   hotelId={hotelId} hotel={hotel} user={user}/>}
+        {tab==="settings"&& <SettingsView  hotelId={hotelId} hotel={hotel} user={user} onLogout={onLogout}/>}
+        {tab==="guests"  && (
+          <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"16px 14px", gap:12 }}>
+            <h2 style={{ fontWeight:900, fontSize:22, color:"#D4AF37", textShadow:"0 0 20px rgba(212,175,55,0.3)" }}>Guests</h2>
+            <div style={{ flex:1, background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.055)", borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <p style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Coming soon</p>
+            </div>
           </div>
         )}
       </main>
 
-      {/* ── BOTTOM NAV ──────────────────────────────────────── */}
-      <nav className="flex-shrink-0 safe-bottom" style={{ padding: "6px 14px 10px" }}>
-        <div className="glass rounded-2xl px-1 py-2">
-          <div className="flex items-center justify-around">
-            {NAV.map(({ id, Icon, label }) => {
-              const active = tab === id;
-              return (
-                <button key={id} onClick={() => setTab(id)}
-                  className="flex flex-col items-center gap-1 px-2 py-1 rounded-xl transition-all active:scale-90"
-                  style={{ color: active ? "#D4AF37" : "#383838" }}>
-                  <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-                  <span className="font-medium" style={{ fontSize: 9 }}>{label}</span>
-                </button>
-              );
-            })}
-          </div>
+      {/* ══ BOTTOM NAV ══════════════════════════════════════════════ */}
+      <nav style={{
+        flexShrink: 0,
+        background: "linear-gradient(180deg, rgba(6,8,15,0.98) 0%, rgba(4,5,12,0.99) 100%)",
+        borderTop: "1px solid rgba(212,175,55,0.08)",
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.6)",
+        paddingBottom: "env(safe-area-inset-bottom)"
+      }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-around", padding:"8px 6px 6px" }}>
+          {NAV.map(({ id, Icon, label }) => {
+            const active = tab === id;
+            return (
+              <button key={id} onClick={() => setTab(id)} style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                padding: "6px 10px", borderRadius: 14, border: "none",
+                background: "transparent", cursor: "pointer",
+                position: "relative",
+                transition: "all 0.2s"
+              }}>
+                {/* Active glow indicator */}
+                {active && (
+                  <div style={{
+                    position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)",
+                    width: 32, height: 3, borderRadius: 2,
+                    background: "#D4AF37",
+                    boxShadow: "0 0 10px rgba(212,175,55,0.8), 0 0 20px rgba(212,175,55,0.4)"
+                  }}/>
+                )}
+                {/* Icon wrapper */}
+                <div style={{
+                  width: 36, height: 36, borderRadius: 11,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: active ? "rgba(212,175,55,0.12)" : "transparent",
+                  border: active ? "1px solid rgba(212,175,55,0.25)" : "1px solid transparent",
+                  boxShadow: active ? "0 0 14px rgba(212,175,55,0.15)" : "none",
+                  transition: "all 0.2s"
+                }}>
+                  <Icon size={18} strokeWidth={active ? 2.5 : 1.8} style={{ color: active ? "#D4AF37" : "rgba(255,255,255,0.25)", filter: active ? "drop-shadow(0 0 5px rgba(212,175,55,0.6))" : "none", transition:"all 0.2s" }}/>
+                </div>
+                <span style={{
+                  fontSize: 9, fontWeight: active ? 800 : 500,
+                  color: active ? "#D4AF37" : "rgba(255,255,255,0.22)",
+                  letterSpacing: "0.04em",
+                  textShadow: active ? "0 0 8px rgba(212,175,55,0.4)" : "none",
+                  transition: "all 0.2s"
+                }}>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
+
+      {/* Global spin keyframe */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
