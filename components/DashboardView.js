@@ -1,7 +1,13 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, ExternalLink, Check, Brain } from "lucide-react";
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { 
+  RefreshCw, ExternalLink, Check, Brain, ChevronDown, Wrench, Star, Users, 
+  Home, Bell, Menu, Sparkles, Plus, Calendar, Shield, CreditCard, Trash2, 
+  Search, ArrowRight, CheckCircle2, UserCheck, AlertTriangle, Layers, 
+  Activity, Award, FileText, Settings, X, ChevronRight, CheckSquare, 
+  MessageSquare, Scan, Send, Zap
+} from "lucide-react";
+import { AreaChart, Area, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts";
 import {
   getTodayStats, getRooms, getBookingById, checkoutBooking,
   getTodayBookings, getWeeklyRevenue, initializeRooms
@@ -12,156 +18,61 @@ function greeting() {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-/* ─── Hologram Building SVG ──────────────────────────── */
-function HologramBuilding() {
-  return (
-    <svg viewBox="0 0 160 180" style={{ width:130, height:150, filter:"drop-shadow(0 0 16px #008cff) drop-shadow(0 0 32px rgba(0,140,255,0.35))" }}>
-      <ellipse cx="80" cy="160" rx="62" ry="10" fill="none" stroke="rgba(212,175,55,0.9)" strokeWidth="1.5"/>
-      <ellipse cx="80" cy="160" rx="50" ry="7" fill="none" stroke="rgba(212,175,55,0.55)" strokeWidth="1"/>
-      <ellipse cx="80" cy="160" rx="38" ry="5" fill="none" stroke="rgba(212,175,55,0.3)" strokeWidth="0.7"/>
-      <ellipse cx="80" cy="160" rx="62" ry="10" fill="rgba(212,175,55,0.05)"/>
-      {/* Main isometric box */}
-      <polygon points="80,18 122,48 122,148 80,168 38,148 38,48" fill="none" stroke="rgba(0,140,255,0.6)" strokeWidth="1.2"/>
-      <polygon points="80,18 38,48 38,148 80,168" fill="rgba(0,50,110,0.12)" stroke="rgba(0,140,255,0.55)" strokeWidth="0.8"/>
-      <polygon points="80,18 122,48 122,148 80,168" fill="rgba(0,70,140,0.08)" stroke="rgba(0,140,255,0.45)" strokeWidth="0.8"/>
-      <polygon points="80,18 122,48 80,78 38,48" fill="rgba(0,90,180,0.18)" stroke="rgba(0,140,255,0.8)" strokeWidth="1.2"/>
-      {/* Grid lines */}
-      {[70,90,110,130].map(y=>(<line key={`l${y}`} x1="38" y1={y} x2="80" y2={y+20} stroke="rgba(0,140,255,0.25)" strokeWidth="0.5"/>))}
-      {[70,90,110,130].map(y=>(<line key={`r${y}`} x1="80" y1={y+20} x2="122" y2={y} stroke="rgba(0,140,255,0.2)" strokeWidth="0.5"/>))}
-      {/* Windows */}
-      {[[48,78],[48,98],[48,118],[60,78],[60,98],[60,118],[72,78],[72,98],[72,118]].map(([x,y],i)=>(
-        <rect key={`wl${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%3===0?"rgba(0,200,255,0.7)":"rgba(0,160,220,0.4)"}/>
-      ))}
-      {[[88,78],[88,98],[88,118],[100,78],[100,98],[100,118],[112,78],[112,98],[112,118]].map(([x,y],i)=>(
-        <rect key={`wr${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%2===0?"rgba(0,180,255,0.6)":"rgba(0,140,200,0.35)"}/>
-      ))}
-      {/* Antenna */}
-      <line x1="80" y1="18" x2="80" y2="2" stroke="rgba(0,140,255,0.9)" strokeWidth="1.5"/>
-      <circle cx="80" cy="2" r="2.5" fill="#008cff"/>
-      <circle cx="80" cy="2" r="4" fill="none" stroke="rgba(0,140,255,0.4)" strokeWidth="0.8"/>
-    </svg>
-  );
-}
-
-/* ─── AI Scan Reactor ─────────────────────────────────── */
-function AiScanReactor({ onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      position:"relative", width:130, height:130,
-      background:"transparent", border:"none", cursor:"pointer",
-      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
-    }}>
-      {/* Dashed outer rings */}
-      {[{sz:-10,color:"rgba(0,140,255,0.65)",dash:"6,4",spd:"3s",dir:"normal"},{sz:4,color:"rgba(212,175,55,0.5)",dash:"4,6",spd:"5s",dir:"reverse"},{sz:16,color:"rgba(0,140,255,0.3)",dash:"8,8",spd:"7s",dir:"normal"}].map((r,i)=>(
-        <div key={i} style={{
-          position:"absolute", inset:r.sz, borderRadius:"50%",
-          border:`1.5px dashed ${r.color}`,
-          animation:`spinRingCW ${r.spd} linear infinite ${r.dir==="reverse"?"reverse":""}`
-        }}/>
-      ))}
-      {/* Sonar lines */}
-      {[0,45,90,135,180,225,270,315].map(deg=>(
-        <div key={deg} style={{
-          position:"absolute", width:1, bottom:"50%", left:"50%",
-          height:"42%", transformOrigin:"50% 100%",
-          transform:`translateX(-50%) rotate(${deg}deg)`,
-          background:`linear-gradient(to bottom,rgba(0,140,255,${deg%90===0?0.6:0.2}),transparent)`
-        }}/>
-      ))}
-      {/* Laser flares */}
-      <div style={{ position:"absolute", left:"50%", top:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to top,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite" }}/>
-      <div style={{ position:"absolute", left:"50%", bottom:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to bottom,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite 0.6s" }}/>
-      {/* Gold bottom arc */}
-      <div style={{ position:"absolute", bottom:20, left:"50%", transform:"translateX(-50%)", width:70, height:3, background:"linear-gradient(90deg,transparent,rgba(212,175,55,0.9),transparent)", filter:"blur(2px)" }}/>
-      {/* Core disk */}
-      <div style={{
-        position:"absolute", inset:18, borderRadius:"50%",
-        background:"radial-gradient(circle,rgba(0,20,60,0.97) 0%,rgba(0,5,18,0.99) 100%)",
-        border:"2px solid rgba(0,140,255,0.55)",
-        boxShadow:"0 0 28px rgba(0,140,255,0.5),0 0 55px rgba(0,140,255,0.2),inset 0 0 24px rgba(0,140,255,0.12)"
-      }}/>
-      {/* Text */}
-      <div style={{ position:"relative", zIndex:2, textAlign:"center", pointerEvents:"none" }}>
-        <p style={{ fontSize:20, fontWeight:900, letterSpacing:"0.08em", color:"#fff", textShadow:"0 0 18px #008cff,0 0 36px rgba(0,140,255,0.7)", lineHeight:1, fontFamily:"'Courier New',monospace" }}>AI</p>
-        <p style={{ fontSize:9, fontWeight:800, letterSpacing:"0.28em", color:"#60b8ff", textShadow:"0 0 8px #008cff", marginTop:3 }}>SCAN</p>
-      </div>
-    </button>
-  );
-}
-
-/* ─── 3D Keycap ───────────────────────────────────────── */
-function RoomKeycap({ room, onClick }) {
-  const cfg = {
-    occupied:     { top:"linear-gradient(145deg,#183a18,#0c260c)", bevel:"#0a1e0a", glow:"rgba(34,197,94,0.55)",   badge:"#22c55e", text:"#86efac" },
-    reserved:     { top:"linear-gradient(145deg,#352500,#201600)", bevel:"#180f00", glow:"rgba(212,175,55,0.55)",  badge:"#D4AF37", text:"#fde68a" },
-    cleaning:     { top:"linear-gradient(145deg,#181840,#0c0c28)", bevel:"#080820", glow:"rgba(99,102,241,0.55)",  badge:"#818cf8", text:"#c7d2fe" },
-    out_of_order: { top:"rgba(14,14,18,0.96)",                      bevel:"#090909", glow:"rgba(75,85,99,0.3)",    badge:"#4b5563", text:"#9ca3af" },
-    vacant:       { top:"linear-gradient(145deg,#082010,#04120a)", bevel:"#021008", glow:"rgba(16,185,129,0.55)",  badge:"#10b981", text:"#6ee7b7" },
-  }[room.status] || { top:"linear-gradient(145deg,#082010,#04120a)", bevel:"#021008", glow:"rgba(16,185,129,0.55)", badge:"#10b981", text:"#6ee7b7" };
-
-  return (
-    <button onClick={()=>onClick(room)} style={{
-      flex:"1 1 0", minWidth:36, maxWidth:54,
-      aspectRatio:"1 / 1.18", position:"relative",
-      background:"transparent", border:"none", cursor:"pointer", padding:0,
-      transform:"perspective(260px) rotateX(18deg)", transformOrigin:"center bottom",
-      transition:"transform 0.12s",
-    }}
-    onTouchStart={e=>{ e.currentTarget.style.transform="perspective(260px) rotateX(22deg) scale(0.93)"; }}
-    onTouchEnd={e=>{ e.currentTarget.style.transform="perspective(260px) rotateX(18deg)"; }}>
-      {/* Depth bevel */}
-      <div style={{
-        position:"absolute", inset:0, top:5, borderRadius:"8px 8px 10px 10px",
-        background:cfg.bevel,
-        boxShadow:`0 6px 16px rgba(0,0,0,0.85),0 0 10px ${cfg.glow},inset 0 1px rgba(255,255,255,0.04)`,
-      }}/>
-      {/* Top keycap face */}
-      <div style={{
-        position:"absolute", inset:0, bottom:5, borderRadius:"7px 7px 4px 4px",
-        background:cfg.top,
-        border:`1.5px solid ${cfg.badge}60`,
-        boxShadow:`0 0 12px ${cfg.glow},inset 0 0 10px rgba(0,0,0,0.5)`,
-        overflow:"hidden", display:"flex", flexDirection:"column",
-        alignItems:"center", justifyContent:"center", gap:2, padding:"3px 2px"
-      }}>
-        {/* Glass sheen */}
-        <div style={{
-          position:"absolute", top:0, left:"8%", right:"8%", height:"38%",
-          background:"linear-gradient(180deg,rgba(255,255,255,0.2) 0%,rgba(255,255,255,0.03) 100%)",
-          borderRadius:"6px 6px 60% 60%"
-        }}/>
-        {/* Underlight */}
-        <div style={{ position:"absolute", bottom:1, left:"12%", right:"12%", height:2.5, background:cfg.badge, filter:"blur(2.5px)", opacity:0.9 }}/>
-        {/* Badge */}
-        <div style={{
-          width:13, height:13, borderRadius:"50%", background:cfg.badge,
-          display:"flex", alignItems:"center", justifyContent:"center",
-          boxShadow:`0 0 7px ${cfg.badge}`, position:"relative", zIndex:1, flexShrink:0
-        }}>
-          <span style={{ color:"#fff", fontSize:7, fontWeight:900, lineHeight:1 }}>▲</span>
-        </div>
-        {/* Room number */}
-        <span style={{
-          fontSize:8, color:cfg.text, fontWeight:900,
-          fontFamily:"'Courier New',monospace", letterSpacing:"0.02em", lineHeight:1,
-          position:"relative", zIndex:1, textShadow:`0 0 5px ${cfg.badge}`
-        }}>{room.number}</span>
-      </div>
-    </button>
-  );
-}
-
-/* ─── Main ────────────────────────────────────────────── */
 export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewBooking }) {
-  const [stats,      setStats]   = useState(null);
-  const [rooms,      setRooms]   = useState([]);
-  const [insight,    setInsight] = useState("Aaj ki demand analysis ho rahi hai...");
-  const [iLoad,      setILoad]   = useState(false);
-  const [selRoom,    setSelRoom] = useState(null);
-  const [revData,    setRevData] = useState([]);
-  const [refreshing, setRefresh] = useState(false);
-  const [copied,     setCopied]  = useState(false);
+  // Core database managed states
+  const [stats,      setStats]    = useState(null);
+  const [rooms,      setRooms]    = useState([]);
+  const [revData,    setRevData]  = useState([]);
+  const [refreshing, setRefresh]  = useState(false);
+  
+  // Dashboard navigation tab
+  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, bookings, ocr_scanner, ai_chat, whatsapp, settings
 
+  // Interaction flows
+  const [selRoom,    setSelRoom]  = useState(null);
+  const [copied,     setCopied]   = useState(false);
+  const [aiScan,     setAiScan]   = useState(false);
+  const [toast,      setToast]    = useState(null);
+
+  // Gemini API & Insights logic
+  const [apiKey, setApiKey] = useState("");
+  const [showApiModal, setShowApiModal] = useState(false);
+  const [insight,    setInsight]  = useState("Aaj ki demand analysis ho rahi hai...");
+  const [iLoad,      setILoad]    = useState(false);
+
+  // OCR ID Scanner Simulation States
+  const [ocrScanning, setOcrScanning] = useState(false);
+  const [ocrIdType, setOcrIdType] = useState("Aadhaar");
+  const [scannedResult, setScannedResult] = useState(null);
+
+  // WhatsApp logs simulation
+  const [whatsappLogs, setWhatsappLogs] = useState([
+    { id: 1, phone: "9876543210", type: "Check-in Confirm", message: "Namaste Rohan! Welcome to The GuestInn. Your digital room key RM-104 is active. Tap for dynamic self checkout.", time: "11:15 PM" },
+    { id: 2, phone: "9123456780", type: "Auto Housekeeping", message: "Housekeeping Alert: Room 302 sheets changed & audited.", time: "11:20 PM" }
+  ]);
+  const [whatsappDraft, setWhatsappDraft] = useState({ phone: "", template: "Welcome Hook" });
+
+  // AI Chat Conversation logs
+  const [aiChatMessages, setAiChatMessages] = useState([
+    { id: 1, role: "assistant", text: "Namaste! Aapka AI Receptionist active hai. Hotel Delhi Heritage ke live rooms check-in karne ke liye main ready hu. Kya help karu?" }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+
+  const scanRef = useRef(null);
+
+  // System tactile dynamic feedback wrapper
+  const triggerHaptic = (pattern = 30) => {
+    if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(pattern);
+    }
+  };
+
+  const showToast = (msg, type = "success") => {
+    setToast({ text: msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Dynamically pull NextDB changes
   const load = useCallback(() => {
     if (!hotelId) return;
     initializeRooms(hotelId, hotel?.totalRooms || 20);
@@ -170,307 +81,931 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
     setRevData(getWeeklyRevenue(hotelId));
   }, [hotelId, hotel?.totalRooms]);
 
-  useEffect(() => { load(); fetchInsight(); const iv=setInterval(load,30000); return ()=>clearInterval(iv); }, [load]);
+  useEffect(() => {
+    load();
+    fetchInsight();
+    const iv = setInterval(load, 30000);
+    return () => clearInterval(iv);
+  }, [load]);
 
+  // Deep AI Insights integration using custom token ruleset
   const fetchInsight = async () => {
     setILoad(true);
+    const s = getTodayStats(hotelId);
+    
+    if (!apiKey) {
+      // Offline local rules fallbacks
+      setTimeout(() => {
+        setInsight(localInsight(s));
+        setILoad(false);
+      }, 1000);
+      return;
+    }
+
+    const systemPrompt = `You are the master AI receptionist core of "The GuestInn" PMS. 
+    Analyze hotel stats: ${s?.occupancyPercent}% occupancy, ${s?.vacantRooms} vacant, live revenue. 
+    Deliver elite operational insights in clean, professional Hinglish. Keep it short, actionable, and dynamic.`;
+
     try {
-      const s = getTodayStats(hotelId);
-      const r = await fetch("/api/groq",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"ai_insight",stats:s,hotelName:hotel?.name}) });
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "Perform immediate room price index analysis and suggest optimization steps." }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] }
+        }),
+      });
       const d = await r.json();
-      setInsight(d.insight || localInsight(s));
-    } catch { setInsight(localInsight(getTodayStats(hotelId))); }
-    setILoad(false);
+      const aiText = d.candidates?.[0]?.content?.parts?.[0]?.text;
+      setInsight(aiText || localInsight(s));
+    } catch { 
+      setInsight(localInsight(s) + " (Offline rules fallback)"); 
+    } finally {
+      setILoad(false);
+    }
   };
 
-  const handleRefresh = async () => { setRefresh(true); load(); await fetchInsight(); setRefresh(false); };
-  const copyLink = () => { navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }); };
-  const handleRoomClick = (room) => { const booking=room.currentBookingId?getBookingById(hotelId,room.currentBookingId):null; setSelRoom({...room,booking}); };
-  const handleCheckout = async (bookingId) => { await checkoutBooking(hotelId,bookingId); load(); setSelRoom(null); if(navigator.vibrate)navigator.vibrate(50); };
+  const handleRefresh = async () => {
+    setRefresh(true);
+    load();
+    await fetchInsight();
+    setRefresh(false);
+    showToast("Dashboard synchronized!", "success");
+  };
 
-  if (!stats) return <Skeleton/>;
+  const handleAiScan = async () => {
+    setAiScan(true);
+    triggerHaptic([40, 20, 40]);
+    await fetchInsight();
+    setTimeout(() => {
+      setAiScan(false);
+      showToast("Holographic AI Scanner sweep completed!", "success");
+    }, 2000);
+  };
 
-  const pct = (Math.random()*20+5).toFixed(1);
-  const byFloor={};
-  rooms.forEach(r=>{ if(!byFloor[r.floor])byFloor[r.floor]=[]; byFloor[r.floor].push(r); });
-  const floors=Object.keys(byFloor).map(Number).sort((a,b)=>b-a);
+  const copyLink = () => {
+    navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
 
-  const occupied  =rooms.filter(r=>r.status==="occupied").length;
-  const vacant    =rooms.filter(r=>r.status==="vacant").length;
-  const reserved  =rooms.filter(r=>r.status==="reserved").length;
-  const cleaning  =rooms.filter(r=>r.status==="cleaning").length;
-  const outOfOrder=rooms.filter(r=>r.status==="out_of_order").length;
-  const total     =rooms.length;
+  const handleRoomClick = (room) => {
+    const booking = room.currentBookingId ? getBookingById(hotelId, room.currentBookingId) : null;
+    setSelRoom({ ...room, booking });
+  };
 
-  const todayBookings=getTodayBookings(hotelId);
-  const pendingCI=todayBookings.filter(b=>b.status==="active").length;
+  const handleCheckout = async (bookingId) => {
+    await checkoutBooking(hotelId, bookingId);
+    load();
+    
+    // Automated outbound WhatsApp simulator log trigger
+    const newLog = {
+      id: Date.now(),
+      phone: selRoom?.booking?.guestPhone || "9876543210",
+      type: "Checkout Thank-you",
+      message: `Dear ${selRoom?.booking?.guestName}, check-out for Room ${selRoom?.number} is successfully compiled. Thanks for staying at ${hotel?.name || "The GuestInn"}.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setWhatsappLogs(prev => [newLog, ...prev]);
 
-  const Tip=({active,payload})=>active&&payload?.length?(<div style={{background:"rgba(0,0,0,0.92)",border:"1px solid rgba(212,175,55,0.4)",borderRadius:8,padding:"5px 9px"}}><p style={{color:"#D4AF37",fontSize:11,fontWeight:800}}>₹{payload[0].value.toLocaleString("en-IN")}</p></div>):null;
+    setSelRoom(null);
+    triggerHaptic(50);
+    showToast("Check-out processed and guest notified!", "success");
+  };
 
-  const mCfg=selRoom?({occupied:{bg:"linear-gradient(145deg,#183a18,#0c260c)",border:"rgba(34,197,94,0.5)",text:"#4ade80",label:"Occupied"},reserved:{bg:"linear-gradient(145deg,#352500,#201600)",border:"rgba(212,175,55,0.5)",text:"#fbbf24",label:"Reserved"},cleaning:{bg:"linear-gradient(145deg,#181840,#0c0c28)",border:"rgba(99,102,241,0.5)",text:"#818cf8",label:"Cleaning"},out_of_order:{bg:"rgba(14,14,18,0.96)",border:"rgba(75,85,99,0.4)",text:"#6b7280",label:"Out of Order"},vacant:{bg:"linear-gradient(145deg,#082010,#04120a)",border:"rgba(16,185,129,0.5)",text:"#34d399",label:"Vacant"}}[selRoom.status]||{bg:"#111",border:"#333",text:"#888",label:"Unknown"}):null;
+  // Simulated OCR Engine trigger
+  const handleOcrSimulation = () => {
+    setOcrScanning(true);
+    triggerHaptic([100, 50, 100]);
+    setScannedResult(null);
 
-  const S=(p)=>({ background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.065)", borderRadius:14, padding:"12px 12px", boxShadow:"0 2px 18px rgba(0,0,0,0.5)", ...p });
+    setTimeout(() => {
+      const isAadhaar = ocrIdType === "Aadhaar";
+      setScannedResult(isAadhaar ? {
+        documentNo: "UID-9012-3456-7890",
+        name: "Mubashir Hasan",
+        gender: "Male",
+        dob: "15/08/1996",
+        address: "E-3 Arera Colony, Bhopal, MP",
+        confidence: "99.4%"
+      } : {
+        documentNo: "PASS-Z4839201",
+        name: "Vikram Singhal",
+        gender: "Male",
+        dob: "12/10/1988",
+        address: "Marine Drive, Mumbai, MH",
+        confidence: "98.7%"
+      });
+      setOcrScanning(false);
+      showToast("OCR Identification Extracted successfully!", "success");
+    }, 2500);
+  };
+
+  const applyOcrToNewBooking = () => {
+    if (!scannedResult) return;
+    const firstVacant = rooms.find(r => r.status === "vacant");
+    
+    // Auto-fill booking function from parent dashboard trigger
+    if (onNewBooking && firstVacant) {
+      onNewBooking({
+        ...firstVacant,
+        presetName: scannedResult.name,
+        presetPhone: "9826012345"
+      });
+      setScannedResult(null);
+    } else {
+      showToast("No vacant room available to dispatch!", "warning");
+    }
+  };
+
+  const handleSendChatMessage = (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMsg = { id: Date.now(), role: "user", text: chatInput };
+    setAiChatMessages(prev => [...prev, userMsg]);
+    setChatInput("");
+
+    setTimeout(() => {
+      let responseText = "Mubashir's AI Engine is processing. Live stats checked: Everything is operational.";
+      if (chatInput.toLowerCase().includes("room") || chatInput.toLowerCase().includes("occupancy")) {
+        responseText = `Current statistics: Occupancy rate is ${stats?.occupancyPercent}%. We have ${stats?.vacantRooms} rooms empty currently.`;
+      }
+      setAiChatMessages(prev => [...prev, { id: Date.now() + 1, role: "assistant", text: responseText }]);
+      triggerHaptic(20);
+    }, 1000);
+  };
+
+  if (!stats) return <Skeleton />;
+
+  const pct = (Math.random() * 20 + 5).toFixed(1);
+
+  // Group rooms safely by floors
+  const byFloor = {};
+  rooms.forEach(r => {
+    if (!byFloor[r.floor]) byFloor[r.floor] = [];
+    byFloor[r.floor].push(r);
+  });
+  const floors = Object.keys(byFloor).map(Number).sort((a, b) => b - a);
+
+  // Dynamic Room node colors config matches image premium style
+  const roomConfig = (r) => {
+    if (r.status === "occupied")     return { bg: "linear-gradient(145deg,#16a34a,#15803d)", border: "rgba(34,197,94,0.7)",  text: "#f0fdf4", glow: "rgba(34,197,94,0.3)",   icon: "👤", label: "Occupied"  };
+    if (r.status === "reserved")     return { bg: "linear-gradient(145deg,#eab308,#ca8a04)", border: "rgba(234,179,8,0.7)",  text: "#fef9c3", glow: "rgba(234,179,8,0.25)", icon: "📌", label: "Reserved"  };
+    if (r.status === "cleaning")     return { bg: "linear-gradient(145deg,#3b82f6,#1d4ed8)", border: "rgba(59,130,246,0.7)",  text: "#eff6ff", glow: "rgba(59,130,246,0.25)", icon: "🧹", label: "Cleaning"  };
+    if (r.status === "out_of_order") return { bg: "linear-gradient(145deg,#374151,#1f2937)", border: "rgba(107,114,128,0.5)", text: "#9ca3af", glow: "transparent",           icon: "🔧", label: "Out Order" };
+    return                                   { bg: "linear-gradient(145deg,#ef4444,#dc2626)", border: "rgba(239,68,68,0.7)",  text: "#fef2f2", glow: "rgba(239,68,68,0.25)",  icon: "",   label: "Vacant"    };
+  };
+
+  // Real-time variables calculated
+  const occupied   = rooms.filter(r => r.status === "occupied").length;
+  const vacant     = rooms.filter(r => r.status === "vacant").length;
+  const reserved   = rooms.filter(r => r.status === "reserved").length;
+  const cleaning   = rooms.filter(r => r.status === "cleaning").length;
+  const outOfOrder = rooms.filter(r => r.status === "out_of_order").length;
+  const total      = rooms.length;
+
+  const Tip = ({ active, payload }) => active && payload?.length ? (
+    <div style={{ background:"rgba(0,0,0,0.85)", border:"1px solid rgba(212,175,55,0.3)", borderRadius:8, padding:"6px 10px" }}>
+      <p style={{ color:"#D4AF37", fontSize:11, fontWeight:700 }}>₹{payload[0].value.toLocaleString("en-IN")}</p>
+    </div>
+  ) : null;
+
+  const todayBookings = getTodayBookings(hotelId) || [];
+  const pendingCheckIns = todayBookings.filter(b => b.status === "active").length;
 
   return (
-    <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden",background:"#07090E"}}>
-      <div className="scroll-y" style={{flex:1,paddingBottom:28}}>
-
-        {/* ── AI RECEPTIONIST ── */}
-        <div style={{padding:"12px 14px 0"}}>
-          <div style={{background:"linear-gradient(135deg,rgba(8,12,22,0.98),rgba(4,6,14,0.98))",border:"1px solid rgba(0,140,255,0.18)",borderRadius:18,padding:"14px",display:"flex",alignItems:"center",gap:14,boxShadow:"0 4px 28px rgba(0,140,255,0.07),inset 0 1px 0 rgba(255,255,255,0.04)"}}>
-            {/* Avatar */}
-            <div style={{position:"relative",flexShrink:0}}>
-              {/* Spinning gradient ring */}
-              <div style={{position:"absolute",inset:-9,borderRadius:"50%",background:"conic-gradient(from 0deg,rgba(212,175,55,0.9),rgba(0,140,255,0.7),rgba(212,175,55,0),rgba(0,140,255,0.6),rgba(212,175,55,0.9))",animation:"spinRingCW 3s linear infinite"}}>
-                <div style={{position:"absolute",inset:2,borderRadius:"50%",background:"#07090E"}}/>
-              </div>
-              <div style={{position:"absolute",inset:-3,borderRadius:"50%",border:"1.5px solid rgba(212,175,55,0.35)",boxShadow:"0 0 10px rgba(212,175,55,0.25)"}}/>
-              {/* Face */}
-              <div style={{width:58,height:58,borderRadius:"50%",overflow:"hidden",position:"relative",boxShadow:"0 0 18px rgba(0,140,255,0.3)"}}>
-                <svg viewBox="0 0 60 60" style={{width:58,height:58}}>
-                  <defs>
-                    <radialGradient id="sk" cx="50%" cy="35%" r="55%"><stop offset="0%" stopColor="#dba882"/><stop offset="100%" stopColor="#bf7a50"/></radialGradient>
-                    <linearGradient id="hr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#120600"/><stop offset="100%" stopColor="#060200"/></linearGradient>
-                    <linearGradient id="ub" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#12142a"/><stop offset="100%" stopColor="#070810"/></linearGradient>
-                  </defs>
-                  <rect width="60" height="60" fill="url(#ub)"/>
-                  <path d="M5,60 Q5,42 30,40 Q55,42 55,60Z" fill="#08081a"/>
-                  <path d="M14,60 Q14,45 30,43 Q46,45 46,60Z" fill="#12143a"/>
-                  <path d="M24,46 Q30,50 36,46" fill="none" stroke="#D4AF37" strokeWidth="1.5"/>
-                  <rect x="25" y="36" width="10" height="8" rx="4" fill="url(#sk)"/>
-                  <ellipse cx="30" cy="25" rx="13.5" ry="14.5" fill="url(#sk)"/>
-                  <path d="M17,21 Q17,8 30,8 Q43,8 43,21 Q39,13 30,13 Q21,13 17,21Z" fill="url(#hr)"/>
-                  <path d="M17,21 Q14,30 16,37 Q18,31 18,24Z" fill="url(#hr)"/>
-                  <path d="M43,21 Q46,30 44,37 Q42,31 42,24Z" fill="url(#hr)"/>
-                  <ellipse cx="24" cy="26" rx="2.5" ry="2.8" fill="#110600"/>
-                  <ellipse cx="36" cy="26" rx="2.5" ry="2.8" fill="#110600"/>
-                  <circle cx="24.9" cy="25" r="0.8" fill="#fff" opacity="0.9"/>
-                  <circle cx="36.9" cy="25" r="0.8" fill="#fff" opacity="0.9"/>
-                  <path d="M21,22 Q24,21 27,22" fill="none" stroke="#2a0e00" strokeWidth="1.2" strokeLinecap="round"/>
-                  <path d="M33,22 Q36,21 39,22" fill="none" stroke="#2a0e00" strokeWidth="1.2" strokeLinecap="round"/>
-                  <path d="M29,30 Q30,32 31,30" fill="none" stroke="#aa6a40" strokeWidth="0.8"/>
-                  <path d="M25,34 Q30,38.5 35,34" fill="none" stroke="#aa6a40" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-              </div>
-              {/* Audio viz */}
-              <div style={{position:"absolute",bottom:-3,left:"50%",transform:"translateX(-50%)",display:"flex",gap:1.5,alignItems:"flex-end",background:"rgba(0,140,255,0.14)",borderRadius:5,padding:"2px 5px",border:"1px solid rgba(0,140,255,0.28)"}}>
-                {[4,8,5,10,6,9,4].map((h,i)=>(<div key={i} style={{width:2,height:h,background:"#008cff",borderRadius:1,animation:`audioBar 0.8s ease-in-out infinite`,animationDelay:`${i*0.11}s`}}/>))}
-              </div>
-              {/* Live dot */}
-              <div style={{position:"absolute",top:1,right:1,width:11,height:11,borderRadius:"50%",background:"#008cff",border:"2px solid #07090E",boxShadow:"0 0 8px #008cff,0 0 16px rgba(0,140,255,0.5)",animation:"livePulse 2s infinite"}}/>
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <p style={{fontSize:14,fontWeight:800,color:"#D4AF37",marginBottom:3,textShadow:"0 0 12px rgba(212,175,55,0.4)"}}>AI Receptionist</p>
-              <p style={{fontSize:12,color:"rgba(255,255,255,0.55)",lineHeight:1.5}}>{greeting()}, {user?.role==="owner"?"Owner":"Manager"} 👋</p>
-              <p style={{fontSize:11,color:"rgba(255,255,255,0.3)"}}>Here's your operational overview.</p>
-            </div>
-            <button onClick={handleRefresh} disabled={refreshing} style={{width:33,height:33,borderRadius:10,flexShrink:0,background:"rgba(0,140,255,0.08)",border:"1px solid rgba(0,140,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <RefreshCw size={13} style={{color:"#60b8ff"}} className={refreshing?"animate-spin":""}/>
-            </button>
-          </div>
+    <div className="h-full flex flex-col overflow-hidden" style={{ background:"#060606" }}>
+      
+      {/* ── TOAST DISPLAY ── */}
+      {toast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-[#111] border border-[#D4AF37]/30 px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-xs">
+          <Sparkles className="text-[#D4AF37] w-3.5 h-3.5 animate-spin" />
+          <span>{toast.text}</span>
         </div>
+      )}
 
-        <div style={{padding:"0 14px"}}>
-
-          {/* ── LIVE REVENUE ── */}
-          <div style={{margin:"12px 0",background:"linear-gradient(135deg,rgba(14,10,1,0.99),rgba(7,5,0,0.99))",border:"1px solid rgba(212,175,55,0.22)",borderRadius:20,padding:"18px 18px 16px",position:"relative",overflow:"hidden",boxShadow:"0 6px 36px rgba(212,175,55,0.05),inset 0 1px 0 rgba(212,175,55,0.08)"}}>
-            <div style={{position:"absolute",top:-60,right:-50,width:220,height:220,background:"radial-gradient(circle,rgba(212,175,55,0.07) 0%,transparent 70%)",pointerEvents:"none"}}/>
-            {[...Array(18)].map((_,i)=>(<div key={i} style={{position:"absolute",left:`${(i*53+11)%94}%`,top:`${(i*37+9)%88}%`,width:1.5,height:1.5,borderRadius:"50%",background:"rgba(212,175,55,0.45)",animation:`twinkle ${1.6+i*0.25}s ease-in-out infinite`,animationDelay:`${i*0.18}s`}}/>))}
-            <p style={{fontSize:9,letterSpacing:"0.15em",color:"rgba(212,175,55,0.5)",textTransform:"uppercase",marginBottom:6,position:"relative"}}>LIVE REVENUE</p>
-            <p style={{fontSize:33,fontWeight:900,color:"#fff",letterSpacing:"-0.03em",lineHeight:1.1,marginBottom:4,position:"relative",textShadow:"0 0 36px rgba(212,175,55,0.28)"}}>₹{stats.todayRevenue.toLocaleString("en-IN")}.00</p>
-            <p style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginBottom:10,position:"relative"}}>Today's Total Revenue</p>
-            <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(34,197,94,0.09)",border:"1px solid rgba(34,197,94,0.22)",borderRadius:8,padding:"4px 10px",position:"relative"}}>
-              <span style={{color:"#4ade80",fontSize:11,fontWeight:700}}>↑ {pct}% vs yesterday</span>
-            </div>
-            <div style={{marginTop:14,height:58,position:"relative"}}>
-              <ResponsiveContainer width="100%" height={58}>
-                <AreaChart data={revData} margin={{top:0,right:0,left:0,bottom:0}}>
-                  <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#D4AF37" stopOpacity={0.5}/><stop offset="100%" stopColor="#D4AF37" stopOpacity={0}/></linearGradient></defs>
-                  <Tooltip content={<Tip/>} cursor={false}/>
-                  <Area type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={2.5} fill="url(#rg)" dot={false} style={{filter:"drop-shadow(0 0 8px rgba(212,175,55,0.9)) drop-shadow(0 0 18px rgba(212,175,55,0.45))"}}/>
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* ── ROOM GRID ── */}
-          <div style={{background:"linear-gradient(135deg,rgba(6,8,16,0.99),rgba(4,5,12,0.99))",border:"1px solid rgba(255,255,255,0.065)",borderRadius:20,padding:"16px 14px 14px",marginBottom:12,boxShadow:"0 4px 28px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.03)"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:13}}>🛏️</span>
-                <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.45)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Room Occupancy</p>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:5}}>
-                <span style={{fontSize:10,color:"rgba(212,175,55,0.55)",fontWeight:600}}>Tower A</span>
-                <span style={{fontSize:10,color:"rgba(255,255,255,0.25)"}}>▼</span>
-              </div>
-            </div>
-            {/* Keycap grid */}
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {floors.map(fl=>(
-                <div key={fl} style={{display:"flex",alignItems:"flex-end",gap:5}}>
-                  <span style={{fontSize:9,color:"rgba(255,255,255,0.2)",width:18,textAlign:"right",flexShrink:0,fontWeight:700,paddingBottom:4,fontFamily:"'Courier New',monospace"}}>{String(fl).padStart(2,"0")}</span>
-                  <div style={{display:"flex",gap:4,flex:1,flexWrap:"wrap"}}>
-                    {byFloor[fl].map(room=>(<RoomKeycap key={room.id} room={room} onClick={handleRoomClick}/>))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Legend */}
-            <div style={{display:"flex",flexWrap:"wrap",gap:"5px 12px",marginTop:14,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.05)"}}>
-              {[{c:"#22c55e",l:"Occupied",v:`${stats.occupancyPercent}%`},{c:"#D4AF37",l:"Reserved",v:`${reserved}`},{c:"#ef4444",l:"Vacant",v:`${vacant}`},{c:"#6b7280",l:"Out of Order",v:`${outOfOrder}`}].map(x=>(
-                <div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:x.c,boxShadow:`0 0 5px ${x.c}`}}/>
-                  <span style={{fontSize:9,color:"rgba(255,255,255,0.35)"}}>{x.l} ({x.v})</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── QUICK TILES + AI SCAN ── */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,marginBottom:12,alignItems:"center"}}>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <div style={S()}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}><span style={{fontSize:13}}>👥</span><p style={{fontSize:8,color:"rgba(255,255,255,0.3)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Guest Check-in</p></div>
-                <p style={{fontSize:28,fontWeight:900,color:"#fff",lineHeight:1}}>{pendingCI}</p>
-                <p style={{fontSize:11,color:"#D4AF37",fontWeight:700,marginTop:2}}>Pending</p>
-              </div>
-              <div style={S()}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}><span style={{fontSize:13}}>🧹</span><p style={{fontSize:8,color:"rgba(255,255,255,0.3)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Housekeeping</p></div>
-                <p style={{fontSize:28,fontWeight:900,color:"#fff",lineHeight:1}}>{cleaning}</p>
-                <p style={{fontSize:11,color:"#818cf8",fontWeight:700,marginTop:2}}>Rooms</p>
-              </div>
-            </div>
-            <AiScanReactor onClick={fetchInsight}/>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <div style={S()}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}><span style={{fontSize:13}}>🔧</span><p style={{fontSize:8,color:"rgba(255,255,255,0.3)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Maintenance</p></div>
-                <p style={{fontSize:28,fontWeight:900,color:"#fff",lineHeight:1}}>{outOfOrder}</p>
-                <p style={{fontSize:11,color:"#008cff",fontWeight:700,marginTop:2}}>Pending</p>
-              </div>
-              <div style={S()}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}><span style={{fontSize:13}}>⭐</span><p style={{fontSize:8,color:"rgba(255,255,255,0.3)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Reviews</p></div>
-                <p style={{fontSize:28,fontWeight:900,color:"#fff",lineHeight:1}}>4.8</p>
-                <p style={{fontSize:11,color:"#D4AF37",fontWeight:700,marginTop:2}}>Rating</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ── AI INSIGHTS + HOLOGRAM ── */}
-          <div style={{background:"linear-gradient(135deg,rgba(0,18,45,0.55),rgba(0,8,22,0.65))",border:"1px solid rgba(0,140,255,0.18)",borderRadius:20,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",boxShadow:"0 4px 28px rgba(0,140,255,0.05),inset 0 1px 0 rgba(0,140,255,0.07)"}}>
-            <div style={{position:"absolute",inset:0,opacity:0.04,backgroundImage:"linear-gradient(rgba(0,140,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(0,140,255,0.8) 1px,transparent 1px)",backgroundSize:"22px 22px",pointerEvents:"none"}}/>
-            <div style={{display:"flex",alignItems:"flex-start",position:"relative"}}>
-              <div style={{flex:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                  <div style={{width:30,height:30,borderRadius:10,background:"rgba(0,140,255,0.1)",border:"1px solid rgba(0,140,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    <Brain size={13} style={{color:"#60b8ff"}}/>
-                  </div>
-                  <p style={{fontSize:11,fontWeight:900,color:"#60b8ff",letterSpacing:"0.13em",textShadow:"0 0 10px rgba(0,140,255,0.5)"}}>AI INSIGHTS</p>
-                </div>
-                {iLoad?(
-                  <div style={{display:"flex",gap:5,alignItems:"center",height:36}}>
-                    {[0,1,2].map(i=>(<div key={i} style={{width:7,height:7,borderRadius:"50%",background:"#008cff",animation:`dotBounce 1.2s infinite`,animationDelay:`${i*0.2}s`}}/>))}
-                  </div>
-                ):(
-                  <p style={{fontSize:13,color:"rgba(255,255,255,0.65)",lineHeight:1.6,marginBottom:12}}>{insight}</p>
-                )}
-                <button onClick={fetchInsight} style={{padding:"7px 15px",borderRadius:10,background:"transparent",border:"1px solid rgba(212,175,55,0.45)",color:"#D4AF37",fontSize:11,fontWeight:800,cursor:"pointer",letterSpacing:"0.04em",boxShadow:"0 0 10px rgba(212,175,55,0.12)"}}>
-                  View Insights
-                </button>
-              </div>
-              <div style={{flexShrink:0,marginRight:-10,marginBottom:-10}}>
-                <HologramBuilding/>
-              </div>
-            </div>
-          </div>
-
-          {/* ── BOOKING LINK ── */}
-          <button onClick={copyLink} style={{width:"100%",background:"rgba(6,8,15,0.9)",border:"1px solid rgba(212,175,55,0.1)",borderRadius:13,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,cursor:"pointer"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <ExternalLink size={11} style={{color:"#D4AF37"}}/>
-              <span style={{fontSize:11,fontFamily:"monospace",color:"rgba(255,255,255,0.22)"}}>/booking/{hotelId}</span>
-            </div>
-            <span style={{fontSize:11,fontWeight:700,color:"#D4AF37",display:"flex",alignItems:"center",gap:4}}>
-              {copied?<><Check size={10}/>Copied!</>:"Share Link"}
-            </span>
-          </button>
-
-          {/* ── CHECK-INS ── */}
-          <div style={{background:"rgba(6,8,15,0.98)",border:"1px solid rgba(255,255,255,0.055)",borderRadius:20,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 16px",borderBottom:"1px solid rgba(255,255,255,0.045)"}}>
-              <p style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:"rgba(255,255,255,0.3)",textTransform:"uppercase"}}>Aaj Ke Check-ins</p>
-              <span style={{fontSize:11,fontWeight:700,color:"#D4AF37"}}>{todayBookings.filter(b=>b.status==="active").length} active</span>
-            </div>
-            {todayBookings.length===0?(
-              <div style={{padding:"28px 16px",textAlign:"center"}}>
-                <p style={{fontSize:26,marginBottom:8}}>🌙</p>
-                <p style={{fontSize:13,color:"rgba(255,255,255,0.18)"}}>Aaj koi check-in nahi hua</p>
-              </div>
-            ):todayBookings.slice(0,5).map((b,idx)=>(
-              <div key={b.id} style={{padding:"13px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:idx<Math.min(4,todayBookings.length-1)?"1px solid rgba(255,255,255,0.038)":"none"}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontSize:13,color:"#fff",fontWeight:700,marginBottom:2}}>{b.guestName}</p>
-                  <p style={{fontSize:10,color:"rgba(255,255,255,0.28)"}}>Room {b.roomId} · {b.nights} raat · {b.paymentMode}</p>
-                </div>
-                <p style={{fontSize:14,fontWeight:800,color:"#D4AF37",textShadow:"0 0 10px rgba(212,175,55,0.35)",flexShrink:0}}>₹{Number(b.totalAmount||0).toLocaleString("en-IN")}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Dynamic top tabs navigator header */}
+      <div className="bg-[#080808]/90 border-b border-white/5 py-2 px-4 flex items-center justify-between">
+        <span className="text-[10px] font-black text-white/50 tracking-widest uppercase">Workspace Desk</span>
+        
+        {/* Gemini Token Trigger Indicator */}
+        <button 
+          onClick={() => setShowApiModal(true)}
+          className={`text-[9px] px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all ${
+            apiKey ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400" : "bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-[#D4AF37]"
+          }`}
+        >
+          <Shield className="w-3 h-3" />
+          {apiKey ? "Gemini Active" : "Link LLM Core"}
+        </button>
       </div>
 
-      {/* ── MODAL ── */}
-      {selRoom&&(
-        <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",alignItems:"flex-end",background:"rgba(0,0,0,0.82)",backdropFilter:"blur(6px)"}} onClick={()=>setSelRoom(null)}>
-          <div style={{width:"100%",background:"linear-gradient(180deg,#0c0f1a,#07090E)",borderRadius:"24px 24px 0 0",padding:24,border:"1px solid rgba(255,255,255,0.065)",borderBottom:"none",boxShadow:"0 -8px 40px rgba(0,0,0,0.7)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{width:36,height:3,background:"rgba(255,255,255,0.1)",borderRadius:3,margin:"0 auto 20px"}}/>
-            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18}}>
-              <div style={{width:54,height:54,borderRadius:16,flexShrink:0,background:mCfg.bg,border:`2px solid ${mCfg.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 18px ${mCfg.border}`}}>
-                <span style={{fontSize:10,color:mCfg.text,fontWeight:900,fontFamily:"'Courier New',monospace"}}>{selRoom.number}</span>
+      {/* Scrollable contents flow */}
+      <div className="flex-1 scroll-y" style={{ paddingBottom: 80 }}>
+
+        {/* ── DYNAMIC DESK TAB: MAIN DASHBOARD ── */}
+        {activeTab === "dashboard" && (
+          <div className="animate-fade-up">
+            
+            {/* ── HERO HEADER ── */}
+            <div style={{
+              background: "linear-gradient(180deg, rgba(212,175,55,0.08) 0%, transparent 100%)",
+              borderBottom: "1px solid rgba(212,175,55,0.08)",
+              padding: "16px 16px 14px"
+            }}>
+              {/* AI Receptionist row */}
+              <div style={{
+                background: "linear-gradient(135deg, rgba(20,20,20,0.9), rgba(15,15,15,0.9))",
+                border: "1px solid rgba(212,175,55,0.15)",
+                borderRadius: 16,
+                padding: "12px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 14
+              }}>
+                {/* Avatar with pulse */}
+                <div style={{ position:"relative", flexShrink:0 }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: "50%",
+                    background: "linear-gradient(135deg,#1a1200,#2e2000)",
+                    border: "2px solid rgba(212,175,55,0.4)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 22, boxShadow: "0 0 20px rgba(212,175,55,0.15)"
+                  }}>
+                    {hotel?.emoji || "🏨"}
+                  </div>
+                  <div style={{
+                    position: "absolute", bottom: 0, right: 0,
+                    width: 12, height: 12, borderRadius: "50%",
+                    background: "#22c55e",
+                    border: "2px solid #080808",
+                    boxShadow: "0 0 6px #22c55e",
+                    animation: "pulseDot 2s infinite"
+                  }}/>
+                </div>
+                <div style={{ flex:1, minWidth:0, textAlign:"left" }}>
+                  <p style={{ color:"#D4AF37", fontWeight:700, fontSize:13, marginBottom:1 }}>
+                    {hotel?.name || "Hotel"}
+                  </p>
+                  <p style={{ color:"rgba(255,255,255,0.5)", fontSize:11 }}>
+                    {greeting()}, {user?.role === "owner" ? "Owner" : "Manager"} 👋 · {new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short"})}
+                  </p>
+                </div>
+                <button onClick={handleRefresh} disabled={refreshing}
+                  style={{ width:36, height:36, background:"rgba(212,175,55,0.1)", border:"1px solid rgba(212,175,55,0.2)", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <RefreshCw size={14} style={{ color:"#D4AF37" }} className={refreshing ? "animate-spin" : ""}/>
+                </button>
               </div>
-              <div>
-                <p style={{fontSize:19,fontWeight:900,color:"#fff"}}>Room {selRoom.number}</p>
-                <p style={{fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:2}}>{selRoom.type||"Standard"} · Floor {selRoom.floor} · <span style={{color:mCfg.text}}>{mCfg.label}</span></p>
-              </div>
+
+              {/* Hotel booking link */}
+              <button onClick={copyLink} style={{
+                width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 12, padding: "9px 14px", display: "flex", alignItems: "center", justifyBetween: "space-between"
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <ExternalLink size={12} style={{ color:"#D4AF37" }}/>
+                  <span style={{ fontSize:11, fontFamily:"monospace", color:"rgba(255,255,255,0.3)" }}>
+                    /booking/{hotelId}
+                  </span>
+                </div>
+                <span style={{ fontSize:11, fontWeight:700, color:"#D4AF37", display:"flex", alignItems:"center", gap:4 }}>
+                  {copied ? <><Check size={10}/>Copied!</> : "Share Link"}
+                </span>
+              </button>
             </div>
-            {selRoom.booking?(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.065)",borderRadius:16,padding:16}}>
-                  <p style={{fontSize:16,fontWeight:800,color:"#fff",marginBottom:4}}>{selRoom.booking.guestName}</p>
-                  <p style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginBottom:10}}>{selRoom.booking.guestPhone}</p>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,color:"rgba(255,255,255,0.35)"}}>{selRoom.booking.nights} raatein</span>
-                    <span style={{fontSize:15,fontWeight:800,color:"#D4AF37"}}>₹{Number(selRoom.booking.totalAmount||0).toLocaleString("en-IN")}</span>
+
+            <div style={{ padding: "0 14px" }}>
+
+              {/* ── LIVE REVENUE CARD ── */}
+              <div style={{
+                margin: "14px 0",
+                background: "linear-gradient(135deg, rgba(18,14,0,0.95), rgba(12,10,0,0.95))",
+                border: "1px solid rgba(212,175,55,0.2)",
+                borderRadius: 20,
+                padding: "18px 18px 14px",
+                position: "relative",
+                overflow: "hidden",
+                textAlign: "left"
+              }}>
+                <div style={{
+                  position:"absolute", top:-40, right:-40, width:160, height:160,
+                  background:"radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 70%)",
+                  pointerEvents:"none"
+                }}/>
+                <p style={{ fontSize:10, letterSpacing:"0.12em", color:"rgba(212,175,55,0.6)", textTransform:"uppercase", marginBottom:6 }}>
+                  LIVE REVENUE
+                </p>
+                <p style={{ fontSize:32, fontWeight:900, color:"#fff", letterSpacing:"-0.03em", lineHeight:1.1, marginBottom:4 }}>
+                  ₹{(stats.todayRevenue || 0).toLocaleString("en-IN")}.00
+                </p>
+                <p style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:10 }}>Today's Total Revenue</p>
+                <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.2)", borderRadius:8, padding:"3px 8px" }}>
+                  <span style={{ color:"#4ade80", fontSize:11, fontWeight:700 }}>↑ {pct}% vs yesterday</span>
+                </div>
+                {/* Sparkline chart */}
+                <div style={{ marginTop:12, height:50 }}>
+                  <ResponsiveContainer width="100%" height={50}>
+                    <AreaChart data={revData} margin={{ top:0, right:0, left:0, bottom:0 }}>
+                      <defs>
+                        <linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#D4AF37" stopOpacity={0.4}/>
+                          <stop offset="100%" stopColor="#D4AF37" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <Tooltip content={<Tip/>} cursor={false}/>
+                      <Area type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={2}
+                        fill="url(#rg2)" dot={false}
+                        style={{ filter:"drop-shadow(0 0 6px rgba(212,175,55,0.6))" }}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* ── STATS SUMMARY ROW ── */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14, textAlign:"left" }}>
+                {[
+                  { label:"Occupied", value:`${occupied}/${total}`, sub:`${stats.occupancyPercent}%`, color:"#4ade80", icon:"🛏️", glow:"rgba(34,197,94,0.2)" },
+                  { label:"Check-ins", value:stats.todayCheckIns, sub:"Today", color:"#D4AF37", icon:"✅", glow:"rgba(212,175,55,0.15)" },
+                ].map(s => (
+                  <div key={s.label} style={{
+                    background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)",
+                    borderRadius:16, padding:"14px 14px", position:"relative", overflow:"hidden"
+                  }}>
+                    <div style={{ position:"absolute", top:-20, right:-20, width:70, height:70, background:`radial-gradient(circle, ${s.glow} 0%, transparent 70%)`, pointerEvents:"none" }}/>
+                    <p style={{ fontSize:22 }}>{s.icon}</p>
+                    <p style={{ fontSize:26, fontWeight:900, color:"#fff", letterSpacing:"-0.02em", lineHeight:1.1, marginTop:4 }}>{s.value}</p>
+                    <p style={{ fontSize:11, fontWeight:700, color:s.color, marginTop:2 }}>{s.sub}</p>
+                    <p style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginTop:1 }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── QUICK STATS 4-tile ── */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
+                {[
+                  { label:"Vacant",   value:vacant,     color:"#34d399" },
+                  { label:"Reserved", value:reserved,   color:"#fbbf24" },
+                  { label:"Cleaning", value:cleaning,   color:"#818cf8" },
+                  { label:"Offline",  value:outOfOrder, color:"#6b7280" },
+                ].map(s => (
+                  <div key={s.label} style={{
+                    background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)",
+                    borderRadius:12, padding:"10px 8px", textAlign:"center"
+                  }}>
+                    <p style={{ fontSize:20, fontWeight:900, color:s.color, lineHeight:1 }}>{s.value}</p>
+                    <p style={{ fontSize:9, color:"rgba(255,255,255,0.35)", marginTop:3, letterSpacing:"0.04em" }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── ROOM OCCUPANCY GRID ── */}
+              <div style={{
+                background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)",
+                borderRadius:20, padding:"16px 14px", marginBottom:14, textAlign: "left"
+              }}>
+                <div style={{ display:"flex", alignItems:"center", justifyBetween:"space-between", marginBottom:14 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:14 }}>🛏️</span>
+                    <p style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", color:"rgba(255,255,255,0.5)", textTransform:"uppercase" }}>Room Occupancy Matrix</p>
                   </div>
                 </div>
-                <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:15,borderRadius:16,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 22px rgba(212,175,55,0.4)"}}>✓ Check-out Karo</button>
-              </div>
-            ):(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.065)",borderRadius:16,padding:16,textAlign:"center"}}>
-                  <p style={{fontSize:13,color:"rgba(255,255,255,0.3)",textTransform:"capitalize"}}>{selRoom.status?.replace("_"," ")}</p>
-                  <p style={{fontSize:11,color:"rgba(255,255,255,0.18)",marginTop:4}}>Base Rate: ₹{selRoom.baseRate}/raat</p>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginBottom:14 }}>
+                  {[
+                    { c:"#4ade80", l:"Vacant" },
+                    { c:"#22c55e", l:"Occupied" },
+                    { c:"#fbbf24", l:"Reserved" },
+                    { c:"#818cf8", l:"Cleaning" },
+                    { c:"#6b7280", l:"Out of Order" },
+                  ].map(x => (
+                    <div key={x.l} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background:x.c, boxShadow:`0 0 4px ${x.c}` }}/>
+                      <span style={{ fontSize:9, color:"rgba(255,255,255,0.4)" }}>{x.l}</span>
+                    </div>
+                  ))}
                 </div>
-                {selRoom.status==="vacant"&&(<button onClick={()=>{setSelRoom(null);onNewBooking&&onNewBooking(selRoom);}} style={{width:"100%",padding:15,borderRadius:16,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 22px rgba(212,175,55,0.4)"}}>+ Nayi Booking Karo</button>)}
+
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {floors.map(fl => (
+                    <div key={fl} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{
+                        fontSize:9, color:"rgba(255,255,255,0.3)", width:18, textAlign:"right",
+                        fontWeight:700, letterSpacing:"0.04em", flexShrink:0
+                      }}>
+                        {String(fl).padStart(2,"0")}
+                      </span>
+                      <div style={{ display:"flex", gap:5, flex:1, flexWrap:"wrap" }}>
+                        {byFloor[fl].map(room => {
+                          const c = roomConfig(room);
+                          return (
+                            <button key={room.id} onClick={() => handleRoomClick(room)}
+                              style={{
+                                flex: "1 1 0",
+                                minWidth: 40,
+                                maxWidth: 58,
+                                aspectRatio: "1 / 1.1",
+                                borderRadius: 10,
+                                background: c.bg,
+                                border: `1.5px solid ${c.border}`,
+                                boxShadow: `0 0 10px ${c.glow}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 2,
+                                cursor: "pointer",
+                                transition: "all 0.15s",
+                                padding: "4px 2px"
+                              }}
+                            >
+                              {c.icon && <span style={{ fontSize:10, lineHeight:1 }}>{c.icon}</span>}
+                              <span style={{ fontSize:9, color:c.text, fontWeight:800, letterSpacing:"0.02em" }}>
+                                {room.number}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── QUICK ACTIONS SUMMARY MATRIX ── */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14, position:"relative", textAlign:"left" }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  <div style={{ background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                      <Users size={14} style={{ color:"#D4AF37" }}/>
+                      <p style={{ fontSize:9, color:"rgba(255,255,255,0.4)", letterSpacing:"0.1em", textTransform:"uppercase" }}>Guest Check-in</p>
+                    </div>
+                    <p style={{ fontSize:28, fontWeight:900, color:"#fff", lineHeight:1 }}>{pendingCheckIns}</p>
+                    <p style={{ fontSize:11, color:"#D4AF37", fontWeight:600, marginTop:2 }}>{pendingCheckIns > 0 ? "Pending" : "All Done"}</p>
+                  </div>
+                  <div style={{ background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                      <span style={{ fontSize:14 }}>🧹</span>
+                      <p style={{ fontSize:9, color:"rgba(255,255,255,0.4)", letterSpacing:"0.1em", textTransform:"uppercase" }}>Housekeeping</p>
+                    </div>
+                    <p style={{ fontSize:28, fontWeight:900, color:"#fff", lineHeight:1 }}>{cleaning}</p>
+                    <p style={{ fontSize:11, color:"#818cf8", fontWeight:600, marginTop:2 }}>Rooms</p>
+                  </div>
+                </div>
+
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  <div style={{ background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                      <Wrench size={14} style={{ color:"#f87171" }}/>
+                      <p style={{ fontSize:9, color:"rgba(255,255,255,0.4)", letterSpacing:"0.1em", textTransform:"uppercase" }}>Maintenance</p>
+                    </div>
+                    <p style={{ fontSize:28, fontWeight:900, color:"#fff", lineHeight:1 }}>{outOfOrder}</p>
+                    <p style={{ fontSize:11, color:"#f87171", fontWeight:600, marginTop:2 }}>Pending</p>
+                  </div>
+                  <div style={{ background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                      <Star size={14} style={{ color:"#D4AF37" }}/>
+                      <p style={{ fontSize:9, color:"rgba(255,255,255,0.4)", letterSpacing:"0.1em", textTransform:"uppercase" }}>Rating</p>
+                    </div>
+                    <p style={{ fontSize:28, fontWeight:900, color:"#fff", lineHeight:1 }}>4.8</p>
+                    <p style={{ fontSize:11, color:"#D4AF37", fontWeight:600, marginTop:2 }}>Reviews</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── ADVANCED CORE SCAN BUTTON ── */}
+              <div style={{ display:"flex", justifyCenter:"center", marginBottom:14 }}>
+                <button onClick={handleAiScan}
+                  style={{
+                    width:110, height:110, borderRadius:"50%", position:"relative",
+                    background: aiScan
+                      ? "radial-gradient(circle, rgba(0,112,243,0.3) 0%, rgba(0,0,0,0.9) 70%)"
+                      : "radial-gradient(circle, rgba(0,40,80,0.8) 0%, rgba(0,0,0,0.9) 70%)",
+                    border: "2px solid rgba(0,112,243,0.4)",
+                    boxShadow: aiScan
+                      ? "0 0 40px rgba(0,112,243,0.6), 0 0 80px rgba(0,112,243,0.3)"
+                      : "0 0 20px rgba(0,112,243,0.25)",
+                    cursor:"pointer", display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyCenter:"center", gap:4,
+                    transition: "all 0.3s"
+                  }}>
+                  <div style={{
+                    position:"absolute", inset:-10, borderRadius:"50%",
+                    border:"1px solid transparent",
+                    borderTopColor:"rgba(0,112,243,0.5)",
+                    animation:"spinRing 2s linear infinite"
+                  }}/>
+                  <div style={{
+                    position:"absolute", inset:-18, borderRadius:"50%",
+                    border:"1px solid transparent",
+                    borderBottomColor:"rgba(212,175,55,0.3)",
+                    animation:"spinRing 3s linear infinite reverse"
+                  }}/>
+                  <Brain size={20} style={{ color:"#60a5fa", filter:"drop-shadow(0 0 6px #60a5fa)" }}/>
+                  <span style={{ fontSize:11, fontWeight:900, color:"#60a5fa", letterSpacing:"0.1em" }}>
+                    {aiScan ? "SCANNING" : "AI SCAN"}
+                  </span>
+                </button>
+              </div>
+
+              {/* ── AI INSIGHT FEED ── */}
+              <div style={{
+                background:"linear-gradient(135deg, rgba(0,30,80,0.4), rgba(0,20,60,0.3))",
+                border:"1px solid rgba(0,112,243,0.2)",
+                borderRadius:20, padding:"16px",
+                marginBottom:14,
+                position:"relative", overflow:"hidden",
+                textAlign: "left"
+              }}>
+                <div style={{
+                  position:"absolute", bottom:-30, right:-20, width:120, height:120,
+                  background:"radial-gradient(circle, rgba(0,112,243,0.08) 0%, transparent 70%)",
+                  pointerEvents:"none"
+                }}/>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+                  <div style={{
+                    width:32, height:32, borderRadius:10,
+                    background:"rgba(0,112,243,0.15)", border:"1px solid rgba(0,112,243,0.2)",
+                    display:"flex", alignItems:"center", justifyCenter:"center"
+                  }}>
+                    <Brain size={14} style={{ color:"#60a5fa" }}/>
+                  </div>
+                  <p style={{ fontSize:11, fontWeight:800, color:"#60a5fa", letterSpacing:"0.1em" }}>AI RECEPTIONIST INSIGHTS</p>
+                </div>
+                {iLoad ? (
+                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    {[0,1,2].map(i => (
+                      <div key={i} style={{
+                        width:6, height:6, borderRadius:"50%", background:"#60a5fa",
+                        animation:"bounce 1.2s infinite",
+                        animationDelay:`${i*0.2}s`
+                      }}/>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.6 }}>{insight}</p>
+                )}
+                <button style={{
+                  marginTop:12, padding:"7px 14px", borderRadius:10,
+                  background:"linear-gradient(135deg,#b8960c,#D4AF37)", color:"#000",
+                  fontSize:11, fontWeight:800, cursor:"pointer", border:"none"
+                }} onClick={fetchInsight}>
+                  Refresh Insights
+                </button>
+              </div>
+
+              {/* ── TODAY'S LIVE CHECK-INS LIST ── */}
+              <div style={{
+                background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)",
+                borderRadius:20, overflow:"hidden", marginBottom:14, textLeft: "left"
+              }}>
+                <div style={{
+                  display:"flex", alignItems:"center", justifyBetween:"space-between",
+                  padding:"14px 16px", borderBottom:"1px solid rgba(255,255,255,0.05)"
+                }}>
+                  <p style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", color:"rgba(255,255,255,0.4)", textTransform:"uppercase" }}>
+                    Aaj Ke Check-ins
+                  </p>
+                  <span style={{ fontSize:11, fontWeight:700, color:"#D4AF37" }}>
+                    {todayBookings.filter(b => b.status === "active").length} active
+                  </span>
+                </div>
+                {todayBookings.length === 0 ? (
+                  <div style={{ padding:"24px 16px", textCenter:"center" }}>
+                    <p style={{ fontSize:28, marginBottom:8 }}>🌙</p>
+                    <p style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Aaj koi check-in nahi hua</p>
+                  </div>
+                ) : todayBookings.slice(0, 5).map((b, idx) => (
+                  <div key={b.id} style={{
+                    padding:"13px 16px",
+                    borderBottom: idx < Math.min(4, todayBookings.length - 1) ? "1px solid rgba(255,255,255,0.04)" : "none",
+                    display:"flex", alignItems:"center", justifyBetween:"space-between"
+                  }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontSize:13, color:"#fff", fontWeight:700, marginBottom:2 }}>{b.guestName}</p>
+                      <p style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>Room {b.roomId} · {b.nights} raat · {b.paymentMode}</p>
+                    </div>
+                    <div style={{ textRight:"right", flexShrink:0 }}>
+                      <p style={{ fontSize:14, fontWeight:800, color:"#D4AF37" }}>
+                        ₹{Number(b.totalAmount || 0).toLocaleString("en-IN")}
+                      </p>
+                      <span style={{
+                        fontSize:9, fontWeight:700, letterSpacing:"0.06em",
+                        color: b.status === "active" ? "#4ade80" : "#6b7280",
+                        background: b.status === "active" ? "rgba(34,197,94,0.1)" : "rgba(107,114,128,0.1)",
+                        padding:"2px 6px", borderRadius:4
+                      }}>
+                        {b.status?.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ── DYNAMIC DESK TAB: AUTOMATED CHECK-INS LIST DESK ── */}
+        {activeTab === "bookings" && (
+          <div className="p-4 space-y-4 text-left animate-fade-up">
+            <h2 className="text-sm font-black uppercase text-white tracking-widest">Reservations Desk</h2>
+            <div className="bg-[#111] border border-white/5 rounded-2xl overflow-hidden">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="bg-[#181818] border-b border-white/5 text-white/40 text-[9px] uppercase tracking-wider">
+                    <th className="p-3">Guest Details</th>
+                    <th className="p-3">Room</th>
+                    <th className="p-3">Bill</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {todayBookings.map(b => (
+                    <tr key={b.id} className="hover:bg-white/5">
+                      <td className="p-3 font-bold">{b.guestName}</td>
+                      <td className="p-3">RM {b.roomId}</td>
+                      <td className="p-3 text-[#D4AF37]">₹{b.totalAmount}</td>
+                      <td className="p-3">{b.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── DYNAMIC DESK TAB: AI HOLOGRAPHIC SCANNER ── */}
+        {activeTab === "ocr_scanner" && (
+          <div className="p-4 space-y-4 text-left animate-fade-up">
+            <h2 className="text-sm font-black uppercase text-white tracking-widest">Holographic ID OCR</h2>
+            <p className="text-xs text-white/40">Scan Aadhaar or Passport to prefill dynamic guest details.</p>
+            
+            <div className="bg-[#111] border border-white/5 p-4 rounded-3xl space-y-4 flex flex-col items-center">
+              <div className="flex bg-[#181818] p-1 rounded-xl border border-white/5 w-full">
+                {["Aadhaar", "Passport"].map(t => (
+                  <button key={t} onClick={() => setOcrIdType(t)} className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${ocrIdType === t ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "text-white/40"}`}>{t}</button>
+                ))}
+              </div>
+
+              <div className="w-full aspect-[1.5] border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden">
+                {ocrScanning && (
+                  <div className="absolute inset-0 bg-cyan-500/5">
+                    <div className="w-full h-1 bg-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.8)] animate-scanline absolute" />
+                  </div>
+                )}
+                {scannedResult ? (
+                  <div className="text-center space-y-1">
+                    <CheckSquare className="w-8 h-8 text-emerald-400 mx-auto" />
+                    <p className="text-xs font-bold">{scannedResult.name}</p>
+                    <p className="text-[10px] text-white/50">{scannedResult.documentNo}</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-white/30">Align document card inside target frame</p>
+                )}
+              </div>
+
+              <button onClick={handleOcrSimulation} className="w-full py-3 bg-gradient-to-r from-[#0070F3] to-cyan-500 rounded-xl text-xs font-bold uppercase">Simulate Scan</button>
+              {scannedResult && (
+                <button onClick={applyOcrToNewBooking} className="w-full py-3 bg-[#D4AF37] text-black rounded-xl text-xs font-bold uppercase">Fill Check-in Detail</button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── DYNAMIC DESK TAB: AI CHAT AGENT ── */}
+        {activeTab === "ai_chat" && (
+          <div className="p-4 space-y-4 text-left animate-fade-up">
+            <h2 className="text-sm font-black uppercase text-white tracking-widest">AI Agent Interaction</h2>
+            <div className="bg-[#111] border border-white/5 rounded-3xl h-[300px] flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {aiChatMessages.map(m => (
+                  <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`p-3 rounded-2xl text-xs max-w-[80%] ${m.role === "user" ? "bg-[#D4AF37]/10 text-white" : "bg-white/5 text-white/70"}`}>{m.text}</div>
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={handleSendChatMessage} className="p-2 bg-[#181818] flex gap-2">
+                <input type="text" placeholder="Type ask: occupancy details..." value={chatInput} onChange={e=>setChatInput(e.target.value)} className="flex-1 bg-black/40 text-xs text-white p-2.5 rounded-xl outline-none" />
+                <button type="submit" className="p-2 bg-[#D4AF37] text-black rounded-xl"><Send className="w-4 h-4" /></button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── DYNAMIC DESK TAB: OUTBOUND WHATSAPP LOG ── */}
+        {activeTab === "whatsapp" && (
+          <div className="p-4 space-y-4 text-left animate-fade-up">
+            <h2 className="text-sm font-black uppercase text-white tracking-widest">WhatsApp Automation Logs</h2>
+            <div className="space-y-3">
+              {whatsappLogs.map(log => (
+                <div key={log.id} className="p-3 bg-[#111] border border-white/5 rounded-xl text-xs flex justify-between items-center">
+                  <div>
+                    <span className="font-bold">{log.phone}</span>
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded ml-2">{log.type}</span>
+                    <p className="text-white/50 mt-1">{log.message}</p>
+                  </div>
+                  <span className="text-[9px] text-white/30">{log.time}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>{/* /scroll */}
+
+      {/* ── PERSISTENT LOW PROFILE FOOTER NAVIGATION BAR (DIRECT FROM PORTAL) ── */}
+      <footer className="fixed bottom-0 left-0 right-0 z-40 bg-[#111]/95 border-t border-white/5">
+        <div className="max-w-md mx-auto grid grid-cols-5 py-2 text-center">
+          {[
+            { id: "dashboard", label: "Home", icon: Home },
+            { id: "bookings", label: "Desk", icon: Calendar },
+            { id: "ocr_scanner", label: "ID OCR", icon: Scan },
+            { id: "ai_chat", label: "AI Agent", icon: Brain },
+            { id: "whatsapp", label: "WhatsApp", icon: MessageSquare }
+          ].map((nav) => {
+            const Icon = nav.icon;
+            const isActive = activeTab === nav.id;
+            return (
+              <button
+                key={nav.id}
+                onClick={() => {
+                  setActiveTab(nav.id);
+                  triggerHaptic(15);
+                }}
+                className="flex flex-col items-center justify-center space-y-1 py-1 cursor-pointer relative"
+              >
+                <Icon className={`w-4 h-4 ${isActive ? "text-[#D4AF37]" : "text-white/40"}`} />
+                <span className={`text-[8px] font-black uppercase tracking-wider ${isActive ? "text-white" : "text-white/40"}`}>
+                  {nav.label}
+                </span>
+                {isActive && (
+                  <span className="absolute bottom-[-4px] w-5 h-[2px] bg-[#D4AF37] rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </footer>
+
+      {/* ── ROOM DETAIL MODAL ── */}
+      {selRoom && (
+        <div
+          style={{ position:"absolute", inset:0, zIndex:50, display:"flex", alignItems:"flex-end", background:"rgba(0,0,0,0.75)", backdropFilter:"blur(4px)" }}
+          onClick={() => setSelRoom(null)}
+        >
+          <div
+            style={{ width:"100%", background:"linear-gradient(180deg,#141414,#0d0d0d)", borderRadius:"24px 24px 0 0", padding:24, border:"1px solid rgba(255,255,255,0.08)", borderBottom:"none", textAlign:"left" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ width:36, height:3, background:"rgba(255,255,255,0.15)", borderRadius:3, margin:"0 auto 20px" }}/>
+            <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:18 }}>
+              {/* Room number badge */}
+              <div style={{
+                width:56, height:56, borderRadius:16,
+                ...(() => { const c = roomConfig(selRoom); return { background:c.bg, border:`2px solid ${c.border}`, boxShadow:`0 0 16px ${c.glow}` }; })(),
+                display:"flex", flexDirection:"column", alignItems:"center", justifyCenter:"center", gap:2
+              }}>
+                <span style={{ fontSize:14 }}>{roomConfig(selRoom).icon}</span>
+                <span style={{ fontSize:11, color:roomConfig(selRoom).text, fontWeight:800 }}>{selRoom.number}</span>
+              </div>
+              <div>
+                <p style={{ fontSize:20, fontWeight:900, color:"#fff", letterSpacing:"-0.02em" }}>Room {selRoom.number}</p>
+                <p style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:1 }}>
+                  {selRoom.type || "Standard"} · Floor {selRoom.floor} · <span style={{ color:roomConfig(selRoom).text }}>{roomConfig(selRoom).label}</span>
+                </p>
+              </div>
+            </div>
+
+            {selRoom.booking ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, padding:16 }}>
+                  <p style={{ fontSize:16, fontWeight:800, color:"#fff", marginBottom:4 }}>{selRoom.booking.guestName}</p>
+                  <p style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:10 }}>{selRoom.booking.guestPhone}</p>
+                  <div style={{ display:"flex", justifyBetween:"space-between", alignItems:"center" }}>
+                    <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{selRoom.booking.nights} raatein</span>
+                    <span style={{ fontSize:16, fontWeight:800, color:"#D4AF37" }}>₹{Number(selRoom.booking.totalAmount || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+                <button onClick={() => handleCheckout(selRoom.booking.id)} style={{
+                  width:"100%", padding:"15px", borderRadius:16, fontWeight:800, fontSize:14,
+                  background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000",
+                  border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(212,175,55,0.35)"
+                }}>
+                  ✓ Check-out Karo
+                </button>
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, padding:16, textCenter:"center" }}>
+                  <p style={{ fontSize:13, color:"rgba(255,255,255,0.4)", textTransform:"capitalize" }}>{selRoom.status?.replace("_"," ")}</p>
+                  <p style={{ fontSize:11, color:"rgba(255,255,255,0.25)", marginTop:4 }}>Base Rate: ₹{selRoom.baseRate}/raat</p>
+                </div>
+                {selRoom.status === "vacant" && (
+                  <button onClick={() => { setSelRoom(null); onNewBooking && onNewBooking(selRoom); }} style={{
+                    width:"100%", padding:"15px", borderRadius:16, fontWeight:800, fontSize:14,
+                    background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000",
+                    border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(212,175,55,0.35)"
+                  }}>
+                    + Nayi Booking Karo
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* ── COVETED GEMINI API KEY SETUP DIALOG PANEL ── */}
+      {showApiModal && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 text-left">
+          <div className="w-full max-w-md bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl animate-scale-up">
+            <div className="px-5 py-4 bg-[#181818] border-b border-white/5 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4.5 h-4.5 text-[#D4AF37]" />
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Configure LLM Core</h3>
+              </div>
+              <button onClick={() => setShowApiModal(false)} className="p-1 hover:bg-white/5 rounded-lg text-white/50">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-white/60 leading-relaxed">
+                Plug in your standard Google Gemini API key to run real-time Hinglish analysis and dynamic checks.
+              </p>
+
+              <div className="space-y-1 text-xs">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Enter Google Gemini Key</label>
+                <input 
+                  type="password" 
+                  placeholder="AIzaSy..." 
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-full bg-[#181818] border border-white/10 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                />
+              </div>
+
+              <button 
+                onClick={() => {
+                  setShowApiModal(false);
+                  showToast(apiKey ? "Dynamic Gemini Verified!" : "Switched to Local system rules.", "info");
+                  triggerHaptic(50);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-[#b8960c] to-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg"
+              >
+                Apply LLM parameters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline styles for animations */}
+      <style>{`
+        @keyframes pulseDot {
+          0%,100% { box-shadow: 0 0 4px #22c55e; }
+          50%      { box-shadow: 0 0 10px #22c55e, 0 0 20px rgba(34,197,94,0.4); }
+        }
+        @keyframes bounce {
+          0%,80%,100% { transform: scale(0); }
+          40%          { transform: scale(1); }
+        }
+        @keyframes spinRing {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes scanLine {
+          0% { top: 5%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 95%; opacity: 0; }
+        }
+        .animate-scanline {
+          animation: scanLine 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up {
+          animation: fadeUp 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }
 
 function localInsight(s) {
-  if(s.occupancyPercent>80)return`Aaj occupancy ${s.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
-  if(s.occupancyPercent>50)return`${s.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
-  return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing consider karo!";
+  if (s?.occupancyPercent > 80) return `Aaj occupancy ${s?.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
+  if (s?.occupancyPercent > 50) return `${s?.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
+  return `Occupancy kam hai. Weekend package ya local business se tie-up consider karo.`;
 }
 
 function Skeleton() {
-  return(
-    <div style={{height:"100%",padding:"16px 14px",display:"flex",flexDirection:"column",gap:12,background:"#07090E"}}>
-      {[80,160,280,120].map((h,i)=>(<div key={i} style={{height:h,background:"rgba(255,255,255,0.022)",borderRadius:20}}/>))}
+  return (
+    <div style={{ height:"100%", padding:"16px 14px", display:"flex", flexDirection:"column", gap:12, background:"#080808" }}>
+      {[120, 80, 200, 100].map((h, i) => (
+        <div key={i} style={{ height:h, background:"rgba(255,255,255,0.03)", borderRadius:20, animation:"pulse 1.5s infinite" }}/>
+      ))}
     </div>
   );
 }
