@@ -21,12 +21,31 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Send, MessageCircle, X, ChevronDown, MapPin, Phone, Star, Wifi, Car, Coffee, Shield } from "lucide-react";
 
-/* ─── Supabase direct fetch (no SDK needed client-side) ──────── */
+/* ─── All known demo/alias IDs ──────────────────────────────── */
+const DEMOS = [
+  { id:"sunrise-jaipur",    name:"Hotel Sunrise",   location:"Jaipur, Rajasthan",      totalRooms:40,  plan:"pro",        emoji:"🏨" },
+  { id:"hotel-sunrise",     name:"Hotel Sunrise",   location:"Jaipur, Rajasthan",      totalRooms:40,  plan:"pro",        emoji:"🏨" },
+  { id:"grand-mumbai",      name:"The Grand Inn",   location:"Mumbai, Maharashtra",    totalRooms:120, plan:"enterprise", emoji:"🏩" },
+  { id:"the-grand-inn",     name:"The Grand Inn",   location:"Mumbai, Maharashtra",    totalRooms:120, plan:"enterprise", emoji:"🏩" },
+  { id:"saffron-ahmedabad", name:"Saffron Stays",   location:"Ahmedabad, Gujarat",     totalRooms:25,  plan:"free",       emoji:"🏪" },
+  { id:"saffron-stays",     name:"Saffron Stays",   location:"Ahmedabad, Gujarat",     totalRooms:25,  plan:"free",       emoji:"🏪" },
+  { id:"cherry-bhopal",     name:"Hotel Cherry",    location:"Bhopal, Madhya Pradesh", totalRooms:20,  plan:"pro",        emoji:"🍒" },
+  { id:"hotel-cherry",      name:"Hotel Cherry",    location:"Bhopal, Madhya Pradesh", totalRooms:20,  plan:"pro",        emoji:"🍒" },
+];
+
+/* ─── Supabase direct fetch ──────────────────────────────────── */
 async function fetchHotel(hotelId) {
   const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // 1. Supabase
+  const mapRow = h => ({
+    id: h.id, name: h.name, location: h.location,
+    totalRooms: h.total_rooms || h.totalRooms || 20,
+    plan: h.plan || "starter", emoji: h.emoji || "🏨",
+    ownerPhone: h.owner_phone || "",
+  });
+
+  // 1. Supabase — exact ID match
   if (sbUrl && sbKey && sbUrl !== "undefined") {
     try {
       const res = await fetch(
@@ -35,25 +54,73 @@ async function fetchHotel(hotelId) {
       );
       if (res.ok) {
         const data = await res.json();
-        if (data?.length > 0) return { ...data[0], totalRooms: data[0].total_rooms };
+        if (data?.length > 0) return mapRow(data[0]);
+      }
+    } catch {}
+
+    // 1b. Supabase — search by name (fuzzy: "hotel-cherry" → "Hotel Cherry")
+    try {
+      const nameGuess = hotelId
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, c => c.toUpperCase());
+      const res2 = await fetch(
+        `${sbUrl}/rest/v1/hotels?name=ilike.*${encodeURIComponent(nameGuess.split(" ").pop())}*&select=id,name,location,total_rooms,plan,emoji,owner_phone`,
+        { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+      );
+      if (res2.ok) {
+        const data2 = await res2.json();
+        if (data2?.length > 0) return mapRow(data2[0]);
+      }
+    } catch {}
+
+    // 1c. Supabase — fetch ALL and match name loosely
+    try {
+      const res3 = await fetch(
+        `${sbUrl}/rest/v1/hotels?select=id,name,location,total_rooms,plan,emoji,owner_phone`,
+        { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+      );
+      if (res3.ok) {
+        const all = await res3.json();
+        if (all?.length > 0) {
+          // Match: hotelId slug matches any word in hotel name
+          const slug = hotelId.toLowerCase().replace(/-/g, "");
+          const found = all.find(h => {
+            const nameSlug = h.name.toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9]/g, "");
+            const idSlug   = h.id.toLowerCase().replace(/-/g, "");
+            return nameSlug.includes(slug) || idSlug.includes(slug) || slug.includes(idSlug.slice(0,6));
+          });
+          if (found) return mapRow(found);
+        }
       }
     } catch {}
   }
 
-  // 2. localStorage cache
+  // 2. localStorage — exact
   try {
     const cached = localStorage.getItem(`air_${hotelId}_config`);
     if (cached) return JSON.parse(cached);
   } catch {}
 
-  // 3. Demo hotels
-  const DEMOS = [
-    { id:"sunrise-jaipur",    name:"Hotel Sunrise",          location:"Jaipur, Rajasthan",      totalRooms:40,  plan:"pro",        emoji:"🏨", owner_phone:"" },
-    { id:"grand-mumbai",      name:"The Grand Inn",          location:"Mumbai, Maharashtra",    totalRooms:120, plan:"enterprise", emoji:"🏩", owner_phone:"" },
-    { id:"saffron-ahmedabad", name:"Saffron Stays",          location:"Ahmedabad, Gujarat",     totalRooms:25,  plan:"free",       emoji:"🏪", owner_phone:"" },
-    { id:"cherry-bhopal",     name:"Hotel Cherry",           location:"Bhopal, Madhya Pradesh", totalRooms:20,  plan:"pro",        emoji:"🍒", owner_phone:"" },
-  ];
-  return DEMOS.find(h => h.id === hotelId) || null;
+  // 3. localStorage registry — fuzzy match
+  try {
+    const registry = JSON.parse(localStorage.getItem("gi_hotel_registry") || "[]");
+    const cache    = JSON.parse(localStorage.getItem("gi_hotel_registry_cache") || "[]");
+    const slug = hotelId.toLowerCase().replace(/-/g, "");
+    const allLocal = [...registry, ...cache];
+    const found = allLocal.find(h => {
+      const idSlug   = (h.id   ||"").toLowerCase().replace(/-/g,"");
+      const nameSlug = (h.name ||"").toLowerCase().replace(/\s+/g,"");
+      return idSlug === slug || nameSlug.includes(slug) || slug.includes(idSlug.slice(0,6));
+    });
+    if (found) return found;
+  } catch {}
+
+  // 4. Demo list — exact then fuzzy
+  const slug = hotelId.toLowerCase().replace(/-/g, "");
+  return DEMOS.find(h => h.id === hotelId)
+      || DEMOS.find(h => h.id.replace(/-/g,"") === slug)
+      || DEMOS.find(h => h.name.toLowerCase().replace(/\s+/g,"").includes(slug))
+      || null;
 }
 
 /* ─── Save lead to Supabase ──────────────────────────────────── */
