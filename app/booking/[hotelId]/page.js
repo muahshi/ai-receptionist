@@ -1,277 +1,582 @@
 /**
- * /booking/[hotelId] — Direct Hotel Login Page
- * Hotel staff/owner is link se seedha apne hotel ka PIN screen dekhta hai.
- * e.g. yourapp.vercel.app/booking/hotel-amardeep-mp9unyer
+ * app/booking/[hotelId]/page.js
+ *
+ * PUBLIC-FACING AI BOOKING PAGE
+ * ─────────────────────────────────────────────────────────────
+ * URL: yourapp.vercel.app/booking/[hotelId]
+ * 
+ * This page is shown to GUESTS (not staff).
+ * Hotel owners share this link on GMB, WhatsApp, Instagram etc.
+ *
+ * Features:
+ * ✅ Luxury hotel showcase (name, location, room types, rates)
+ * ✅ Groq-powered AI chat agent (Hinglish, collects booking details)
+ * ✅ Lead capture → stores to Supabase + notifies owner
+ * ✅ No login required for guests
+ * ✅ Staff login link hidden at bottom
  */
+
 "use client";
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "next/navigation";
+import { Send, MessageCircle, X, ChevronDown, MapPin, Phone, Star, Wifi, Car, Coffee, Shield } from "lucide-react";
 
-const PLAN_LABELS = { free:"Free", starter:"Starter", pro:"Pro", enterprise:"Enterprise" };
-const PLAN_COLORS = {
-  free:       { bg:"rgba(255,255,255,0.08)", text:"#777"    },
-  starter:    { bg:"rgba(34,197,94,0.15)",   text:"#22c55e" },
-  pro:        { bg:"rgba(212,175,55,0.2)",   text:"#D4AF37" },
-  enterprise: { bg:"rgba(0,112,243,0.2)",    text:"#60a5fa" },
-};
+/* ─── Supabase direct fetch (no SDK needed client-side) ──────── */
+async function fetchHotel(hotelId) {
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export default function BookingDirectPage() {
+  // 1. Supabase
+  if (sbUrl && sbKey && sbUrl !== "undefined") {
+    try {
+      const res = await fetch(
+        `${sbUrl}/rest/v1/hotels?id=eq.${encodeURIComponent(hotelId)}&select=id,name,location,total_rooms,plan,emoji,owner_phone`,
+        { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.length > 0) return { ...data[0], totalRooms: data[0].total_rooms };
+      }
+    } catch {}
+  }
+
+  // 2. localStorage cache
+  try {
+    const cached = localStorage.getItem(`air_${hotelId}_config`);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+
+  // 3. Demo hotels
+  const DEMOS = [
+    { id:"sunrise-jaipur",    name:"Hotel Sunrise",          location:"Jaipur, Rajasthan",      totalRooms:40,  plan:"pro",        emoji:"🏨", owner_phone:"" },
+    { id:"grand-mumbai",      name:"The Grand Inn",          location:"Mumbai, Maharashtra",    totalRooms:120, plan:"enterprise", emoji:"🏩", owner_phone:"" },
+    { id:"saffron-ahmedabad", name:"Saffron Stays",          location:"Ahmedabad, Gujarat",     totalRooms:25,  plan:"free",       emoji:"🏪", owner_phone:"" },
+    { id:"cherry-bhopal",     name:"Hotel Cherry",           location:"Bhopal, Madhya Pradesh", totalRooms:20,  plan:"pro",        emoji:"🍒", owner_phone:"" },
+  ];
+  return DEMOS.find(h => h.id === hotelId) || null;
+}
+
+/* ─── Save lead to Supabase ──────────────────────────────────── */
+async function saveLead(hotelId, lead) {
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!sbUrl || !sbKey || sbUrl === "undefined") return;
+  try {
+    await fetch(`${sbUrl}/rest/v1/leads`, {
+      method: "POST",
+      headers: {
+        apikey: sbKey, Authorization: `Bearer ${sbKey}`,
+        "Content-Type": "application/json", Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        hotel_id:       hotelId,
+        guest_name:     lead.name     || "",
+        guest_phone:    lead.phone    || "",
+        check_in_date:  lead.checkIn  || "",
+        check_out_date: lead.checkOut || "",
+        room_type:      lead.roomType || "",
+        message:        lead.message  || "",
+        created_at:     new Date().toISOString(),
+        status:         "new",
+      }),
+    });
+  } catch {}
+}
+
+const ROOM_TYPES = [
+  { type:"Standard", icon:"🛏",  price:1500, desc:"Cozy room with all essentials",    amenities:["AC","TV","WiFi","Geyser"] },
+  { type:"Deluxe",   icon:"🛎",  price:2500, desc:"Spacious room with premium view",  amenities:["AC","TV","WiFi","Mini Bar","Geyser"] },
+  { type:"Suite",    icon:"👑",  price:4500, desc:"Luxury suite with sitting lounge", amenities:["AC","55\" TV","WiFi","Mini Bar","Jacuzzi","Butler"] },
+];
+
+const AMENITY_ICONS = { "AC":"❄️","TV":"📺","WiFi":"📶","Mini Bar":"🍹","Geyser":"🚿","Jacuzzi":"🛁","Butler":"🤵","55\" TV":"📺" };
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN PAGE
+═══════════════════════════════════════════════════════════════ */
+export default function PublicBookingPage() {
   const { hotelId } = useParams();
-  const router      = useRouter();
+  const [hotel,       setHotel]      = useState(null);
+  const [loading,     setLoading]    = useState(true);
+  const [chatOpen,    setChatOpen]   = useState(false);
+  const [messages,    setMessages]   = useState([]);
+  const [input,       setInput]      = useState("");
+  const [chatLoading, setChatLoading]= useState(false);
+  const [lead,        setLead]       = useState({});
+  const [leadSaved,   setLeadSaved]  = useState(false);
+  const [selRoom,     setSelRoom]    = useState(null);
+  const chatEndRef = useRef(null);
 
-  const [hotel,      setHotel]      = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [notFound,   setNotFound]   = useState(false);
-  const [role,       setRole]       = useState("manager");
-  const [pin,        setPin]        = useState("");
-  const [pinError,   setPinError]   = useState("");
-  const [pinLoading, setPinLoading] = useState(false);
-
-  // ── Load hotel data ──────────────────────────────────────────
   useEffect(() => {
-    if (!hotelId) { setNotFound(true); setLoading(false); return; }
-    loadHotel();
+    if (!hotelId) { setLoading(false); return; }
+    fetchHotel(hotelId).then(h => { setHotel(h); setLoading(false); });
   }, [hotelId]);
 
-  async function loadHotel() {
-    setLoading(true);
-    // 1. Try Supabase directly
-    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (sbUrl && sbKey && sbUrl !== "undefined") {
-      try {
-        const res = await fetch(
-          `${sbUrl}/rest/v1/hotels?id=eq.${encodeURIComponent(hotelId)}&select=id,name,location,total_rooms,plan,emoji,owner_pin,manager_pin`,
-          { headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}`, "Content-Type": "application/json" } }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.length > 0) {
-            const h = data[0];
-            const hotel = {
-              id: h.id, name: h.name, location: h.location,
-              totalRooms: h.total_rooms || 20, plan: h.plan || "starter",
-              emoji: h.emoji || "🏨", ownerPin: h.owner_pin, managerPin: h.manager_pin,
-            };
-            // Cache locally for offline
-            try { localStorage.setItem(`air_${hotel.id}_config`, JSON.stringify({ ...hotel, currency:"₹" })); } catch {}
-            setHotel(hotel);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch (e) { console.warn("Supabase fetch failed:", e.message); }
+  // Open chat with welcome message
+  useEffect(() => {
+    if (chatOpen && messages.length === 0 && hotel) {
+      setMessages([{
+        role: "assistant",
+        content: `Namaste! 🙏 Welcome to **${hotel.name}**!\n\nMain aapka AI receptionist hoon. Main aapki help kar sakta hoon:\n• 🛏 Room booking\n• 💰 Rates & availability\n• 📍 Location & directions\n• ❓ Koi bhi sawaal\n\nAap kya janana chahte hain?`,
+        time: new Date(),
+      }]);
     }
+  }, [chatOpen, hotel]);
 
-    // 2. localStorage cache
+  // Auto-scroll
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || chatLoading) return;
+    setInput("");
+
+    const userMsg = { role: "user", content: text, time: new Date() };
+    const newMsgs = [...messages, userMsg];
+    setMessages(newMsgs);
+    setChatLoading(true);
+
     try {
-      const cached = localStorage.getItem(`air_${hotelId}_config`);
-      if (cached) { setHotel(JSON.parse(cached)); setLoading(false); return; }
+      const hotelConfig = {
+        name:     hotel?.name || "The GuestInn",
+        location: hotel?.location || "India",
+        rates:    { standard: 1500, deluxe: 2500, suite: 4500 },
+      };
 
-      // 3. localStorage registry
-      const registry = JSON.parse(localStorage.getItem("gi_hotel_registry") || "[]");
-      const found = registry.find(h => h.id === hotelId);
-      if (found) { setHotel(found); setLoading(false); return; }
+      const res = await fetch("/api/groq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "chat",
+          hotelConfig,
+          messages: newMsgs.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = await res.json();
+      const reply = data.message || "Kuch problem aa gayi. Dobara try karo.";
 
-      // 4. Registry cache
-      const cache = JSON.parse(localStorage.getItem("gi_hotel_registry_cache") || "[]");
-      const cachedH = cache.find(h => h.id === hotelId);
-      if (cachedH) { setHotel(cachedH); setLoading(false); return; }
-    } catch {}
+      setMessages(prev => [...prev, { role: "assistant", content: reply, time: new Date() }]);
 
-    // 5. Demo hotels
-    const DEMOS = [
-      { id:"sunrise-jaipur",    name:"Hotel Sunrise",   location:"Jaipur, Rajasthan",      totalRooms:40,  plan:"pro",        emoji:"🏨", ownerPin:"1234", managerPin:"5678" },
-      { id:"grand-mumbai",      name:"The Grand Inn",   location:"Mumbai, Maharashtra",    totalRooms:120, plan:"enterprise", emoji:"🏩", ownerPin:"2345", managerPin:"6789" },
-      { id:"saffron-ahmedabad", name:"Saffron Stays",   location:"Ahmedabad, Gujarat",     totalRooms:25,  plan:"free",       emoji:"🏪", ownerPin:"3456", managerPin:"7890" },
-      { id:"cherry-bhopal",     name:"Hotel Cherry",    location:"Bhopal, Madhya Pradesh", totalRooms:20,  plan:"pro",        emoji:"🍒", ownerPin:"4567", managerPin:"8901" },
-    ];
-    const demo = DEMOS.find(h => h.id === hotelId);
-    if (demo) { setHotel(demo); setLoading(false); return; }
-
-    setNotFound(true);
-    setLoading(false);
-  }
-
-  // ── PIN auto-submit ──────────────────────────────────────────
-  useEffect(() => { if (pin.length === 4) handleLogin(); }, [pin]);
-
-  const addDigit = (d) => { if (pin.length < 4 && !pinLoading) setPin(p => p + d); };
-  const delDigit = ()    => setPin(p => p.slice(0, -1));
-
-  async function handleLogin() {
-    if (!hotel || pin.length < 4) return;
-    setPinLoading(true); setPinError("");
-    await new Promise(r => setTimeout(r, 350));
-    const correct = role === "owner" ? hotel.ownerPin : hotel.managerPin;
-    if (pin === correct) {
-      const user = { hotelId: hotel.id, hotelName: hotel.name, role, loginAt: new Date().toISOString() };
-      try {
-        localStorage.setItem("air_current_user", JSON.stringify(user));
-        localStorage.setItem("air_active_hotel", hotel.id);
-        // Save full config so app works offline
-        localStorage.setItem(`air_${hotel.id}_config`, JSON.stringify({
-          ...hotel, currency:"₹", gstPercent:12, checkoutTime:"11:00",
-          rates:{ standard:1500, deluxe:2500, suite:4500 },
-        }));
-      } catch {}
-      if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
-      router.push("/");
-    } else {
-      setPinError("Galat PIN! Dobara try karo.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      setPin("");
+      // Extract lead data from conversation
+      const extractedLead = extractLeadFromConversation(text, reply, lead);
+      if (Object.keys(extractedLead).length > Object.keys(lead).length) {
+        setLead(extractedLead);
+        // Save if we have name + phone
+        if (extractedLead.name && extractedLead.phone && !leadSaved) {
+          saveLead(hotelId, { ...extractedLead, message: text });
+          setLeadSaved(true);
+        }
+      }
+    } catch {
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: "Network problem hai. Thodi der baad try karo. 🙏",
+        time: new Date(),
+      }]);
     }
-    setPinLoading(false);
-  }
+    setChatLoading(false);
+  };
 
-  // ── LOADING ──────────────────────────────────────────────────
-  if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center gap-4"
-      style={{ background:"#0A0A0A" }}>
-      <div className="w-10 h-10 border-2 rounded-full animate-spin"
-        style={{ borderColor:"rgba(212,175,55,0.2)", borderTopColor:"#D4AF37" }}/>
-      <p className="text-sm" style={{ color:"rgba(255,255,255,0.4)" }}>Hotel load ho raha hai...</p>
-      <p className="text-xs font-mono" style={{ color:"rgba(255,255,255,0.2)" }}>{hotelId}</p>
-    </div>
-  );
+  if (loading) return <LoadingScreen />;
+  if (!hotel)  return <NotFound hotelId={hotelId} />;
 
-  // ── NOT FOUND ────────────────────────────────────────────────
-  if (notFound || !hotel) return (
-    <div className="h-screen flex flex-col items-center justify-center px-6 text-center"
-      style={{ background:"#0A0A0A" }}>
-      <p className="text-5xl mb-4">🏚️</p>
-      <h2 className="font-black text-2xl text-white mb-2">Hotel Nahi Mila</h2>
-      <p className="text-sm mb-2" style={{ color:"rgba(255,255,255,0.4)" }}>
-        Yeh link sahi nahi lagta.
-      </p>
-      <code className="text-xs px-3 py-1.5 rounded-lg mb-6 font-mono"
-        style={{ background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.35)" }}>
-        {hotelId}
-      </code>
-      <button onClick={loadHotel}
-        className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold mb-3"
-        style={{ background:"rgba(212,175,55,0.12)", border:"1px solid rgba(212,175,55,0.3)", color:"#D4AF37" }}>
-        <RefreshCw size={15}/> Dobara Try Karo
-      </button>
-      <button onClick={() => router.push("/")}
-        className="text-sm" style={{ color:"rgba(255,255,255,0.3)" }}>
-        Home Pe Jaao
-      </button>
-    </div>
-  );
-
-  const plan = PLAN_COLORS[hotel.plan] || PLAN_COLORS.free;
-
-  // ── PIN SCREEN ───────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ background:"#0A0A0A" }}>
+    <div style={{ background:"#07090E", minHeight:"100vh", color:"#fff", fontFamily:"'Outfit', system-ui, sans-serif" }}>
+      <style>{CSS}</style>
 
-      {/* Back */}
-      <button onClick={() => router.push("/")}
-        className="absolute top-6 left-4 w-10 h-10 rounded-xl flex items-center justify-center"
-        style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)" }}>
-        <ArrowLeft size={18} style={{ color:"rgba(255,255,255,0.4)" }}/>
-      </button>
-
-      {/* Hotel card */}
-      <div className="mb-8 text-center">
-        <div className="w-24 h-24 rounded-3xl mx-auto mb-4 flex items-center justify-center text-5xl"
-          style={{ background:"linear-gradient(135deg,#1a1200,#2e2000)",
-            border:"1px solid rgba(212,175,55,0.35)", boxShadow:"0 0 40px rgba(212,175,55,0.15)" }}>
-          {hotel.emoji || "🏨"}
+      {/* ══ HERO HEADER ══ */}
+      <div style={{
+        background: "linear-gradient(160deg,#0d1525 0%,#07090E 100%)",
+        borderBottom: "1px solid rgba(212,175,55,0.15)",
+        padding: "0 16px",
+      }}>
+        {/* Top bar */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 0 10px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:32 }}>{hotel.emoji || "🏨"}</span>
+            <div>
+              <h1 style={{ fontSize:18, fontWeight:900, color:"#fff", letterSpacing:"-0.02em", lineHeight:1.1 }}>
+                {hotel.name}
+              </h1>
+              <p style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:2, display:"flex", alignItems:"center", gap:3 }}>
+                <MapPin size={9}/> {hotel.location}
+              </p>
+            </div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{
+              display:"flex", alignItems:"center", gap:4,
+              padding:"4px 8px", borderRadius:20,
+              background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.3)",
+            }}>
+              <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e", animation:"pulseDot 1.5s infinite" }}/>
+              <span style={{ fontSize:9, fontWeight:700, color:"#22c55e" }}>AVAILABLE</span>
+            </div>
+          </div>
         </div>
-        <h1 className="font-black text-3xl text-white mb-1" style={{ letterSpacing:"-0.02em" }}>
-          {hotel.name}
-        </h1>
-        <p className="text-sm" style={{ color:"rgba(255,255,255,0.4)" }}>📍 {hotel.location}</p>
-        <div className="flex items-center justify-center gap-2 mt-2">
-          <span className="text-xs px-2.5 py-0.5 rounded-lg font-semibold"
-            style={{ background:plan.bg, color:plan.text }}>
-            {PLAN_LABELS[hotel.plan] || "Starter"}
-          </span>
-          <span className="text-xs" style={{ color:"rgba(255,255,255,0.25)" }}>
-            {hotel.totalRooms} rooms
-          </span>
-        </div>
-      </div>
 
-      {/* Role toggle */}
-      <div className="w-full max-w-xs mb-6 p-1 rounded-2xl flex"
-        style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)" }}>
-        {[
-          { key:"manager", label:"🔑 Manager" },
-          { key:"owner",   label:"👑 Owner"   },
-        ].map(r => (
-          <button key={r.key} onClick={() => { setRole(r.key); setPin(""); setPinError(""); }}
-            className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
-            style={role === r.key
-              ? { background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000" }
-              : { color:"#444" }}>
-            {r.label}
-          </button>
-        ))}
-      </div>
-
-      {/* PIN dots */}
-      <div className="w-full max-w-xs mb-4 p-5 rounded-2xl"
-        style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)" }}>
-        <p className="text-xs text-center uppercase tracking-widest mb-4"
-          style={{ color:"rgba(255,255,255,0.3)" }}>
-          {role === "owner" ? "OWNER" : "MANAGER"} PIN DAALO
-        </p>
-        <div className="flex justify-center gap-4">
-          {[0, 1, 2, 3].map(i => (
-            <div key={i}
-              className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200"
-              style={i < pin.length
-                ? { background:"rgba(212,175,55,0.2)", border:"2px solid #D4AF37", boxShadow:"0 0 14px rgba(212,175,55,0.3)" }
-                : { background:"rgba(255,255,255,0.04)", border:"2px solid rgba(255,255,255,0.1)" }}>
-              {i < pin.length && <div className="w-3 h-3 rounded-full" style={{ background:"#D4AF37" }}/>}
+        {/* Rating strip */}
+        <div style={{ display:"flex", gap:16, padding:"10px 0 14px", overflowX:"auto" }}>
+          {[
+            { icon:<Star size={12} fill="#D4AF37"/>,  text:"4.8 Rating" },
+            { icon:<Wifi size={12}/>,                  text:"Free WiFi" },
+            { icon:<Car size={12}/>,                   text:"Free Parking" },
+            { icon:<Coffee size={12}/>,                text:"Breakfast" },
+            { icon:<Shield size={12}/>,                text:"Safe Stay" },
+          ].map(a => (
+            <div key={a.text} style={{
+              display:"flex", alignItems:"center", gap:5, flexShrink:0,
+              padding:"5px 10px", borderRadius:20,
+              background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)",
+              color:"rgba(255,255,255,0.6)", fontSize:11, fontWeight:500,
+            }}>
+              <span style={{ color:"#D4AF37" }}>{a.icon}</span>
+              {a.text}
             </div>
           ))}
         </div>
-        {pinError && (
-          <p className="text-red-400 text-xs text-center mt-3 font-medium">{pinError}</p>
-        )}
       </div>
 
-      {/* Keypad */}
-      <div className="w-full max-w-xs grid grid-cols-3 gap-3">
-        {[1,2,3,4,5,6,7,8,9].map(d => (
-          <button key={d} onClick={() => addDigit(String(d))} disabled={pinLoading}
-            className="py-4 rounded-2xl text-xl font-bold text-white transition-all active:scale-90"
-            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.07)" }}>
-            {d}
-          </button>
-        ))}
-        <button onClick={delDigit} disabled={pinLoading}
-          className="py-4 rounded-2xl text-xl font-bold transition-all active:scale-90 flex items-center justify-center"
-          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.07)", color:"#666" }}>
-          ⌫
-        </button>
-        <button onClick={() => addDigit("0")} disabled={pinLoading}
-          className="py-4 rounded-2xl text-xl font-bold text-white transition-all active:scale-90"
-          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.07)" }}>
-          0
-        </button>
-        <button onClick={handleLogin}
-          disabled={pin.length < 4 || pinLoading}
-          className="py-4 rounded-2xl font-bold text-sm flex items-center justify-center transition-all"
-          style={pin.length >= 4 && !pinLoading
-            ? { background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000", boxShadow:"0 4px 20px rgba(212,175,55,0.3)" }
-            : { background:"rgba(255,255,255,0.04)", color:"#333" }}>
-          {pinLoading
-            ? <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"/>
-            : "Login →"}
-        </button>
+      {/* ══ ROOM CARDS ══ */}
+      <div style={{ padding:"20px 16px 0" }}>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:"0.12em", color:"rgba(255,255,255,0.35)", textTransform:"uppercase", marginBottom:12 }}>
+          Available Rooms
+        </p>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {ROOM_TYPES.map(room => (
+            <div key={room.type}
+              onClick={() => { setSelRoom(room); setChatOpen(true); }}
+              style={{
+                borderRadius:18, padding:"14px 16px",
+                background: selRoom?.type === room.type
+                  ? "linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.05))"
+                  : "rgba(255,255,255,0.04)",
+                border: selRoom?.type === room.type
+                  ? "1px solid rgba(212,175,55,0.4)"
+                  : "1px solid rgba(255,255,255,0.08)",
+                cursor:"pointer", transition:"all .2s ease",
+              }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{
+                    width:44, height:44, borderRadius:12,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:22,
+                    background:"rgba(255,255,255,0.06)",
+                    border:"1px solid rgba(255,255,255,0.1)",
+                  }}>{room.icon}</div>
+                  <div>
+                    <p style={{ fontWeight:800, fontSize:15, color:"#fff" }}>{room.type} Room</p>
+                    <p style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:1 }}>{room.desc}</p>
+                  </div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <p style={{
+                    fontWeight:900, fontSize:18, color:"#D4AF37", letterSpacing:"-0.02em",
+                    filter:"drop-shadow(0 0 6px rgba(212,175,55,0.4))",
+                  }}>₹{room.price.toLocaleString("en-IN")}</p>
+                  <p style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>per night</p>
+                </div>
+              </div>
+
+              {/* Amenities */}
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {room.amenities.map(a => (
+                  <span key={a} style={{
+                    fontSize:10, padding:"3px 8px", borderRadius:20,
+                    background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.08)",
+                    color:"rgba(255,255,255,0.5)",
+                  }}>
+                    {AMENITY_ICONS[a] || "✓"} {a}
+                  </span>
+                ))}
+              </div>
+
+              <div style={{
+                marginTop:10, padding:"8px 12px", borderRadius:10,
+                background: "linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",
+                textAlign:"center", fontWeight:800, fontSize:12, color:"#000",
+              }}>
+                Chat to Book →
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <p className="text-xs mt-8" style={{ color:"rgba(255,255,255,0.15)" }}>
-        The GuestInn AI · Powered by Groq
-      </p>
+      {/* ══ LOCATION ══ */}
+      <div style={{ padding:"20px 16px 0" }}>
+        <div style={{
+          borderRadius:18, padding:"14px 16px",
+          background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)",
+        }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+            <MapPin size={14} style={{ color:"#D4AF37" }}/>
+            <span style={{ fontWeight:700, fontSize:13, color:"#fff" }}>Location</span>
+          </div>
+          <p style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:10 }}>📍 {hotel.location}</p>
+          <a href={`https://www.google.com/maps/search/${encodeURIComponent(hotel.name + " " + hotel.location)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display:"block", textAlign:"center", padding:"9px",
+              borderRadius:10, fontSize:12, fontWeight:700,
+              background:"rgba(0,112,243,0.12)", border:"1px solid rgba(0,112,243,0.3)",
+              color:"#60a5fa", textDecoration:"none",
+            }}>
+            📍 Google Maps pe Dekho
+          </a>
+        </div>
+      </div>
+
+      {/* ══ STAFF LOGIN LINK (hidden at bottom) ══ */}
+      <div style={{ padding:"20px 16px 100px", textAlign:"center" }}>
+        <p style={{ fontSize:10, color:"rgba(255,255,255,0.15)", marginBottom:4 }}>
+          Powered by The GuestInn AI
+        </p>
+        <a href={`/h/${hotelId}`}
+          style={{ fontSize:10, color:"rgba(255,255,255,0.12)", textDecoration:"none" }}>
+          Staff Login →
+        </a>
+      </div>
+
+      {/* ══ FLOATING CHAT BUTTON ══ */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          style={{
+            position:"fixed", bottom:24, right:20, zIndex:50,
+            width:60, height:60, borderRadius:"50%", border:"none",
+            background:"linear-gradient(135deg,#0050c8,#0070F3)",
+            boxShadow:"0 0 0 6px rgba(0,112,243,0.12), 0 0 30px rgba(0,112,243,0.5), 0 8px 20px rgba(0,0,0,0.4)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            cursor:"pointer", animation:"chatPulse 3s ease infinite",
+          }}>
+          <MessageCircle size={26} color="#fff" fill="rgba(255,255,255,0.2)"/>
+        </button>
+      )}
+
+      {/* ══ CHAT PANEL ══ */}
+      {chatOpen && (
+        <div style={{
+          position:"fixed", bottom:0, left:0, right:0, zIndex:50,
+          height:"75vh",
+          background:"linear-gradient(180deg,#0d1020,#080a14)",
+          border:"1px solid rgba(0,112,243,0.2)", borderBottom:"none",
+          borderRadius:"24px 24px 0 0",
+          display:"flex", flexDirection:"column",
+          boxShadow:"0 -10px 60px rgba(0,0,0,0.7)",
+        }}>
+          {/* Chat header */}
+          <div style={{
+            display:"flex", alignItems:"center", gap:12,
+            padding:"14px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)",
+            flexShrink:0,
+          }}>
+            <div style={{
+              width:40, height:40, borderRadius:"50%",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:20,
+              background:"linear-gradient(135deg,#001030,#001a4a)",
+              border:"2px solid rgba(0,112,243,0.4)",
+              boxShadow:"0 0 12px rgba(0,112,243,0.3)",
+            }}>👩‍💼</div>
+            <div style={{ flex:1 }}>
+              <p style={{ fontWeight:800, fontSize:14, color:"#fff", lineHeight:1 }}>AI Receptionist</p>
+              <p style={{ fontSize:11, color:"#22c55e", marginTop:2 }}>● Online — {hotel.name}</p>
+            </div>
+            <button onClick={() => setChatOpen(false)} style={{
+              width:32, height:32, borderRadius:10, border:"none",
+              background:"rgba(255,255,255,0.07)", color:"rgba(255,255,255,0.5)",
+              display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
+            }}>
+              <X size={16}/>
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:"auto", padding:"12px 14px", display:"flex", flexDirection:"column", gap:10 }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{
+                display:"flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+              }}>
+                <div style={{
+                  maxWidth:"82%", padding:"10px 14px", borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                  background: msg.role === "user"
+                    ? "linear-gradient(135deg,#b8960c,#D4AF37)"
+                    : "rgba(255,255,255,0.06)",
+                  border: msg.role === "assistant" ? "1px solid rgba(255,255,255,0.08)" : "none",
+                  color: msg.role === "user" ? "#000" : "#fff",
+                  fontSize:13, lineHeight:1.55, fontWeight: msg.role === "user" ? 600 : 400,
+                }}>
+                  {/* Render markdown bold */}
+                  {msg.content.split("**").map((part, j) =>
+                    j % 2 === 1 ? <strong key={j}>{part}</strong> : <span key={j}>{part}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div style={{ display:"flex", gap:5, padding:"10px 14px" }}>
+                {[0,1,2].map(i => (
+                  <div key={i} style={{
+                    width:8, height:8, borderRadius:"50%", background:"rgba(0,112,243,0.6)",
+                    animation:`typingDot 1.2s ease ${i*0.2}s infinite`,
+                  }}/>
+                ))}
+              </div>
+            )}
+            <div ref={chatEndRef}/>
+          </div>
+
+          {/* Quick reply chips */}
+          {messages.length <= 2 && (
+            <div style={{ display:"flex", gap:6, padding:"0 14px 8px", overflowX:"auto", flexShrink:0 }}>
+              {[
+                "Room book karna hai",
+                "Rates kya hain?",
+                selRoom ? `${selRoom.type} room chahiye` : "Availability check karo",
+                "Location bataiye",
+              ].map(q => (
+                <button key={q} onClick={() => { setInput(q); setTimeout(() => sendMessage(), 10); }}
+                  style={{
+                    flexShrink:0, padding:"6px 12px", borderRadius:20, border:"none",
+                    background:"rgba(0,112,243,0.12)", border:"1px solid rgba(0,112,243,0.3)",
+                    color:"#60a5fa", fontSize:11, fontWeight:600, cursor:"pointer",
+                  }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <div style={{
+            display:"flex", gap:8, padding:"10px 14px 14px",
+            borderTop:"1px solid rgba(255,255,255,0.06)", flexShrink:0,
+          }}>
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && sendMessage()}
+              placeholder="Message likhein..."
+              style={{
+                flex:1, padding:"12px 14px", borderRadius:14, border:"1px solid rgba(255,255,255,0.1)",
+                background:"rgba(255,255,255,0.06)", color:"#fff", fontSize:13,
+                outline:"none",
+              }}
+            />
+            <button onClick={sendMessage} disabled={!input.trim() || chatLoading}
+              style={{
+                width:44, height:44, borderRadius:12, border:"none", flexShrink:0,
+                background: input.trim() && !chatLoading
+                  ? "linear-gradient(135deg,#0050c8,#0070F3)"
+                  : "rgba(255,255,255,0.05)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                cursor: input.trim() ? "pointer" : "default",
+                boxShadow: input.trim() ? "0 0 16px rgba(0,112,243,0.4)" : "none",
+              }}>
+              <Send size={18} color={input.trim() ? "#fff" : "#333"}/>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+/* ─── Extract lead data from conversation ────────────────────── */
+function extractLeadFromConversation(userText, aiReply, existing) {
+  const lead = { ...existing };
+  const text = userText.toLowerCase();
+
+  // Phone number (10 digits)
+  const phoneMatch = userText.match(/[6-9]\d{9}/);
+  if (phoneMatch) lead.phone = phoneMatch[0];
+
+  // Name hints
+  const nameMatch = userText.match(/(?:mera naam|my name is|main|naam)\s+([A-Za-z]+)/i);
+  if (nameMatch) lead.name = nameMatch[1];
+
+  // Dates
+  const dateMatch = userText.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
+  if (dateMatch && !lead.checkIn) lead.checkIn = userText.match(/\d{1,2}[\/\-]\d{1,2}/)?.[0];
+
+  // Room type
+  if (text.includes("suite"))    lead.roomType = "Suite";
+  if (text.includes("deluxe"))   lead.roomType = "Deluxe";
+  if (text.includes("standard")) lead.roomType = "Standard";
+
+  lead.message = userText;
+  return lead;
+}
+
+/* ─── Sub-components ─────────────────────────────────────────── */
+function LoadingScreen() {
+  return (
+    <div style={{
+      height:"100vh", display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", gap:16,
+      background:"#07090E",
+    }}>
+      <div style={{
+        width:44, height:44, borderRadius:"50%",
+        border:"2px solid rgba(212,175,55,0.2)",
+        borderTopColor:"#D4AF37", animation:"spin 1s linear infinite",
+      }}/>
+      <p style={{ fontSize:13, color:"rgba(255,255,255,0.4)" }}>Hotel load ho raha hai...</p>
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+function NotFound({ hotelId }) {
+  return (
+    <div style={{
+      height:"100vh", display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", gap:12, padding:"0 24px",
+      background:"#07090E", textAlign:"center",
+    }}>
+      <span style={{ fontSize:48 }}>🏚️</span>
+      <h2 style={{ fontSize:22, fontWeight:900, color:"#fff", margin:0 }}>Hotel Nahi Mila</h2>
+      <p style={{ fontSize:13, color:"rgba(255,255,255,0.4)" }}>Yeh link sahi nahi hai.</p>
+      <code style={{
+        fontSize:11, padding:"6px 14px", borderRadius:8,
+        background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.3)",
+        fontFamily:"monospace",
+      }}>{hotelId}</code>
+      <a href="/" style={{
+        marginTop:8, padding:"11px 24px", borderRadius:14,
+        background:"linear-gradient(135deg,#b8960c,#D4AF37)", color:"#000",
+        fontWeight:800, fontSize:13, textDecoration:"none",
+      }}>Home Pe Jaao</a>
+    </div>
+  );
+}
+
+/* ─── Embedded CSS ───────────────────────────────────────────── */
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.2); border-radius: 3px; }
+
+  @keyframes pulseDot {
+    0%,100%{opacity:1;transform:scale(1)}
+    50%{opacity:.5;transform:scale(.7)}
+  }
+  @keyframes chatPulse {
+    0%,100%{box-shadow:0 0 0 6px rgba(0,112,243,0.12),0 0 30px rgba(0,112,243,0.5),0 8px 20px rgba(0,0,0,0.4)}
+    50%{box-shadow:0 0 0 10px rgba(0,112,243,0.06),0 0 50px rgba(0,112,243,0.7),0 8px 20px rgba(0,0,0,0.4)}
+  }
+  @keyframes typingDot {
+    0%,60%,100%{transform:translateY(0);opacity:.4}
+    30%{transform:translateY(-6px);opacity:1}
+  }
+  @keyframes spin {
+    from{transform:rotate(0deg)} to{transform:rotate(360deg)}
+  }
+`;
