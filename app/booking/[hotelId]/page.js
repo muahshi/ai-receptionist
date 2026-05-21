@@ -266,7 +266,8 @@ export default function PublicBookingPage() {
 
   return (
     <div style={{ background:"#0A0A08", minHeight:"100vh", color:"#fff",
-      fontFamily:"'Georgia',system-ui,sans-serif", paddingBottom:120 }}>
+      fontFamily:"'Georgia',system-ui,sans-serif", paddingBottom:120,
+      overflowY:"auto", overflowX:"hidden", WebkitOverflowScrolling:"touch" }}>
       <style>{CSS}</style>
 
       {/* ══ HEADER ══ */}
@@ -785,6 +786,7 @@ function NotFound({ hotelId }) {
 
 const CSS = `
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:auto !important; overflow:auto !important; min-height:100%; }
   ::-webkit-scrollbar { width:3px; height:3px; }
   ::-webkit-scrollbar-thumb { background:rgba(212,175,55,0.2); border-radius:3px; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
