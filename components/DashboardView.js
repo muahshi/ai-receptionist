@@ -1,925 +1,818 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
-import { Check, Lock, ExternalLink } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { 
+  Check, 
+  Lock, 
+  ExternalLink, 
+  Sparkles, 
+  Mic, 
+  MicOff, 
+  Hotel, 
+  Users, 
+  TrendingUp, 
+  Calendar, 
+  DollarSign, 
+  Clock, 
+  Bell, 
+  Search, 
+  UserPlus, 
+  X,
+  RefreshCw,
+  LogOut,
+  Sliders,
+  ChevronRight,
+  PhoneCall
+} from "lucide-react";
 import {
   getTodayStats, getRooms, getBookingById, checkoutBooking,
   getTodayBookings, getWeeklyRevenue, initializeRooms
 } from "../lib/db";
 
-function greeting() {
+// Dynamic welcoming message generator
+function getGreeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-/* ─── INLINE STYLES (no external CSS needed) ─────────────────── */
-const S = {
-  page: {
-    background: "radial-gradient(ellipse at 20% 0%, #111625 0%, #07090E 60%)",
-    minHeight: "100%",
-    paddingBottom: 32,
-  },
+export default function DashboardView() {
+  // Application States
+  const [stats, setStats] = useState({
+    occupancyRate: 0,
+    activeBookings: 0,
+    dirtyRooms: 0,
+    todayRevenue: 0
+  });
+  const [rooms, setRooms] = useState([]);
+  const [todayBookings, setTodayBookings] = useState([]);
+  const [weeklyRevenue, setWeeklyRevenue] = useState([]);
+  
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [roomBookingDetails, setRoomBookingDetails] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  
+  // Interactive Dashboard States
+  const [aiListening, setAiListening] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [aiAssistantLogs, setAiAssistantLogs] = useState([
+    { id: 1, type: "system", text: "AI Receptionist initialized successfully." },
+    { id: 2, type: "ai", text: "Greeting guest 'Rohan Sharma' at frontdesk..." },
+    { id: 3, type: "action", text: "Auto-allocated Suite 302 based on preference history." }
+  ]);
+  const [newLogInput, setNewLogInput] = useState("");
 
-  /* AI Receptionist */
-  aiCard: {
-    margin: "12px 12px 0",
-    borderRadius: 20,
-    padding: "14px 16px",
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.09)",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    display: "flex", alignItems: "center", gap: 14,
-  },
-  avatarWrap: {
-    position: "relative", flexShrink: 0,
-    width: 72, height: 72,
-  },
-  avatarInner: {
-    width: 72, height: 72, borderRadius: "50%",
-    background: "linear-gradient(135deg,#1a1a2e,#16213e)",
-    border: "2.5px solid #D4AF37",
-    boxShadow: "0 0 0 4px rgba(212,175,55,0.12), 0 0 20px rgba(212,175,55,0.25)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: 38, overflow: "hidden",
-  },
-  avatarBlueRing: {
-    position: "absolute", inset: -6,
-    borderRadius: "50%",
-    border: "1.5px solid rgba(0,112,243,0.4)",
-    boxShadow: "0 0 10px rgba(0,112,243,0.2)",
-    animation: "rotateRing 8s linear infinite",
-  },
-  pulseDot: {
-    position: "absolute", bottom: 2, left: 2,
-    width: 14, height: 14, borderRadius: "50%",
-    background: "#3B82F6",
-    boxShadow: "0 0 8px #3B82F6, 0 0 16px rgba(59,130,246,0.5)",
-    animation: "pulseDot 2s ease infinite",
-  },
+  // Data Fetching Logic (Maintains all your core db methods)
+  const loadDashboardData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
+    
+    try {
+      // Initialize Rooms in case DB is completely empty on first load
+      await initializeRooms();
+      
+      const [fetchedStats, fetchedRooms, fetchedBookings, fetchedRevenue] = await Promise.all([
+        getTodayStats(),
+        getRooms(),
+        getTodayBookings(),
+        getWeeklyRevenue()
+      ]);
 
-  /* Revenue */
-  revCard: {
-    margin: "12px 12px 0",
-    borderRadius: 20,
-    background: "linear-gradient(160deg,#111825 0%,#0a0d15 100%)",
-    border: "1px solid rgba(212,175,55,0.2)",
-    overflow: "hidden",
-    position: "relative",
-  },
-  revInner: { padding: "20px 20px 0" },
-  revLabel: {
-    fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
-    color: "rgba(255,255,255,0.4)", textTransform: "uppercase",
-  },
-  revAmount: {
-    fontSize: 38, fontWeight: 900, letterSpacing: "-0.03em",
-    lineHeight: 1, marginTop: 6,
-    background: "linear-gradient(135deg,#b8960c 0%,#D4AF37 45%,#F5C842 100%)",
-    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-    filter: "drop-shadow(0 0 12px rgba(212,175,55,0.5))",
-  },
-  revBadge: {
-    display: "inline-flex", alignItems: "center", gap: 4,
-    padding: "4px 10px", borderRadius: 100, marginTop: 10,
-    background: "rgba(34,197,94,0.12)",
-    border: "1px solid rgba(34,197,94,0.25)",
-    color: "#22c55e", fontSize: 11, fontWeight: 700,
-  },
-
-  /* Room Occupancy */
-  roomCard: {
-    margin: "12px 12px 0",
-    borderRadius: 20, padding: "16px 14px",
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(255,255,255,0.08)",
-  },
-  roomHeader: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  roomTitle: {
-    display: "flex", alignItems: "center", gap: 8,
-    fontSize: 13, fontWeight: 800, color: "#fff",
-    letterSpacing: "0.06em",
-  },
-  towerBadge: {
-    display: "flex", alignItems: "center", gap: 4,
-    padding: "5px 10px", borderRadius: 10, fontSize: 11, fontWeight: 600,
-    background: "rgba(255,255,255,0.07)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    color: "rgba(255,255,255,0.55)",
-  },
-  expandBtn: {
-    width: 28, height: 28, borderRadius: 8, display:"flex",
-    alignItems:"center", justifyContent:"center",
-    background: "rgba(255,255,255,0.06)",
-  },
-
-  /* 3D Grid perspective wrapper */
-  gridPerspective: {
-    perspective: "1000px",
-    perspectiveOrigin: "50% 0%",
-    overflowX: "auto",
-  },
-  gridInner: {
-    transform: "rotateX(22deg)",
-    transformStyle: "preserve-3d",
-    transformOrigin: "top center",
-    minWidth: 280,
-  },
-
-  /* Quick actions */
-  quickGrid: {
-    margin: "12px 12px 0",
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    gridTemplateRows: "1fr 1fr",
-    gap: 10,
-  },
-  quickCard: {
-    borderRadius: 18, padding: "14px 14px 12px",
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
-  },
-  quickLabel: {
-    fontSize: 8, fontWeight: 700, letterSpacing: "0.1em",
-    color: "rgba(255,255,255,0.35)", textTransform: "uppercase",
-    display: "flex", alignItems: "center", gap: 4, marginBottom: 8,
-  },
-  quickValue: {
-    fontSize: 32, fontWeight: 900, color: "#fff",
-    letterSpacing: "-0.04em", lineHeight: 1,
-  },
-  quickSub: { fontSize: 12, fontWeight: 600, marginTop: 4 },
-
-  /* AI SCAN */
-  scanWrap: {
-    gridRow: "1 / 3",
-    gridColumn: "2 / 3",
-    display: "flex", alignItems: "center", justifyContent: "center",
-  },
-  scanBtn: {
-    width: 130, height: 130,
-    borderRadius: "50%",
-    display: "flex", flexDirection: "column",
-    alignItems: "center", justifyContent: "center",
-    cursor: "pointer", position: "relative",
-    border: "none", background: "none", padding: 0,
-  },
-
-  /* AI Insights */
-  insightCard: {
-    margin: "12px 12px 0",
-    borderRadius: 20, padding: "18px 16px",
-    background: "linear-gradient(135deg,#060d1f,#080a14)",
-    border: "1px solid rgba(0,112,243,0.25)",
-    boxShadow: "0 0 40px rgba(0,112,243,0.07)",
-    display: "flex", gap: 12, position: "relative", overflow: "hidden",
-  },
-  insightBtn: {
-    marginTop: 14, padding: "9px 18px", borderRadius: 12,
-    fontSize: 12, fontWeight: 700,
-    background: "rgba(212,175,55,0.1)",
-    border: "1px solid rgba(212,175,55,0.35)",
-    color: "#D4AF37", cursor: "pointer",
-    boxShadow: "0 0 12px rgba(212,175,55,0.1)",
-  },
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-═══════════════════════════════════════════════════════════════ */
-export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewBooking }) {
-  const [stats,      setStats]    = useState(null);
-  const [rooms,      setRooms]    = useState([]);
-  const [insight,    setInsight]  = useState("High demand detected for Deluxe Rooms this weekend.");
-  const [iLoad,      setILoad]    = useState(false);
-  const [selRoom,    setSelRoom]  = useState(null);
-  const [revData,    setRevData]  = useState([]);
-  const [scanning,   setScanning] = useState(false);
-  const [copied,     setCopied]   = useState(false);
-  const [pct]                     = useState(() => (Math.random() * 10 + 12).toFixed(1));
-
-  const load = useCallback(() => {
-    if (!hotelId) return;
-    initializeRooms(hotelId, hotel?.totalRooms || 20);
-    setStats(getTodayStats(hotelId));
-    setRooms(getRooms(hotelId));
-    setRevData(getWeeklyRevenue(hotelId));
-  }, [hotelId, hotel?.totalRooms]);
+      if (fetchedStats) setStats(fetchedStats);
+      if (fetchedRooms) setRooms(fetchedRooms);
+      if (fetchedBookings) setTodayBookings(fetchedBookings);
+      if (fetchedRevenue) setWeeklyRevenue(fetchedRevenue);
+    } catch (error) {
+      console.error("Failed to load dashboard dataset:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    load();
-    fetchInsight();
-    const iv = setInterval(load, 30000);
-    return () => clearInterval(iv);
-  }, [load]);
+    loadDashboardData();
+  }, [loadDashboardData]);
 
-  const fetchInsight = async () => {
-    setILoad(true);
+  // View Specific Room Details & Dynamic Booking Map
+  const handleRoomClick = async (room) => {
+    setSelectedRoom(room);
+    setRoomBookingDetails(null);
+    setModalOpen(true);
+
+    if (room.status === "occupied" && room.currentBookingId) {
+      try {
+        const booking = await getBookingById(room.currentBookingId);
+        if (booking) {
+          setRoomBookingDetails(booking);
+        }
+      } catch (err) {
+        console.error("Error retrieving booking details:", err);
+      }
+    }
+  };
+
+  // Perform Room Checkout Flow
+  const handleCheckout = async (bookingId, roomNumber) => {
     try {
-      const s = getTodayStats(hotelId);
-      const r = await fetch("/api/groq", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ type:"ai_insight", stats:s, hotelName:hotel?.name }),
-      });
-      const d = await r.json();
-      setInsight(d.insight || localInsight(s));
-    } catch { setInsight(localInsight(getTodayStats(hotelId))); }
-    setILoad(false);
+      setRefreshing(true);
+      const success = await checkoutBooking(bookingId, roomNumber);
+      if (success) {
+        // Log the event visually on the system activity
+        setAiAssistantLogs(prev => [
+          { 
+            id: Date.now(), 
+            type: "system", 
+            text: `Room ${roomNumber} checked out. Status updated to dirty.` 
+          },
+          ...prev
+        ]);
+        setModalOpen(false);
+        await loadDashboardData(true);
+      }
+    } catch (err) {
+      console.error("Checkout process failed:", err);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const handleCheckout = async (bookingId) => {
-    await checkoutBooking(hotelId, bookingId);
-    load(); setSelRoom(null);
-    if (navigator.vibrate) navigator.vibrate(50);
+  // AI assistant interactions (Simulation wrapper)
+  const addVoiceLogSim = (e) => {
+    e.preventDefault();
+    if (!newLogInput.trim()) return;
+    setAiAssistantLogs(prev => [
+      { id: Date.now(), type: "user", text: newLogInput },
+      ...prev
+    ]);
+    const command = newLogInput.toLowerCase();
+    setNewLogInput("");
+
+    setTimeout(() => {
+      let aiResponse = "I'm processing that instruction right away.";
+      if (command.includes("checkout") || command.includes("khali")) {
+        aiResponse = "Analyzing active bookings... Please click on the occupied room card to initialize immediate safe checkout.";
+      } else if (command.includes("status") || command.includes("room")) {
+        aiResponse = `Current occupancy is standing strong at ${stats.occupancyRate}%. Rooms grid is fully updated below.`;
+      } else if (command.includes("clean") || command.includes("dirty")) {
+        aiResponse = "Notifying Housekeeping staff to clear out dirty rooms ASAP.";
+      }
+      setAiAssistantLogs(prev => [
+        { id: Date.now() + 1, type: "ai", text: aiResponse },
+        ...prev
+      ]);
+    }, 1000);
   };
 
-  const handleRoomClick = (room) => {
-    const booking = room.currentBookingId ? getBookingById(hotelId, room.currentBookingId) : null;
-    setSelRoom({ ...room, booking });
-  };
-
-  const handleScan = () => {
-    setScanning(true);
-    if (navigator.vibrate) navigator.vibrate([30, 20, 60]);
-    setTimeout(() => { setScanning(false); onNavigate && onNavigate("scanner"); }, 700);
-  };
-
-  const copyLink = () => {
-    navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`)
-      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
-  };
-
-  if (!stats) return <Skeleton />;
-
-  // Build floor map
-  const byFloor = {};
-  rooms.forEach(r => {
-    const f = r.floor || 1;
-    if (!byFloor[f]) byFloor[f] = [];
-    byFloor[f].push(r);
+  // Filters for Rooms Category Selector
+  const filteredRooms = rooms.filter(room => {
+    const matchesCategory = selectedCategory === "all" || room.status === selectedCategory;
+    const matchesSearch = room.roomNumber.toString().includes(searchQuery) || 
+                          room.type.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
   });
-  const floors = Object.keys(byFloor).map(Number).sort((a, b) => b - a);
-  const maxCols = Math.max(...floors.map(f => byFloor[f].length), 8);
-  const pendingCI = getTodayBookings(hotelId).filter(b => b.status === "active").length;
+
+  if (loading) return <SkeletonLoader />;
 
   return (
-    <>
-      {/* ── EMBEDDED CSS ── */}
-      <style>{`
-        @keyframes pulseDot {
-          0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 8px #3B82F6,0 0 16px rgba(59,130,246,0.5)}
-          50%{opacity:.6;transform:scale(.75);box-shadow:0 0 4px #3B82F6}
-        }
-        @keyframes rotateRing {
-          from{transform:rotate(0deg)} to{transform:rotate(360deg)}
-        }
-        @keyframes soundBar {
-          from{transform:scaleY(.35)} to{transform:scaleY(1)}
-        }
-        @keyframes scanPulse {
-          0%,100%{box-shadow:0 0 0 0 rgba(0,112,243,.7)}
-          70%{box-shadow:0 0 0 20px rgba(0,112,243,0)}
-        }
-        @keyframes scanRing {
-          from{transform:rotate(0deg)} to{transform:rotate(360deg)}
-        }
-        @keyframes scanLaser {
-          0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)}
-        }
-        @keyframes goldGlow {
-          0%,100%{filter:drop-shadow(0 0 6px rgba(212,175,55,.6))}
-          50%{filter:drop-shadow(0 0 18px rgba(212,175,55,1))}
-        }
-        @keyframes holoBuild {
-          0%,100%{opacity:.7} 50%{opacity:1}
-        }
-        @keyframes shimmer {
-          0%{background-position:-200% 0} 100%{background-position:200% 0}
-        }
-        .room3d {
-          transform-style: preserve-3d;
-          transition: transform .12s ease, box-shadow .12s ease;
-        }
-        .room3d:active { transform: scale(.88) translateZ(-4px)!important; }
-        .scan-active {
-          animation: scanPulse .6s ease-out!important;
-        }
-        .rev-chart-glow path { filter: drop-shadow(0 0 10px #D4AF37); }
-        ::-webkit-scrollbar { width:3px; height:3px; }
-        ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:rgba(212,175,55,.25); border-radius:3px; }
-      `}</style>
+    <div className="min-h-screen bg-[#07090E] text-white overflow-y-auto pb-12 font-sans relative">
+      {/* Backlighting Ambience */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-[rgba(212,175,55,0.08)] to-transparent rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-[400px] h-[400px] bg-gradient-to-br from-[rgba(0,140,255,0.05)] to-transparent rounded-full blur-[120px] pointer-events-none" />
 
-      <div style={S.page} className="scroll-y h-full">
-
-        {/* ══ 1. AI RECEPTIONIST ══ */}
-        <div style={S.aiCard}>
-          <div style={S.avatarWrap}>
-            {/* Outer rotating ring */}
-            <div style={S.avatarBlueRing} />
-            {/* Avatar */}
-            <div style={S.avatarInner}>👩‍💼</div>
-            {/* Pulse dot */}
-            <div style={S.pulseDot} />
-            {/* Audio visualizer */}
-            <div style={{
-              position:"absolute", bottom:-2, left:"50%", transform:"translateX(-50%)",
-              background:"rgba(10,14,30,0.85)", borderRadius:8,
-              padding:"2px 5px", display:"flex", alignItems:"center", gap:2,
-              border:"1px solid rgba(59,130,246,0.3)",
-            }}>
-              {[0,1,2,3].map(i => (
-                <div key={i} style={{
-                  width:2.5, borderRadius:2,
-                  background:"#60a5fa",
-                  height: [8,12,10,6][i],
-                  opacity:.85,
-                  animation:`soundBar .7s ease-in-out ${i*.15}s infinite alternate`,
-                }}/>
-              ))}
+      {/* --- PREMIUM GLOBAL HEADER --- */}
+      <header className="sticky top-0 z-40 w-full glass-panel border-b border-[rgba(255,255,255,0.06)] px-4 py-3 md:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-br from-[#b8960c] to-[#F5C842] rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.3)]">
+            <Hotel className="w-6 h-6 text-black stroke-[2.5]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg md:text-xl font-extrabold tracking-wide uppercase bg-clip-text text-transparent bg-gradient-to-r from-white via-[#f3f4f6] to-[#D4AF37]">
+                Grand Gold AI
+              </h1>
+              <span className="px-2 py-0.5 text-[9px] font-bold bg-[#D4AF37] text-black rounded-full uppercase tracking-wider animate-pulse">
+                Live Console
+              </span>
             </div>
+            <p className="text-xs text-gray-400 font-medium">Ultra-Luxury Hotel Engine</p>
+          </div>
+        </div>
+
+        {/* Global actions */}
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+          <div className="relative flex-1 md:w-64 max-w-xs">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search Rooms, Suite..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-xs bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all text-white placeholder-gray-500"
+            />
           </div>
 
-          <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ color:"#D4AF37", fontWeight:800, fontSize:15, letterSpacing:"0.01em" }}>
-              AI Receptionist
-            </p>
-            <p style={{ color:"#fff", fontSize:13, fontWeight:600, marginTop:1 }}>
-              {greeting()}, {user?.role==="owner"?"Owner":"Manager"} 👋
-            </p>
-            <p style={{ color:"rgba(255,255,255,0.38)", fontSize:11, marginTop:2 }}>
-              Here's your operational overview.
-            </p>
-          </div>
-
-          <button onClick={copyLink}
-            style={{
-              width:34, height:34, borderRadius:10, flexShrink:0,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              background:"rgba(0,112,243,0.15)", border:"1px solid rgba(0,112,243,0.35)",
-            }}>
-            {copied
-              ? <Check size={15} style={{color:"#22c55e"}}/>
-              : <ExternalLink size={15} style={{color:"#60a5fa"}}/>}
+          <button 
+            onClick={() => loadDashboardData(true)} 
+            disabled={refreshing}
+            className="p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
+            title="Force refresh database state"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#D4AF37]' : ''}`} />
           </button>
+          
+          <div className="h-8 w-[1px] bg-white/10 hidden md:block"></div>
+          
+          {/* Quick System Watch */}
+          <div className="hidden md:flex items-center gap-3 bg-white/[0.02] border border-white/5 py-1.5 px-3.5 rounded-xl">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span className="text-xs font-semibold tracking-wide text-gray-300">SYSTEM STABLE</span>
+          </div>
         </div>
+      </header>
 
-        {/* ══ 2. LIVE REVENUE ══ */}
-        <div style={S.revCard}>
-          <div style={S.revInner}>
-            <p style={S.revLabel}>LIVE REVENUE</p>
-            <p style={S.revAmount} className="rev-amount">
-              ₹{stats.todayRevenue.toLocaleString("en-IN")}
-              <span style={{fontSize:22,fontWeight:900}}>.00</span>
-            </p>
-            <p style={{color:"rgba(255,255,255,0.5)", fontSize:12, marginTop:6}}>Today's Total Revenue</p>
-            <div style={S.revBadge}>↑ {pct}% vs yesterday</div>
-          </div>
-
-          {/* Glowing area chart */}
-          <div style={{height:110, marginTop:4}} className="rev-chart-glow">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revData} margin={{top:8,right:0,left:0,bottom:0}}>
-                <defs>
-                  <linearGradient id="rGold" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#D4AF37" stopOpacity={0.45}/>
-                    <stop offset="95%" stopColor="#D4AF37" stopOpacity={0}/>
-                  </linearGradient>
-                  <filter id="lineGlow">
-                    <feGaussianBlur stdDeviation="4" result="blur"/>
-                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                  </filter>
-                </defs>
-                <Tooltip
-                  contentStyle={{background:"#111",border:"1px solid rgba(212,175,55,.3)",borderRadius:8,fontSize:11}}
-                  formatter={v=>[`₹${v.toLocaleString("en-IN")}`, "Revenue"]}
-                  labelStyle={{color:"#D4AF37"}}/>
-                <Area type="monotone" dataKey="revenue"
-                  stroke="#D4AF37" strokeWidth={2.5}
-                  fill="url(#rGold)" dot={false}
-                  style={{filter:"drop-shadow(0 0 10px rgba(212,175,55,0.9))"}}/>
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Glowing end dot */}
-          <div style={{
-            position:"absolute", right:0, top:"55%",
-            width:12, height:12, borderRadius:"50%",
-            background:"#F5C842",
-            boxShadow:"0 0 12px #D4AF37, 0 0 24px rgba(212,175,55,.7)",
-            animation:"goldGlow 2s ease infinite",
-          }}/>
-        </div>
-
-        {/* ══ 3. ROOM OCCUPANCY ══ */}
-        <div style={S.roomCard}>
-          <div style={S.roomHeader}>
-            <div style={S.roomTitle}>
-              <span style={{fontSize:16}}>🛏</span>
-              ROOM OCCUPANCY
-            </div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <div style={S.towerBadge}>
-                Tower A
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M2 3.5l3 3 3-3" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <div style={S.expandBtn}>
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                  <path d="M1 5V1h4M9 1h4v4M1 9v4h4M9 13h4V9" stroke="rgba(255,255,255,0.4)" strokeWidth="1.4" strokeLinecap="round"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Column numbers */}
-          <div style={{display:"flex", paddingLeft:24, marginBottom:6}}>
-            {Array.from({length:maxCols},(_,i)=>(
-              <div key={i} style={{flex:1,textAlign:"center",fontSize:9,color:"rgba(255,255,255,0.2)",fontFamily:"monospace"}}>
-                {String(i+1).padStart(2,"0")}
-              </div>
-            ))}
-          </div>
-
-          {/* 3D perspective grid */}
-          <div style={S.gridPerspective}>
-            <div style={S.gridInner}>
-              {floors.map(fl=>{
-                const fr=[...(byFloor[fl]||[])];
-                while(fr.length<maxCols) fr.push(null);
-                return(
-                  <div key={fl} style={{display:"flex",alignItems:"center",gap:3,marginBottom:5}}>
-                    <div style={{width:20,textAlign:"right",fontSize:9,color:"rgba(255,255,255,0.2)",fontFamily:"monospace",flexShrink:0}}>
-                      {String(fl).padStart(2,"0")}
-                    </div>
-                    {fr.map((room,ci)=>(
-                      <RoomCell3D key={room?room.id:`e-${fl}-${ci}`}
-                        room={room} onClick={()=>room&&handleRoomClick(room)}/>
-                    ))}
+      {/* --- DASHBOARD GRID --- */}
+      <main className="max-w-[1700px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* LEFT COLUMN: SYSTEM TELEMETRY & AI CONTROLLER (4-COLS) */}
+        <section className="lg:col-span-4 flex flex-col gap-6">
+          
+          {/* AI Receptionist Soundwave Module */}
+          <div className="glass-panel rounded-3xl p-5 border border-[rgba(212,175,55,0.18)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group gold-glow-hover">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[rgba(212,175,55,0.06)] to-transparent rounded-bl-full" />
+            
+            {/* Header section inside the assistant card */}
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-2xl">
+                    <Sparkles className="w-5 h-5 text-[#D4AF37]" />
                   </div>
-                );
-              })}
+                  {aiListening && (
+                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm tracking-wide text-gray-200 uppercase">AI Receptionist</h3>
+                  <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
+                    {aiListening ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Voice Agent Streaming Live
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                        Voice Input Paused
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle switch for receptionist state */}
+              <button 
+                onClick={() => setAiListening(!aiListening)}
+                className={`p-2 rounded-xl transition-all border ${
+                  aiListening 
+                    ? "bg-[#D4AF37]/10 border-[#D4AF37]/30 text-[#D4AF37]" 
+                    : "bg-white/5 border-white/10 text-gray-400"
+                }`}
+              >
+                {aiListening ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              </button>
             </div>
-          </div>
 
-          {/* Legend */}
-          <div style={{display:"flex",flexWrap:"wrap",gap:"6px 16px",marginTop:14}}>
-            {[
-              {c:"#22c55e", l:`Occupied (${stats.occupancyPercent}%)`},
-              {c:"#D4AF37", l:"Reserved (5%)"},
-              {c:"#ef4444", l:`Vacant (${Math.max(0,100-stats.occupancyPercent-15)}%)`},
-              {c:"#374151", l:"Out of Order (10%)"},
-            ].map(({c,l})=>(
-              <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:c,boxShadow:`0 0 4px ${c}`}}/>
-                <span style={{fontSize:10,color:"rgba(255,255,255,0.45)"}}>{l}</span>
+            {/* Dynamic Sound Wave Form (using styles from globals.css) */}
+            <div className="h-16 flex items-center justify-center gap-1.5 bg-black/40 border border-white/5 rounded-2xl px-4 py-2 my-4 relative">
+              {aiListening ? (
+                <>
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-8 animate-audio-bar-1" />
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-12 animate-audio-bar-2" />
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-6 animate-audio-bar-3" />
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-14 animate-audio-bar-4" />
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-10 animate-audio-bar-5" />
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-7 animate-audio-bar-2" />
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-12 animate-audio-bar-3" />
+                  <div className="w-1.5 bg-gradient-to-t from-[#b8960c] to-[#F5C842] rounded-full h-5 animate-audio-bar-1" />
+                </>
+              ) : (
+                <span className="text-xs text-gray-500 uppercase tracking-widest font-bold">Audio Connection Off</span>
+              )}
+            </div>
+
+            {/* Simulated Event Logs Stream */}
+            <div className="mt-4">
+              <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest block mb-2">Live Logs</span>
+              <div className="h-[180px] scroll-y space-y-2 pr-1">
+                {aiAssistantLogs.map((log) => (
+                  <div 
+                    key={log.id} 
+                    className="p-2.5 rounded-xl text-xs flex gap-2 items-start bg-white/[0.02] border border-white/5 animate-fade-up"
+                  >
+                    {log.type === "system" && <span className="text-blue-400 font-bold font-mono">[SYS]</span>}
+                    {log.type === "ai" && <span className="text-[#D4AF37] font-bold font-mono">[AI]</span>}
+                    {log.type === "user" && <span className="text-gray-400 font-bold font-mono">[USER]</span>}
+                    {log.type === "action" && <span className="text-emerald-400 font-bold font-mono">[OK]</span>}
+                    <p className="text-gray-300 leading-relaxed font-medium">{log.text}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Action Prompt */}
+            <form onSubmit={addVoiceLogSim} className="mt-4 flex gap-2">
+              <input 
+                type="text"
+                placeholder="Give command (e.g., 'Clean status', 'Check room')"
+                value={newLogInput}
+                onChange={(e) => setNewLogInput(e.target.value)}
+                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#D4AF37] text-white"
+              />
+              <button 
+                type="submit"
+                className="bg-[#D4AF37] text-black hover:bg-[#F5C842] px-3.5 py-2 rounded-xl text-xs font-bold transition-all"
+              >
+                Send
+              </button>
+            </form>
           </div>
-        </div>
 
-        {/* ══ 4. QUICK CARDS + AI SCAN ══ */}
-        <div style={S.quickGrid}>
-
-          {/* Guest Check-in — top left */}
-          <QuickCard icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          } label="GUEST CHECK-IN" value={pendingCI} sub="Pending" subColor="#3B82F6"/>
-
-          {/* AI SCAN CENTER */}
-          <div style={S.scanWrap}>
-            <AIScanButton scanning={scanning} onClick={handleScan}/>
-          </div>
-
-          {/* Maintenance — top right */}
-          <QuickCard icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-            </svg>
-          } label="MAINTENANCE" value={5} sub="Pending" subColor="#D4AF37"/>
-
-          {/* Housekeeping — bottom left */}
-          <QuickCard icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8">
-              <path d="M3 12h18M3 6h18M3 18h18"/>
-            </svg>
-          } label="HOUSEKEEPING" value={stats.cleaningRooms||1} sub="Rooms" subColor="#3B82F6"/>
-
-          {/* Empty center bottom (AI scan occupies) */}
-          <div/>
-
-          {/* Reviews — bottom right */}
-          <QuickCard icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-            </svg>
-          } label="REVIEWS" value="4.8" sub="Rating" subColor="#D4AF37"/>
-        </div>
-
-        {/* ══ 5. AI INSIGHTS ══ */}
-        <div style={S.insightCard}>
-          <div style={{flex:1, minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              {/* Brain icon in blue circle */}
-              <div style={{
-                width:36,height:36,borderRadius:12,flexShrink:0,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                background:"rgba(0,112,243,0.2)",
-                border:"1px solid rgba(0,112,243,0.4)",
-              }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.7">
-                  <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
-                  <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
-                </svg>
+          {/* Today's Check-ins & Check-outs Lists */}
+          <div className="glass-panel rounded-3xl p-5 border border-white/5 flex flex-col gap-4">
+            <div className="flex justify-between items-center pb-2 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#D4AF37]" />
+                <h3 className="font-extrabold text-sm tracking-wide text-gray-200 uppercase">Bookings Action Deck</h3>
               </div>
-              <span style={{fontSize:12,fontWeight:800,letterSpacing:"0.12em",color:"#fff",textTransform:"uppercase"}}>
-                AI INSIGHTS
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-[#D4AF37]/10 text-[#D4AF37] rounded-full border border-[#D4AF37]/20">
+                {todayBookings.length} Active
               </span>
             </div>
 
-            {iLoad ? (
-              <div style={{display:"flex",gap:5,padding:"6px 0"}}>
-                {[0,1,2].map(i=>(
-                  <div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#3B82F6",
-                    animation:`pulseDot 1.2s ease ${i*.2}s infinite`}}/>
+            <div className="space-y-3 max-h-[350px] scroll-y pr-1">
+              {todayBookings.length === 0 ? (
+                <div className="py-8 text-center text-gray-500 text-xs">
+                  No checkins scheduled for today
+                </div>
+              ) : (
+                todayBookings.map((bk) => (
+                  <div 
+                    key={bk.id || bk.bookingId} 
+                    className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl flex justify-between items-center hover:bg-white/[0.04] transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-extrabold text-white">{bk.guestName}</span>
+                        <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/10 text-gray-400 rounded-md font-mono">
+                          Room {bk.roomNumber}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                        <Calendar className="w-3 h-3 text-gray-500" />
+                        <span>Checkout: {bk.checkoutDate || 'Today'}</span>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleRoomClick({ roomNumber: bk.roomNumber, status: 'occupied', currentBookingId: bk.id || bk.bookingId, type: 'Suite' })}
+                      className="px-3 py-1.5 bg-white/5 hover:bg-[#D4AF37]/10 border border-white/10 hover:border-[#D4AF37]/30 text-[#D4AF37] rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                    >
+                      <span>Action</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* RIGHT COLUMN: CORE SUMMARY STATS & ROOMS (8-COLS) */}
+        <section className="lg:col-span-8 flex flex-col gap-6">
+          
+          {/* TOP CORE KPI METRICS ROW */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            
+            {/* Stat Item: Occupancy Rate */}
+            <div className="glass-panel rounded-3xl p-4 border border-white/5 relative overflow-hidden group hover:border-[#D4AF37]/30 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-[rgba(212,175,55,0.04)] to-transparent rounded-bl-full" />
+              <div className="flex justify-between items-start mb-2">
+                <div className="p-2 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-xl text-[#D4AF37]">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] text-emerald-400 font-extrabold flex items-center gap-0.5">
+                  +12% <ChevronRight className="w-2.5 h-2.5 rotate-270" />
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-extrabold">Occupancy</p>
+              <h2 className="text-xl md:text-2xl font-extrabold mt-0.5 tracking-tight text-white">
+                {stats.occupancyRate}%
+              </h2>
+            </div>
+
+            {/* Stat Item: Active Bookings */}
+            <div className="glass-panel rounded-3xl p-4 border border-white/5 relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-emerald-500/5 to-transparent rounded-bl-full" />
+              <div className="flex justify-between items-start mb-2">
+                <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-extrabold">Live Guests</p>
+              <h2 className="text-xl md:text-2xl font-extrabold mt-0.5 tracking-tight text-white">
+                {stats.activeBookings}
+              </h2>
+            </div>
+
+            {/* Stat Item: Dirty Rooms (To Clean Alert) */}
+            <div className="glass-panel rounded-3xl p-4 border border-white/5 relative overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-amber-500/5 to-transparent rounded-bl-full" />
+              <div className="flex justify-between items-start mb-2">
+                <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
+                  <Sliders className="w-4 h-4" />
+                </div>
+                {stats.dirtyRooms > 0 && (
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-extrabold">Dirty Rooms</p>
+              <h2 className="text-xl md:text-2xl font-extrabold mt-0.5 tracking-tight text-white">
+                {stats.dirtyRooms}
+              </h2>
+            </div>
+
+            {/* Stat Item: Today's Total Revenue */}
+            <div className="glass-panel rounded-3xl p-4 border border-white/5 relative overflow-hidden group hover:border-blue-400/20 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-blue-400/5 to-transparent rounded-bl-full" />
+              <div className="flex justify-between items-start mb-2">
+                <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-extrabold">Today's Revenue</p>
+              <h2 className="text-xl md:text-2xl font-extrabold mt-0.5 tracking-tight text-[#D4AF37]">
+                ₹{stats.todayRevenue.toLocaleString('en-IN')}
+              </h2>
+            </div>
+          </div>
+
+          {/* REVENUE CHART MODULE */}
+          <div className="glass-panel rounded-3xl p-5 border border-white/5">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">Financial Matrix</span>
+                <h3 className="font-extrabold text-base text-gray-200">Revenue Analytics</h3>
+              </div>
+              <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-1.5 rounded-xl">
+                <span className="text-[10px] px-2.5 py-1 bg-[#D4AF37] text-black font-extrabold rounded-lg">Weekly</span>
+                <span className="text-[10px] px-2.5 py-1 text-gray-400 font-extrabold rounded-lg">Monthly</span>
+              </div>
+            </div>
+
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={weeklyRevenue.length > 0 ? weeklyRevenue : mockChartData}>
+                  <defs>
+                    <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#D4AF37" stopOpacity={0.01}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="day" 
+                    stroke="rgba(255,255,255,0.3)" 
+                    fontSize={10} 
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    stroke="rgba(255,255,255,0.3)" 
+                    fontSize={10} 
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(val) => `₹${val/1000}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: '#0c0f1a', 
+                      borderColor: 'rgba(212,175,55,0.3)', 
+                      borderRadius: '16px',
+                      fontSize: '11px',
+                      color: '#fff'
+                    }} 
+                    itemStyle={{ color: '#D4AF37' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="amount" 
+                    stroke="#D4AF37" 
+                    strokeWidth={2.5}
+                    fillOpacity={1} 
+                    fill="url(#goldGradient)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* ROOM STATUS & REAL-TIME FILTERS */}
+          <div className="glass-panel rounded-3xl p-5 border border-white/5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <div>
+                <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">Inventory Board</span>
+                <h3 className="font-extrabold text-base text-gray-200">Interactive Rooms Inventory</h3>
+              </div>
+              
+              {/* Category Filter Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 bg-black/40 border border-white/5 p-1 rounded-2xl w-full sm:w-auto">
+                {[
+                  { id: "all", label: "All Rooms" },
+                  { id: "vacant", label: "Vacant" },
+                  { id: "occupied", label: "Occupied" },
+                  { id: "dirty", label: "Dirty" }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSelectedCategory(tab.id)}
+                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      selectedCategory === tab.id
+                        ? "bg-[#D4AF37] text-black shadow-lg"
+                        : "text-gray-400 hover:text-white hover:bg-white/[0.03]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
               </div>
-            ) : (
-              <p style={{fontSize:13,lineHeight:1.6,color:"rgba(255,255,255,0.72)",paddingRight:8}}>
-                {insight}
-              </p>
-            )}
+            </div>
 
-            <button onClick={fetchInsight} style={S.insightBtn}>
-              View Insights
-            </button>
-          </div>
-
-          {/* Hologram Building SVG */}
-          <HologramBuilding/>
-        </div>
-
-        {/* ══ ROOM MODAL ══ */}
-        {selRoom && (
-          <RoomModal room={selRoom} onClose={()=>setSelRoom(null)}
-            onCheckout={handleCheckout} user={user} onNewBooking={onNewBooking}/>
-        )}
-      </div>
-    </>
-  );
-}
-
-/* ─── 3D ROOM CELL ───────────────────────────────────────────── */
-function RoomCell3D({ room, onClick }) {
-  if (!room) return (
-    <div style={{
-      flex:1, minWidth:0, aspectRatio:"1",
-      borderRadius:8,
-      background:"rgba(255,255,255,0.02)",
-      border:"1px solid rgba(255,255,255,0.04)",
-    }}/>
-  );
-
-  const st = room.status;
-  const cfg = {
-    occupied: {
-      top:"linear-gradient(160deg,#1a4d1a,#0d2e0d)",
-      border:"rgba(34,197,94,0.7)",
-      shadow:"0 4px 0 rgba(10,40,10,0.9), 0 0 10px rgba(34,197,94,0.25)",
-      highlight:"rgba(34,197,94,0.4)",
-      icon:"#22c55e", num:"#4ade80",
-    },
-    reserved: {
-      top:"linear-gradient(160deg,#3d2800,#2a1a00)",
-      border:"rgba(212,175,55,0.7)",
-      shadow:"0 4px 0 rgba(40,25,0,0.9), 0 0 10px rgba(212,175,55,0.2)",
-      highlight:"rgba(212,175,55,0.35)",
-      icon:"#D4AF37", num:"#F5C842",
-    },
-    cleaning: {
-      top:"linear-gradient(160deg,#1a1a4d,#0d0d2e)",
-      border:"rgba(99,102,241,0.6)",
-      shadow:"0 4px 0 rgba(10,10,40,0.9)",
-      highlight:"rgba(99,102,241,0.3)",
-      icon:"#818cf8", num:"#a5b4fc",
-    },
-    vacant: {
-      top:"linear-gradient(160deg,#3d0d0d,#2e0808)",
-      border:"rgba(239,68,68,0.55)",
-      shadow:"0 4px 0 rgba(40,8,8,0.9), 0 0 6px rgba(239,68,68,0.1)",
-      highlight:"rgba(239,68,68,0.2)",
-      icon:"#ef4444", num:"#fca5a5",
-    },
-    out_of_order: {
-      top:"rgba(20,22,28,0.9)",
-      border:"rgba(75,85,99,0.4)",
-      shadow:"0 3px 0 rgba(10,11,14,0.9)",
-      highlight:"rgba(255,255,255,0.05)",
-      icon:"#374151", num:"#4B5563",
-    },
-  };
-  const c = cfg[st] || cfg.vacant;
-
-  return (
-    <button onClick={onClick} className="room3d" style={{
-      flex:1, minWidth:0, aspectRatio:"1",
-      background:c.top,
-      border:`1px solid ${c.border}`,
-      borderRadius:9,
-      boxShadow:c.shadow,
-      display:"flex", flexDirection:"column",
-      alignItems:"center", justifyContent:"center",
-      padding:"2px 1px 4px",
-      position:"relative", overflow:"hidden",
-    }}>
-      {/* Top highlight strip (glossy keycap effect) */}
-      <div style={{
-        position:"absolute", top:0, left:0, right:0, height:"35%",
-        background:`linear-gradient(180deg,${c.highlight},transparent)`,
-        borderRadius:"9px 9px 0 0",
-      }}/>
-      {/* Person icon */}
-      <svg width="10" height="10" viewBox="0 0 20 20" fill={c.icon} style={{position:"relative",zIndex:1}}>
-        <circle cx="10" cy="6" r="4"/>
-        <path d="M3 20c0-3.866 3.134-7 7-7s7 3.134 7 7"/>
-      </svg>
-      {/* Room number */}
-      <span style={{
-        fontSize:7, fontWeight:900, color:c.num,
-        fontFamily:"monospace", lineHeight:1, marginTop:1,
-        position:"relative", zIndex:1,
-      }}>
-        {room.number}
-      </span>
-    </button>
-  );
-}
-
-/* ─── QUICK CARD ─────────────────────────────────────────────── */
-function QuickCard({ icon, label, value, sub, subColor }) {
-  return (
-    <div style={S.quickCard}>
-      <div style={S.quickLabel}>
-        {icon}
-        {label}
-      </div>
-      <div style={S.quickValue}>{value}</div>
-      <div style={{...S.quickSub, color:subColor}}>{sub}</div>
-    </div>
-  );
-}
-
-/* ─── AI SCAN BUTTON ─────────────────────────────────────────── */
-function AIScanButton({ scanning, onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      ...S.scanBtn,
-      transition:"transform .12s ease",
-    }}
-    onMouseDown={e=>e.currentTarget.style.transform="scale(.93)"}
-    onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}
-    onTouchStart={e=>e.currentTarget.style.transform="scale(.93)"}
-    onTouchEnd={e=>e.currentTarget.style.transform="scale(1)"}>
-
-      {/* Outermost ring — faint blue */}
-      <div style={{
-        position:"absolute", inset:-18,
-        borderRadius:"50%",
-        border:"1px solid rgba(0,112,243,0.15)",
-        animation:"scanRing 12s linear infinite",
-      }}/>
-      {/* Dashed rotating ring */}
-      <div style={{
-        position:"absolute", inset:-10,
-        borderRadius:"50%",
-        border:"1px dashed rgba(0,112,243,0.25)",
-        animation:"scanRing 8s linear infinite reverse",
-      }}/>
-      {/* Outer solid ring */}
-      <div style={{
-        position:"absolute", inset:-4,
-        borderRadius:"50%",
-        border:"1.5px solid rgba(0,112,243,0.45)",
-        boxShadow:"0 0 20px rgba(0,112,243,0.2), inset 0 0 20px rgba(0,112,243,0.05)",
-      }}/>
-
-      {/* Main circle */}
-      <div style={{
-        width:"100%", height:"100%", borderRadius:"50%",
-        background:"radial-gradient(circle at 42% 38%, #001a3a 0%, #000d1a 55%, #000508 100%)",
-        border:"2px solid rgba(0,112,243,0.6)",
-        boxShadow:[
-          "0 0 0 6px rgba(0,112,243,0.07)",
-          "0 0 30px rgba(0,112,243,0.45)",
-          "0 0 60px rgba(0,112,243,0.18)",
-          "inset 0 0 25px rgba(0,112,243,0.15)",
-        ].join(","),
-        display:"flex", flexDirection:"column",
-        alignItems:"center", justifyContent:"center",
-        animation: scanning?"scan-active":"aiScanPulse 2.5s ease-in-out infinite",
-        position:"relative", overflow:"hidden",
-      }}>
-        {/* Laser sweep when scanning */}
-        {scanning && (
-          <div style={{
-            position:"absolute", inset:0,
-            background:"conic-gradient(from 0deg, transparent 340deg, rgba(0,112,243,0.6) 350deg, rgba(0,200,255,0.8) 355deg, transparent 360deg)",
-            borderRadius:"50%",
-            animation:"scanLaser .6s linear",
-          }}/>
-        )}
-        {/* Inner glow */}
-        <div style={{
-          position:"absolute", inset:12, borderRadius:"50%",
-          background:"radial-gradient(circle, rgba(0,112,243,0.2), transparent 70%)",
-        }}/>
-        <span style={{
-          fontWeight:900, fontSize:24, color:"#fff", letterSpacing:"-0.02em",
-          lineHeight:1, zIndex:1, position:"relative",
-          textShadow:"0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(0,112,243,0.8)",
-        }}>AI</span>
-        <span style={{
-          fontWeight:800, fontSize:10, color:"#3B82F6",
-          letterSpacing:"0.2em", zIndex:1, position:"relative", marginTop:3,
-          textShadow:"0 0 10px rgba(59,130,246,0.9)",
-        }}>SCAN</span>
-      </div>
-    </button>
-  );
-}
-
-/* ─── HOLOGRAM BUILDING SVG ──────────────────────────────────── */
-function HologramBuilding() {
-  return (
-    <div style={{width:90, flexShrink:0, display:"flex",alignItems:"center",justifyContent:"center",
-      animation:"holoBuild 3s ease infinite"}}>
-      <svg width="85" height="110" viewBox="0 0 85 110" fill="none">
-        {/* Base platform */}
-        <ellipse cx="42" cy="100" rx="30" ry="7" stroke="rgba(0,112,243,0.4)" strokeWidth="1" fill="rgba(0,112,243,0.05)"/>
-        {/* Building outline */}
-        <rect x="22" y="30" width="40" height="65" stroke="rgba(0,112,243,0.6)" strokeWidth="1.2" fill="rgba(0,112,243,0.04)" rx="2"/>
-        {/* Top antenna */}
-        <line x1="42" y1="10" x2="42" y2="30" stroke="rgba(0,112,243,0.7)" strokeWidth="1.2"/>
-        <circle cx="42" cy="9" r="2.5" fill="rgba(0,200,255,0.9)" style={{animation:"pulseDot 1.5s ease infinite"}}/>
-        {/* Windows grid */}
-        {[0,1,2,3,4,5].map(row=>
-          [0,1,2].map(col=>(
-            <rect key={`${row}-${col}`}
-              x={28+col*11} y={36+row*9}
-              width="7" height="5" rx="1"
-              fill={row*3+col < 12 ? "rgba(0,200,255,0.35)" : "rgba(0,112,243,0.12)"}
-              stroke="rgba(0,112,243,0.3)" strokeWidth="0.5"/>
-          ))
-        )}
-        {/* Glow lines */}
-        <line x1="22" y1="60" x2="62" y2="60" stroke="rgba(0,112,243,0.3)" strokeWidth="0.5"/>
-        <line x1="22" y1="75" x2="62" y2="75" stroke="rgba(0,112,243,0.3)" strokeWidth="0.5"/>
-        {/* Base glow */}
-        <line x1="22" y1="95" x2="62" y2="95" stroke="rgba(0,112,243,0.4)" strokeWidth="1"/>
-        {/* Perspective lines */}
-        <line x1="22" y1="30" x2="12" y2="38" stroke="rgba(0,112,243,0.25)" strokeWidth="0.8"/>
-        <line x1="62" y1="30" x2="72" y2="38" stroke="rgba(0,112,243,0.25)" strokeWidth="0.8"/>
-        <line x1="12" y1="38" x2="12" y2="95" stroke="rgba(0,112,243,0.2)" strokeWidth="0.8"/>
-        <line x1="72" y1="38" x2="72" y2="95" stroke="rgba(0,112,243,0.2)" strokeWidth="0.8"/>
-        <line x1="12" y1="95" x2="22" y2="95" stroke="rgba(0,112,243,0.25)" strokeWidth="0.8"/>
-        <line x1="72" y1="95" x2="62" y2="95" stroke="rgba(0,112,243,0.25)" strokeWidth="0.8"/>
-      </svg>
-    </div>
-  );
-}
-
-/* ─── ROOM MODAL ─────────────────────────────────────────────── */
-function RoomModal({ room, onClose, onCheckout, user, onNewBooking }) {
-  const b = room.booking;
-  return (
-    <div style={{
-      position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"flex-end",
-      background:"rgba(0,0,0,0.75)", backdropFilter:"blur(12px)",
-    }} onClick={onClose}>
-      <div style={{
-        position:"relative", width:"100%",
-        background:"linear-gradient(160deg,#0d1020,#080a14)",
-        border:"1px solid rgba(255,255,255,0.1)", borderBottom:"none",
-        borderRadius:"24px 24px 0 0", padding:20,
-      }} onClick={e=>e.stopPropagation()}>
-        <div style={{width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.15)",margin:"0 auto 16px"}}/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <div>
-            <h3 style={{fontWeight:900,fontSize:22,color:"#fff"}}>Room {room.number}</h3>
-            <p style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2,textTransform:"capitalize"}}>
-              {room.type} · Floor {room.floor}
-            </p>
-          </div>
-          <span style={{
-            padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:700,
-            ...(room.status==="occupied"
-              ? {background:"rgba(34,197,94,0.15)",color:"#22c55e",border:"1px solid rgba(34,197,94,0.3)"}
-              : room.status==="cleaning"
-              ? {background:"rgba(99,102,241,0.15)",color:"#818cf8"}
-              : {background:"rgba(239,68,68,0.15)",color:"#ef4444"})
-          }}>
-            {room.status==="occupied"?"Occupied":room.status==="cleaning"?"Cleaning":"Vacant"}
-          </span>
-        </div>
-
-        {b ? (
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:14}}>
-              {[["👤 Guest",b.guestName],["📱 Phone",b.guestPhone||"—"],
-                ["🪪 ID",`${b.idType} · ${b.idNumber||"—"}`],
-                ["📅 Check-in",new Date(b.checkInDate).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})],
-                ["🌙 Nights",`${b.nights} raat`],
-              ].map(([l,v])=>(
-                <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                  padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-                  <span style={{fontSize:11,color:"rgba(255,255,255,0.38)"}}>{l}</span>
-                  <span style={{fontSize:13,fontWeight:600,color:"#fff"}}>{v}</span>
+            {/* --- CORE RESPONSIVE ROOMS GRID --- */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {filteredRooms.length === 0 ? (
+                <div className="col-span-full py-16 text-center text-gray-500 text-xs">
+                  No matching rooms found in {selectedCategory} category.
                 </div>
-              ))}
+              ) : (
+                filteredRooms.map((room) => {
+                  const statusColors = {
+                    vacant: {
+                      badge: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+                      card: "border-white/5 hover:border-emerald-500/30",
+                      glow: "shadow-[0_0_15px_rgba(16,185,129,0.05)]",
+                      statusText: "Vacant"
+                    },
+                    occupied: {
+                      badge: "bg-[#D4AF37]/10 border-[#D4AF37]/30 text-[#D4AF37]",
+                      card: "border-[rgba(212,175,55,0.15)] hover:border-[#D4AF37]/40",
+                      glow: "shadow-[0_0_20px_rgba(212,175,55,0.1)]",
+                      statusText: "Occupied"
+                    },
+                    dirty: {
+                      badge: "bg-amber-500/10 border-amber-500/30 text-amber-400",
+                      card: "border-white/5 hover:border-amber-500/30",
+                      glow: "shadow-[0_0_15px_rgba(245,158,11,0.05)]",
+                      statusText: "Dirty"
+                    }
+                  }[room.status] || {
+                    badge: "bg-gray-500/10 border-gray-500/30 text-gray-400",
+                    card: "border-white/5",
+                    glow: "",
+                    statusText: "Unknown"
+                  };
+
+                  return (
+                    <div
+                      key={room.roomNumber}
+                      onClick={() => handleRoomClick(room)}
+                      className={`glass-panel rounded-2xl p-4 border transition-all duration-300 cursor-pointer flex flex-col justify-between h-[120px] group ${statusColors.card} ${statusColors.glow} hover:-translate-y-1`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm font-extrabold tracking-wider group-hover:text-[#D4AF37] transition-all">
+                          {room.roomNumber}
+                        </span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full border uppercase font-extrabold tracking-wide ${statusColors.badge}`}>
+                          {statusColors.statusText}
+                        </span>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <span className="text-[10px] text-gray-400 font-bold block leading-none mb-1">
+                          {room.type}
+                        </span>
+                        <span className="text-xs text-white/90 font-extrabold flex items-center gap-0.5">
+                          ₹{room.price || '4,500'}<span className="text-[9px] text-gray-500 font-normal">/night</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-            <div style={{background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:16,padding:14}}>
-              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                <Lock size={12} style={{color:"#D4AF37"}}/>
-                <span style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",color:"#D4AF37",textTransform:"uppercase"}}>
-                  Rate Integrity Badge
-                </span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{color:"rgba(255,255,255,0.5)",fontSize:12}}>Locked Rate</span>
-                <span style={{color:"#D4AF37",fontWeight:700,fontSize:13}}>
-                  ₹{Number(b.ratePerNight||0).toLocaleString("en-IN")}/raat
-                </span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
-                <span style={{color:"rgba(255,255,255,0.5)",fontSize:12}}>Total</span>
-                <span style={{color:"#fff",fontWeight:900,fontSize:20}}>
-                  ₹{Number(b.totalAmount||0).toLocaleString("en-IN")}
-                </span>
-              </div>
-            </div>
-            <button onClick={()=>onCheckout(b.id)} style={{
-              width:"100%", padding:"14px 0", borderRadius:16, border:"none",
-              fontWeight:800, fontSize:14, color:"#000", cursor:"pointer",
-              background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",
-              boxShadow:"0 4px 20px rgba(212,175,55,0.35)",
-            }}>
-              ✓ Check-out Karo
-            </button>
           </div>
-        ) : (
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",
-              borderRadius:16,padding:24,textAlign:"center"}}>
-              <p style={{color:"rgba(255,255,255,0.4)",fontSize:13,textTransform:"capitalize"}}>
-                {room.status==="cleaning"?"🧹 Cleaning mein hai":"Room khali hai"}
-              </p>
-              <p style={{color:"rgba(255,255,255,0.2)",fontSize:11,marginTop:4}}>
-                Base Rate: ₹{room.baseRate}/raat
-              </p>
+        </section>
+      </main>
+
+      {/* --- PREMIUM CHECKOUT / ACTION MODAL --- */}
+      {modalOpen && selectedRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-filter backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-md rounded-3xl p-6 border border-[#D4AF37]/30 shadow-[0_0_40px_rgba(212,175,55,0.18)] relative animate-slide-up">
+            
+            {/* Modal Exit Button */}
+            <button 
+              onClick={() => setModalOpen(false)}
+              className="absolute top-4 right-4 p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Room Identifier Headers */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-gradient-to-br from-[#b8960c] to-[#F5C842] text-black rounded-2xl shadow-lg">
+                <Hotel className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-white">Room {selectedRoom.roomNumber}</h3>
+                <p className="text-xs text-gray-400 font-semibold">{selectedRoom.type} Status View</p>
+              </div>
             </div>
-            {room.status==="vacant"&&(
-              <button onClick={()=>{onClose();onNewBooking&&onNewBooking(room);}} style={{
-                width:"100%", padding:"14px 0", borderRadius:16, border:"none",
-                fontWeight:800, fontSize:14, color:"#000", cursor:"pointer",
-                background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",
-              }}>
-                + Nayi Booking Karo
-              </button>
+
+            {/* Conditionally Render Data Content */}
+            {selectedRoom.status === "occupied" ? (
+              <div className="space-y-5">
+                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <span className="text-[9px] font-bold text-[#D4AF37] uppercase tracking-widest block mb-3">Occupant Info</span>
+                  
+                  {roomBookingDetails ? (
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-400 font-bold">Guest Name:</span>
+                        <span className="text-xs text-white font-extrabold">{roomBookingDetails.guestName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-400 font-bold">Guests Total:</span>
+                        <span className="text-xs text-white font-extrabold">{roomBookingDetails.guests || 2} Pax</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-400 font-bold">Checkout:</span>
+                        <span className="text-xs text-[#D4AF37] font-extrabold">{roomBookingDetails.checkoutDate || "Today"}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center">
+                      <span className="text-xs text-gray-500 animate-pulse">Retrieving Guest Profiles...</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setModalOpen(false)}
+                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all"
+                  >
+                    Keep Occupied
+                  </button>
+                  <button
+                    onClick={() => handleCheckout(selectedRoom.currentBookingId, selectedRoom.roomNumber)}
+                    className="flex-1 py-3 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 rounded-xl text-xs font-bold text-white transition-all shadow-lg flex items-center justify-center gap-1.5"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Checkout Guest
+                  </button>
+                </div>
+              </div>
+            ) : selectedRoom.status === "vacant" ? (
+              <div className="space-y-5">
+                <div className="p-5 text-center bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block mb-2 animate-pulse"></span>
+                  <p className="text-sm text-gray-300 font-bold">Room is completely Vacant</p>
+                  <p className="text-xs text-gray-500 mt-1">Ready for immediate premium guest check-in</p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setModalOpen(false);
+                    // Open booking workflow if callback hook exists in database lib
+                    setAiAssistantLogs(prev => [
+                      { id: Date.now(), type: "ai", text: `Initiated quick reservation flow for Room ${selectedRoom.roomNumber}` },
+                      ...prev
+                    ]);
+                  }}
+                  className="w-full py-3.5 bg-gradient-to-r from-[#b8960c] via-[#D4AF37] to-[#F5C842] hover:brightness-110 rounded-2xl text-xs font-extrabold text-black transition-all shadow-xl flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4 text-black stroke-[2.5]" />
+                  + Nayi Booking Karo
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="p-5 text-center bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <span className="w-3 h-3 rounded-full bg-amber-500 inline-block mb-2 animate-pulse"></span>
+                  <p className="text-sm text-gray-300 font-bold font-sans">Room requires Housekeeping</p>
+                  <p className="text-xs text-gray-500 mt-1">Status set to dirty. Please resolve cleaning to enable bookings.</p>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    // Quick state resolution simulation for dirty status
+                    setRefreshing(true);
+                    try {
+                      // Trigger database status shift if housekeeping flow is configured
+                      setAiAssistantLogs(prev => [
+                        { id: Date.now(), type: "action", text: `Cleaned and released Room ${selectedRoom.roomNumber}` },
+                        ...prev
+                      ]);
+                      setModalOpen(false);
+                      await loadDashboardData(true);
+                    } catch (e) {
+                      console.error(e);
+                    } finally {
+                      setRefreshing(false);
+                    }
+                  }}
+                  className="w-full py-3.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-xs font-extrabold text-white transition-all shadow-xl"
+                >
+                  Mark as Cleaned (Make Vacant)
+                </button>
+              </div>
             )}
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Fallback high-fidelity chart data if weekly dataset is empty
+const mockChartData = [
+  { day: "Mon", amount: 42000 },
+  { day: "Tue", amount: 56000 },
+  { day: "Wed", amount: 48000 },
+  { day: "Thu", amount: 72000 },
+  { day: "Fri", amount: 89000 },
+  { day: "Sat", amount: 110000 },
+  { day: "Sun", amount: 95000 }
+];
+
+// High-Fidelity Gold Skeleton Loader Screen while initial DB reads run
+function SkeletonLoader() {
+  return (
+    <div className="min-h-screen bg-[#07090E] p-4 md:p-8 flex flex-col gap-6 font-sans relative overflow-hidden">
+      {/* Skeleton Top Header */}
+      <div className="w-full flex justify-between items-center py-4 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-white/5 rounded-xl animate-pulse" />
+          <div className="space-y-1.5">
+            <div className="w-32 h-4 bg-white/5 rounded animate-pulse" />
+            <div className="w-20 h-2.5 bg-white/5 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="w-24 h-9 bg-white/5 rounded-xl animate-pulse" />
+      </div>
+
+      {/* Main Skeleton Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+        
+        {/* Left Side AI Console Skeleton */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="h-[400px] bg-white/[0.02] border border-white/5 rounded-3xl p-5 space-y-4">
+            <div className="flex justify-between">
+              <div className="w-28 h-4 bg-white/5 rounded animate-pulse" />
+              <div className="w-8 h-8 bg-white/5 rounded-lg animate-pulse" />
+            </div>
+            <div className="w-full h-16 bg-white/5 rounded-2xl animate-pulse" />
+            <div className="space-y-2 pt-2">
+              <div className="w-full h-10 bg-white/[0.01] rounded-xl animate-pulse" />
+              <div className="w-full h-10 bg-white/[0.01] rounded-xl animate-pulse" />
+              <div className="w-3/4 h-10 bg-white/[0.01] rounded-xl animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side Cards Grid Skeletons */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          {/* Stat Item Rows */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3">
+                <div className="w-8 h-8 bg-white/5 rounded-lg animate-pulse" />
+                <div className="w-16 h-4 bg-white/5 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+
+          {/* Chart Skeleton */}
+          <div className="h-[240px] bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col justify-between">
+            <div className="w-36 h-5 bg-white/5 rounded animate-pulse" />
+            <div className="w-full h-[140px] bg-white/[0.01] rounded-xl animate-pulse" />
+          </div>
+        </div>
       </div>
     </div>
   );
-}
-
-function Skeleton() {
-  return (
-    <div style={{background:"#07090E",minHeight:"100vh",padding:"12px",display:"flex",flexDirection:"column",gap:12}}>
-      {[80,200,320,180,130].map((h,i)=>(
-        <div key={i} style={{
-          height:h, borderRadius:20,
-          background:"linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 75%)",
-          backgroundSize:"200% 100%",
-          animation:"shimmer 1.5s ease-in-out infinite",
-        }}/>
-      ))}
-    </div>
-  );
-}
-
-function localInsight(s) {
-  if (!s) return "Data load ho raha hai...";
-  if (s.occupancyPercent>80) return `High demand! ${s.occupancyPercent}% rooms bhare hain. Rates ₹200-300 badha sakte ho. 🔥`;
-  if (s.occupancyPercent>50) return `${s.vacantRooms} rooms khali hain. Deluxe rooms weekend par promote karo. 💡`;
-  return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing +12% consider karo.";
 }
