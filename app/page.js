@@ -1,4 +1,5 @@
 "use client";
+import GuestsView from "../components/GuestsView";
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { LayoutDashboard, CalendarDays, Users, Cpu, BarChart3, Bell, Menu, X, LogOut } from "lucide-react";
@@ -199,14 +200,7 @@ export default function App() {
         {tab==="scanner" && <ScannerView   hotelId={hotelId} hotel={hotel} user={user} onSuccess={()=>{ onNew(); setTab("home"); }} onBack={()=>setTab("home")}/>}
         {tab==="reports" && <ReportsView   hotelId={hotelId} hotel={hotel} user={user}/>}
         {tab==="settings"&& <SettingsView  hotelId={hotelId} hotel={hotel} user={user} onLogout={onLogout}/>}
-        {tab==="guests"  && (
-          <div style={{ height:"100%", display:"flex", flexDirection:"column", padding:"16px 14px", gap:12 }}>
-            <h2 style={{ fontWeight:900, fontSize:22, color:"#D4AF37", textShadow:"0 0 20px rgba(212,175,55,0.3)" }}>Guests</h2>
-            <div style={{ flex:1, background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.055)", borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <p style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Coming soon</p>
-            </div>
-          </div>
-        )}
+        {tab==="guests"  && <GuestsView hotelId={hotelId} hotel={hotel} user={user}/>}
       </main>
 
       {/* ══ BOTTOM NAV ══════════════════════════════════════════════ */}
