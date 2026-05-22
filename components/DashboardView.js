@@ -518,4 +518,4 @@ function InfoRow({ label, value }) {
       <span className="font-medium">{value}</span>
     </div>
   );
-          }
+                  }
