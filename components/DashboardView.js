@@ -1,560 +1,801 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import { RefreshCw, ExternalLink, Check, Brain } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
-
-/* ─── MOCK DATA ─────────────────────────────────────────────── */
-const revData = [
-  { day: "Mon", revenue: 180000 }, { day: "Tue", revenue: 220000 },
-  { day: "Wed", revenue: 195000 }, { day: "Thu", revenue: 310000 },
-  { day: "Fri", revenue: 285000 }, { day: "Sat", revenue: 380000 },
-  { day: "Sun", revenue: 245800 },
-];
-
-const ROOMS = [];
-for (let floor = 5; floor >= 1; floor--) {
-  for (let col = 1; col <= 8; col++) {
-    const num = floor * 100 + col;
-    const statuses = ["occupied","occupied","occupied","occupied","occupied","reserved","vacant","out_of_order"];
-    const rand = (num * 7 + floor * 13) % 8;
-    ROOMS.push({ number: num, floor, status: statuses[rand] });
-  }
-}
+import {
+  getTodayStats, getRooms, getBookingById, checkoutBooking,
+  getTodayBookings, getWeeklyRevenue, initializeRooms
+} from "../lib/db";
 
 function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-/* ─── GOLD PARTICLES ─────────────────────────────────────────── */
-function GoldParticles() {
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
-    resize();
-    const particles = Array.from({ length: 24 }, () => ({
-      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-      size: Math.random() * 2 + 0.4, vy: -(Math.random() * 0.35 + 0.08),
-      vx: (Math.random() - 0.5) * 0.2, opacity: Math.random() * 0.45 + 0.1,
-      pulse: Math.random() * Math.PI * 2,
-    }));
-    let raf;
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particles.forEach(p => {
-        p.pulse += 0.022; p.y += p.vy; p.x += p.vx;
-        if (p.y < -4) { p.y = canvas.height + 4; p.x = Math.random() * canvas.width; }
-        const a = p.opacity * (0.6 + 0.4 * Math.sin(p.pulse));
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(212,175,55,${a})`; ctx.shadowBlur = 5;
-        ctx.shadowColor = `rgba(212,175,55,${a * 0.8})`; ctx.fill();
-      });
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return <canvas ref={canvasRef} style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none", zIndex:0 }} />;
-}
-
-/* ─── VOICE WAVEFORM ──────────────────────────────────────────── */
-function VoiceWaveform({ active }) {
-  const bars = [3, 9, 14, 9, 5, 11, 15, 10, 4, 12, 7, 13, 6];
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:2.5, padding:"3px 8px", borderRadius:10,
-      background:"rgba(10,14,30,0.92)", border:"1px solid rgba(59,130,246,0.35)",
-      boxShadow: active ? "0 0 14px rgba(59,130,246,0.38)" : "none", transition:"all 0.3s" }}>
-      {bars.map((h, i) => (
-        <div key={i} style={{
-          width:2.5, borderRadius:3,
-          background: active ? "linear-gradient(180deg,#60a5fa,#3B82F6)" : "rgba(96,165,250,0.35)",
-          height: active ? h : 3,
-          transition: `height 0.12s ease ${i * 0.04}s`,
-          boxShadow: active ? "0 0 4px rgba(96,165,250,0.6)" : "none",
-        }} />
-      ))}
-    </div>
-  );
-}
-
-/* ─── AI SCAN BUTTON ─────────────────────────────────────────── */
-function AIScanButton({ scanning, onClick }) {
-  const [pressed, setPressed] = useState(false);
-  return (
-    <button onClick={onClick}
-      onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)}
-      onTouchStart={() => setPressed(true)} onTouchEnd={() => setPressed(false)}
-      style={{ width:130, height:130, borderRadius:"50%", display:"flex", alignItems:"center",
-        justifyContent:"center", cursor:"pointer", position:"relative", border:"none",
-        background:"none", padding:0, transform: pressed ? "scale(0.93)" : "scale(1)", transition:"transform .12s ease" }}>
-      <div style={{ position:"absolute", inset:-20, borderRadius:"50%",
-        border:"1px solid rgba(0,140,255,0.12)", animation:"scanRingCW 14s linear infinite" }} />
-      <div style={{ position:"absolute", inset:-11, borderRadius:"50%",
-        border:"1.5px dashed rgba(0,140,255,0.22)", animation:"scanRingCCW 9s linear infinite" }} />
-      <div style={{ position:"absolute", inset:-4, borderRadius:"50%",
-        border:"2px solid rgba(0,140,255,0.52)",
-        boxShadow:"0 0 22px rgba(0,140,255,0.28), inset 0 0 18px rgba(0,140,255,0.07)" }} />
-      <div style={{ width:"100%", height:"100%", borderRadius:"50%",
-        background:"radial-gradient(circle at 42% 36%, #001a3d 0%, #000d1f 55%, #000508 100%)",
-        border:"2.5px solid rgba(0,140,255,0.68)",
-        boxShadow:"0 0 0 5px rgba(0,140,255,0.07),0 0 35px rgba(0,140,255,0.55),0 0 70px rgba(0,140,255,0.2),inset 0 0 30px rgba(0,140,255,0.2)",
-        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-        animation: scanning ? "none" : "aiScanPulse 2.5s ease-in-out infinite",
-        position:"relative", overflow:"hidden" }}>
-        {scanning && <div style={{ position:"absolute", inset:0, borderRadius:"50%",
-          background:"conic-gradient(from 0deg, transparent 340deg, rgba(0,140,255,0.65) 350deg, rgba(0,220,255,0.9) 356deg, transparent 360deg)",
-          animation:"scanLaser .55s linear" }} />}
-        <div style={{ position:"absolute", inset:14, borderRadius:"50%",
-          background:"radial-gradient(circle, rgba(0,140,255,0.22), transparent 72%)" }} />
-        <span style={{ fontWeight:900, fontSize:25, color:"#fff", letterSpacing:"-0.02em",
-          lineHeight:1, zIndex:1, position:"relative",
-          textShadow:"0 0 20px rgba(255,255,255,0.7),0 0 45px rgba(0,140,255,0.9)" }}>AI</span>
-        <span style={{ fontWeight:800, fontSize:10, color:"#3B82F6", letterSpacing:"0.22em",
-          zIndex:1, position:"relative", marginTop:3,
-          textShadow:"0 0 12px rgba(59,130,246,0.95)" }}>SCAN</span>
-      </div>
-    </button>
-  );
-}
-
-/* ─── HOLOGRAM BUILDING ──────────────────────────────────────── */
+/* ─── Hologram Building SVG ──────────────────────────── */
 function HologramBuilding() {
   return (
-    <div style={{ width:90, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
-      animation:"holoBuild 3s ease infinite" }}>
-      <svg width="88" height="112" viewBox="0 0 88 112" fill="none">
-        <ellipse cx="44" cy="104" rx="32" ry="7" stroke="rgba(0,140,255,0.45)" strokeWidth="1" fill="rgba(0,140,255,0.06)" />
-        <rect x="24" y="32" width="40" height="67" stroke="rgba(0,140,255,0.65)" strokeWidth="1.3" fill="rgba(0,140,255,0.05)" rx="2" />
-        <line x1="44" y1="10" x2="44" y2="32" stroke="rgba(0,140,255,0.75)" strokeWidth="1.3" />
-        <circle cx="44" cy="9" r="2.8" fill="rgba(0,220,255,0.95)" />
-        {[0,1,2,3,4,5,6].map(row => [0,1,2].map(col => (
-          <rect key={`${row}-${col}`} x={30+col*11} y={38+row*8.5} width="7" height="5" rx="1"
-            fill={row*3+col < 13 ? "rgba(0,210,255,0.38)" : "rgba(0,140,255,0.1)"}
-            stroke="rgba(0,140,255,0.3)" strokeWidth="0.5" />
-        )))}
-        <line x1="24" y1="62" x2="64" y2="62" stroke="rgba(0,140,255,0.28)" strokeWidth="0.5" />
-        <line x1="24" y1="78" x2="64" y2="78" stroke="rgba(0,140,255,0.28)" strokeWidth="0.5" />
-        <line x1="24" y1="99" x2="64" y2="99" stroke="rgba(0,140,255,0.45)" strokeWidth="1.1" />
-        <line x1="24" y1="32" x2="12" y2="41" stroke="rgba(0,140,255,0.25)" strokeWidth="0.9" />
-        <line x1="64" y1="32" x2="76" y2="41" stroke="rgba(0,140,255,0.25)" strokeWidth="0.9" />
-        <line x1="12" y1="41" x2="12" y2="99" stroke="rgba(0,140,255,0.18)" strokeWidth="0.9" />
-        <line x1="76" y1="41" x2="76" y2="99" stroke="rgba(0,140,255,0.18)" strokeWidth="0.9" />
-        <line x1="12" y1="99" x2="24" y2="99" stroke="rgba(0,140,255,0.25)" strokeWidth="0.9" />
-        <line x1="76" y1="99" x2="64" y2="99" stroke="rgba(0,140,255,0.25)" strokeWidth="0.9" />
-      </svg>
-    </div>
+    <svg viewBox="0 0 160 180" className="holo-svg" style={{ width:130, height:150, filter:"drop-shadow(0 0 16px #008cff) drop-shadow(0 0 32px rgba(0,140,255,0.35))" }}>
+      <ellipse cx="80" cy="160" rx="62" ry="10" fill="none" stroke="rgba(212,175,55,0.9)" strokeWidth="1.5"/>
+      <ellipse cx="80" cy="160" rx="50" ry="7" fill="none" stroke="rgba(212,175,55,0.55)" strokeWidth="1"/>
+      <ellipse cx="80" cy="160" rx="38" ry="5" fill="none" stroke="rgba(212,175,55,0.3)" strokeWidth="0.7"/>
+      <ellipse cx="80" cy="160" rx="62" ry="10" fill="rgba(212,175,55,0.05)"/>
+      {/* Main isometric box */}
+      <polygon points="80,18 122,48 122,148 80,168 38,148 38,48" fill="none" stroke="rgba(0,140,255,0.6)" strokeWidth="1.2"/>
+      <polygon points="80,18 38,48 38,148 80,168" fill="rgba(0,50,110,0.12)" stroke="rgba(0,140,255,0.55)" strokeWidth="0.8"/>
+      <polygon points="80,18 122,48 122,148 80,168" fill="rgba(0,70,140,0.08)" stroke="rgba(0,140,255,0.45)" strokeWidth="0.8"/>
+      <polygon points="80,18 122,48 80,78 38,48" fill="rgba(0,90,180,0.18)" stroke="rgba(0,140,255,0.8)" strokeWidth="1.2"/>
+      {/* Grid lines */}
+      {[70,90,110,130].map(y=>(<line key={`l${y}`} x1="38" y1={y} x2="80" y2={y+20} stroke="rgba(0,140,255,0.25)" strokeWidth="0.5"/>))}
+      {[70,90,110,130].map(y=>(<line key={`r${y}`} x1="80" y1={y+20} x2="122" y2={y} stroke="rgba(0,140,255,0.2)" strokeWidth="0.5"/>))}
+      {/* Windows */}
+      {[[48,78],[48,98],[48,118],[60,78],[60,98],[60,118],[72,78],[72,98],[72,118]].map(([x,y],i)=>(
+        <rect key={`wl${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%3===0?"rgba(0,200,255,0.7)":"rgba(0,160,220,0.4)"}/>
+      ))}
+      {[[88,78],[88,98],[88,118],[100,78],[100,98],[100,118],[112,78],[112,98],[112,118]].map(([x,y],i)=>(
+        <rect key={`wr${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%2===0?"rgba(0,180,255,0.6)":"rgba(0,140,200,0.35)"}/>
+      ))}
+      {/* Antenna */}
+      <line x1="80" y1="18" x2="80" y2="2" stroke="rgba(0,140,255,0.9)" strokeWidth="1.5"/>
+      <circle cx="80" cy="2" r="2.5" fill="#008cff"/>
+      <circle cx="80" cy="2" r="4" fill="none" stroke="rgba(0,140,255,0.4)" strokeWidth="0.8"/>
+    </svg>
   );
 }
 
-/* ─── ROOM CELL 3D ────────────────────────────────────────────── */
-function RoomCell3D({ room, onClick }) {
-  const [pressed, setPressed] = useState(false);
-  if (!room) return <div style={{ flex:1, minWidth:0, aspectRatio:"1", borderRadius:8, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.04)" }} />;
-  const cfg = {
-    occupied: { top:"linear-gradient(160deg,#1a4d1a,#0d2e0d)", border:"rgba(34,197,94,0.7)", shadow:"0 4px 0 rgba(10,40,10,0.9),0 0 10px rgba(34,197,94,0.28)", hl:"rgba(34,197,94,0.4)", icon:"#22c55e", num:"#4ade80" },
-    reserved: { top:"linear-gradient(160deg,#3d2800,#2a1a00)", border:"rgba(212,175,55,0.72)", shadow:"0 4px 0 rgba(40,25,0,0.9),0 0 10px rgba(212,175,55,0.22)", hl:"rgba(212,175,55,0.38)", icon:"#D4AF37", num:"#F5C842" },
-    vacant:   { top:"linear-gradient(160deg,#3d0d0d,#2e0808)", border:"rgba(239,68,68,0.55)", shadow:"0 4px 0 rgba(40,8,8,0.9),0 0 6px rgba(239,68,68,0.12)", hl:"rgba(239,68,68,0.22)", icon:"#ef4444", num:"#fca5a5" },
-    out_of_order: { top:"rgba(20,22,28,0.9)", border:"rgba(75,85,99,0.4)", shadow:"0 3px 0 rgba(10,11,14,0.9)", hl:"rgba(255,255,255,0.05)", icon:"#374151", num:"#4B5563" },
-  };
-  const c = cfg[room.status] || cfg.vacant;
+/* ─── AI Scan Reactor ─────────────────────────────────── */
+function AiScanReactor({ onClick }) {
   return (
-    <button onClick={onClick}
-      onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)}
-      style={{ flex:1, minWidth:0, aspectRatio:"1", background:c.top, border:`1px solid ${c.border}`,
-        borderRadius:9, boxShadow:c.shadow, display:"flex", flexDirection:"column",
-        alignItems:"center", justifyContent:"center", padding:"2px 1px 4px",
-        position:"relative", overflow:"hidden", cursor:"pointer",
-        transform: pressed ? "scale(0.86) translateZ(-4px)" : "scale(1)",
-        transition:"transform 0.1s ease" }}>
-      <div style={{ position:"absolute", top:0, left:0, right:0, height:"36%",
-        background:`linear-gradient(180deg,${c.hl},transparent)`, borderRadius:"9px 9px 0 0" }} />
-      <svg width="10" height="10" viewBox="0 0 20 20" fill={c.icon} style={{ position:"relative", zIndex:1 }}>
-        <circle cx="10" cy="6" r="4" /><path d="M3 20c0-3.866 3.134-7 7-7s7 3.134 7 7" />
-      </svg>
-      <span style={{ fontSize:7, fontWeight:900, color:c.num, fontFamily:"monospace", lineHeight:1, marginTop:1, position:"relative", zIndex:1 }}>{room.number}</span>
+    <button onClick={onClick} style={{
+      position:"relative", width:130, height:130,
+      background:"transparent", border:"none", cursor:"pointer",
+      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
+    }}>
+      {/* Dashed outer rings */}
+      {[{sz:-10,color:"rgba(0,140,255,0.65)",dash:"6,4",spd:"3s",dir:"normal"},{sz:4,color:"rgba(212,175,55,0.5)",dash:"4,6",spd:"5s",dir:"reverse"},{sz:16,color:"rgba(0,140,255,0.3)",dash:"8,8",spd:"7s",dir:"normal"}].map((r,i)=>(
+        <div key={i} style={{
+          position:"absolute", inset:r.sz, borderRadius:"50%",
+          border:`1.5px dashed ${r.color}`,
+          animation:`spinRingCW ${r.spd} linear infinite ${r.dir==="reverse"?"reverse":""}`
+        }}/>
+      ))}
+      {/* Sonar lines */}
+      {[0,45,90,135,180,225,270,315].map(deg=>(
+        <div key={deg} style={{
+          position:"absolute", width:1, bottom:"50%", left:"50%",
+          height:"42%", transformOrigin:"50% 100%",
+          transform:`translateX(-50%) rotate(${deg}deg)`,
+          background:`linear-gradient(to bottom,rgba(0,140,255,${deg%90===0?0.6:0.2}),transparent)`
+        }}/>
+      ))}
+      {/* Laser flares */}
+      <div style={{ position:"absolute", left:"50%", top:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to top,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite" }}/>
+      <div style={{ position:"absolute", left:"50%", bottom:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to bottom,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite 0.6s" }}/>
+      {/* Gold bottom arc */}
+      <div style={{ position:"absolute", bottom:20, left:"50%", transform:"translateX(-50%)", width:70, height:3, background:"linear-gradient(90deg,transparent,rgba(212,175,55,0.9),transparent)", filter:"blur(2px)" }}/>
+      {/* Core disk */}
+      <div style={{
+        position:"absolute", inset:18, borderRadius:"50%",
+        background:"radial-gradient(circle,rgba(0,20,60,0.97) 0%,rgba(0,5,18,0.99) 100%)",
+        border:"2px solid rgba(0,140,255,0.55)",
+        boxShadow:"0 0 28px rgba(0,140,255,0.5),0 0 55px rgba(0,140,255,0.2),inset 0 0 24px rgba(0,140,255,0.12)"
+      }}/>
+      {/* Text */}
+      <div style={{ position:"relative", zIndex:2, textAlign:"center", pointerEvents:"none" }}>
+        <p style={{ fontSize:20, fontWeight:900, letterSpacing:"0.08em", color:"#fff", textShadow:"0 0 18px #008cff,0 0 36px rgba(0,140,255,0.7)", lineHeight:1, fontFamily:"'Courier New',monospace" }}>AI</p>
+        <p style={{ fontSize:9, fontWeight:800, letterSpacing:"0.28em", color:"#60b8ff", textShadow:"0 0 8px #008cff", marginTop:3 }}>SCAN</p>
+      </div>
     </button>
   );
 }
 
-/* ─── QUICK CARD ──────────────────────────────────────────────── */
-function QuickCard({ icon, label, value, sub, subColor, glowColor }) {
+/* ─── 3D Keycap ───────────────────────────────────────── */
+/* ── Dynamic grid sizing ──────────────────────────────────── */
+function getRoomGridLayout(totalRooms) {
+  if (totalRooms <= 10)  return { cols:5,  gap:6, numSz:10, badgeSz:15, depth:7  };
+  if (totalRooms <= 20)  return { cols:5,  gap:5, numSz:9,  badgeSz:13, depth:6  };
+  if (totalRooms <= 32)  return { cols:8,  gap:4, numSz:8,  badgeSz:12, depth:5  };
+  if (totalRooms <= 48)  return { cols:8,  gap:3, numSz:7,  badgeSz:11, depth:5  };
+  if (totalRooms <= 64)  return { cols:10, gap:3, numSz:6,  badgeSz:10, depth:4  };
+  if (totalRooms <= 80)  return { cols:10, gap:2, numSz:6,  badgeSz:9,  depth:4  };
+  return                        { cols:10, gap:2, numSz:5,  badgeSz:8,  depth:3  };
+}
+
+/* ── Status config ────────────────────────────────────────── */
+function getRoomCfg(status) {
+  return {
+    occupied:    { face:"linear-gradient(160deg,#1d5c1d 0%,#0d360d 60%,#082208 100%)", right:"linear-gradient(180deg,#0d360d,#051405)", bottom:"#041004", glow:"#22c55e", glowA:"rgba(34,197,94,0.7)",  border:"rgba(34,197,94,0.8)",  badgeC:"#22c55e", numC:"#86efac",  label:"Occupied",    icon:"👤" },
+    reserved:    { face:"linear-gradient(160deg,#4a3500 0%,#2e2000 60%,#1a1200 100%)", right:"linear-gradient(180deg,#2e2000,#100b00)", bottom:"#0c0800", glow:"#D4AF37", glowA:"rgba(212,175,55,0.7)", border:"rgba(212,175,55,0.8)", badgeC:"#D4AF37", numC:"#fde68a",  label:"Reserved",    icon:"📌" },
+    cleaning:    { face:"linear-gradient(160deg,#1e1e5a 0%,#111138 60%,#08082a 100%)", right:"linear-gradient(180deg,#111138,#060618)", bottom:"#040412", glow:"#818cf8", glowA:"rgba(129,140,248,0.7)",border:"rgba(129,140,248,0.8)",badgeC:"#818cf8", numC:"#c7d2fe",  label:"Cleaning",    icon:"🧹" },
+    out_of_order:{ face:"linear-gradient(160deg,#1a1a1e 0%,#111113 60%,#090909 100%)", right:"linear-gradient(180deg,#111113,#060606)", bottom:"#040404", glow:"#6b7280", glowA:"rgba(107,114,128,0.4)",border:"rgba(107,114,128,0.5)",badgeC:"#4b5563", numC:"#9ca3af",  label:"Out of Order", icon:"🔧" },
+    vacant:      { face:"linear-gradient(160deg,#4a0d0d 0%,#2e0808 60%,#1a0404 100%)", right:"linear-gradient(180deg,#2e0808,#100303)", bottom:"#0c0202", glow:"#ef4444", glowA:"rgba(239,68,68,0.7)", border:"rgba(239,68,68,0.8)", badgeC:"#ef4444", numC:"#fca5a5",  label:"Vacant",      icon:"" },
+  }[status] || { face:"linear-gradient(160deg,#0d3520,#072212,#041209)", right:"linear-gradient(180deg,#072212,#021008)", bottom:"#020a05", glow:"#10b981", glowA:"rgba(16,185,129,0.7)", border:"rgba(16,185,129,0.8)", badgeC:"#10b981", numC:"#6ee7b7", label:"Vacant", icon:"" };
+}
+
+/* ── 3D Isometric Room Block ──────────────────────────────── */
+function RoomBlock({ room, onClick, layout }) {
+  const cfg = getRoomCfg(room.status);
+  const { numSz=9, badgeSz=13, depth=6 } = layout || {};
+  const hasImg = room.imageUrl; // future: room.imageUrl
+
   return (
-    <div style={{ borderRadius:18, padding:"14px 14px 12px", background:"rgba(255,255,255,0.04)",
-      border:"1px solid rgba(255,255,255,0.08)", position:"relative", overflow:"hidden" }}>
-      {glowColor && <div style={{ position:"absolute", bottom:0, right:0, width:70, height:70,
-        borderRadius:"50%", background:`radial-gradient(circle,${glowColor} 0%,transparent 70%)`, pointerEvents:"none" }} />}
-      <div style={{ fontSize:8, fontWeight:700, letterSpacing:"0.12em", color:"rgba(255,255,255,0.35)",
-        textTransform:"uppercase", display:"flex", alignItems:"center", gap:5, marginBottom:8 }}>
-        {icon}{label}
+    <button
+      onClick={()=>onClick(room)}
+      style={{
+        width:"100%", aspectRatio:"1/1.05",
+        position:"relative", background:"transparent",
+        border:"none", cursor:"pointer", padding:0,
+        /* Isometric perspective tilt */
+        transform:"perspective(400px) rotateX(20deg) rotateZ(0deg)",
+        transformOrigin:"center 90%",
+        transition:"transform 0.15s ease, filter 0.15s ease",
+        filter:`drop-shadow(0 ${depth+2}px ${depth*2}px rgba(0,0,0,0.7)) drop-shadow(0 0 ${depth*2}px ${cfg.glowA})`,
+      }}
+      onTouchStart={e=>{ e.currentTarget.style.transform="perspective(400px) rotateX(24deg) scale(0.92)"; e.currentTarget.style.filter=`drop-shadow(0 2px 4px rgba(0,0,0,0.9)) drop-shadow(0 0 8px ${cfg.glowA})`; }}
+      onTouchEnd={e=>{ e.currentTarget.style.transform="perspective(400px) rotateX(20deg)"; e.currentTarget.style.filter=`drop-shadow(0 ${depth+2}px ${depth*2}px rgba(0,0,0,0.7)) drop-shadow(0 0 ${depth*2}px ${cfg.glowA})`; }}
+    >
+      {/* ── Bottom depth face (shadow illusion) ── */}
+      <div style={{
+        position:"absolute", inset:0, top:`${depth}px`,
+        borderRadius:"6px 6px 8px 8px",
+        background:cfg.bottom,
+        boxShadow:`0 4px 12px rgba(0,0,0,0.9), 0 0 ${depth*3}px ${cfg.glowA}`,
+      }}/>
+
+      {/* ── Right depth side face ── */}
+      <div style={{
+        position:"absolute",
+        top:`${depth}px`, right:0, bottom:0,
+        width:`${depth+1}px`,
+        background:cfg.right,
+        borderRadius:"0 2px 4px 0",
+        opacity:0.9,
+      }}/>
+
+      {/* ── Front top face ── */}
+      <div style={{
+        position:"absolute", inset:0, bottom:`${depth}px`,
+        borderRadius:"7px 7px 5px 5px",
+        background: hasImg ? "transparent" : cfg.face,
+        border:`1.5px solid ${cfg.border}`,
+        boxShadow:`inset 0 0 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12)`,
+        overflow:"hidden",
+        display:"flex", flexDirection:"column",
+        alignItems:"center", justifyContent:"center",
+        gap:2, padding:"3px 2px",
+      }}>
+        {/* Room image (future) */}
+        {hasImg && (
+          <img src={room.imageUrl} alt={`Room ${room.number}`} style={{
+            position:"absolute", inset:0, width:"100%", height:"100%",
+            objectFit:"cover", opacity:0.55,
+          }}/>
+        )}
+
+        {/* Top glass sheen */}
+        <div style={{
+          position:"absolute", top:0, left:"6%", right:"6%", height:"35%",
+          background:"linear-gradient(180deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.02) 100%)",
+          borderRadius:"6px 6px 50% 50%", pointerEvents:"none",
+          zIndex:2,
+        }}/>
+
+        {/* Bottom underlight glow bar */}
+        <div style={{
+          position:"absolute", bottom:1, left:"8%", right:"8%", height:2,
+          background:cfg.badgeC, filter:"blur(3px)", opacity:0.95,
+          zIndex:2,
+        }}/>
+
+        {/* Left edge light streak */}
+        <div style={{
+          position:"absolute", top:"10%", left:1, bottom:"10%", width:1.5,
+          background:`linear-gradient(180deg,transparent,${cfg.badgeC},transparent)`,
+          opacity:0.5, zIndex:2,
+        }}/>
+
+        {/* Badge circle with person icon */}
+        <div style={{
+          width:badgeSz, height:badgeSz, borderRadius:"50%",
+          background:`radial-gradient(circle, ${cfg.badgeC} 0%, ${cfg.badgeC}cc 100%)`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          boxShadow:`0 0 8px ${cfg.badgeC}, 0 0 16px ${cfg.glowA}`,
+          position:"relative", zIndex:3, flexShrink:0,
+          border:`1px solid ${cfg.badgeC}90`,
+        }}>
+          {/* Person silhouette SVG */}
+          <svg viewBox="0 0 10 10" style={{width:badgeSz*0.6, height:badgeSz*0.6}}>
+            <circle cx="5" cy="3.2" r="1.8" fill="white" opacity="0.95"/>
+            <path d="M1.5,9 Q1.5,6.2 5,6.2 Q8.5,6.2 8.5,9Z" fill="white" opacity="0.95"/>
+          </svg>
+        </div>
+
+        {/* Room number */}
+        <span style={{
+          fontSize:numSz, color:cfg.numC, fontWeight:900,
+          fontFamily:"'Courier New',monospace",
+          letterSpacing:"0.01em", lineHeight:1,
+          position:"relative", zIndex:3,
+          textShadow:`0 0 6px ${cfg.badgeC}, 0 1px 0 rgba(0,0,0,0.8)`,
+        }}>
+          {room.number}
+        </span>
       </div>
-      <div style={{ fontSize:32, fontWeight:900, color:"#fff", letterSpacing:"-0.04em", lineHeight:1 }}>{value}</div>
-      <div style={{ fontSize:12, fontWeight:600, marginTop:4, color:subColor }}>{sub}</div>
-    </div>
+
+      {/* Outer ambient glow ring (very subtle) */}
+      <div style={{
+        position:"absolute", inset:-2, bottom:depth-2,
+        borderRadius:"9px 9px 7px 7px",
+        border:`1px solid ${cfg.border}`,
+        opacity:0.4, pointerEvents:"none",
+      }}/>
+    </button>
   );
 }
 
-/* ─── ROOM MODAL ──────────────────────────────────────────────── */
-function RoomModal({ room, onClose }) {
-  return (
-    <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"flex-end",
-      background:"rgba(0,0,0,0.78)", backdropFilter:"blur(14px)" }} onClick={onClose}>
-      <div style={{ position:"relative", width:"100%",
-        background:"linear-gradient(160deg,#0d1020,#080a14)",
-        border:"1px solid rgba(255,255,255,0.1)", borderBottom:"none",
-        borderRadius:"24px 24px 0 0", padding:20, animation:"slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards"
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ width:40, height:4, borderRadius:2, background:"rgba(255,255,255,0.15)", margin:"0 auto 16px" }} />
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div>
-            <h3 style={{ fontWeight:900, fontSize:22, color:"#fff" }}>Room {room.number}</h3>
-            <p style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:2 }}>Deluxe · Floor {room.floor}</p>
-          </div>
-          <span style={{
-            padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:700,
-            background: room.status==="occupied" ? "rgba(34,197,94,0.15)" : room.status==="reserved" ? "rgba(212,175,55,0.15)" : "rgba(239,68,68,0.15)",
-            color: room.status==="occupied" ? "#22c55e" : room.status==="reserved" ? "#D4AF37" : "#ef4444",
-            border: `1px solid ${room.status==="occupied" ? "rgba(34,197,94,0.3)" : room.status==="reserved" ? "rgba(212,175,55,0.3)" : "rgba(239,68,68,0.3)"}`,
-          }}>{room.status === "out_of_order" ? "Out of Order" : room.status.charAt(0).toUpperCase() + room.status.slice(1)}</span>
-        </div>
-        <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:24, textAlign:"center", marginBottom:12 }}>
-          <p style={{ color:"rgba(255,255,255,0.4)", fontSize:13 }}>
-            {room.status==="occupied" ? "👤 Guest is checked in" : room.status==="reserved" ? "📋 Booking confirmed" : room.status==="vacant" ? "🏨 Room is available" : "🔧 Under maintenance"}
-          </p>
-          <p style={{ color:"rgba(255,255,255,0.2)", fontSize:11, marginTop:4 }}>Base Rate: ₹3,500/night</p>
-        </div>
-        {room.status === "vacant" && (
-          <button onClick={onClose} style={{ width:"100%", padding:"14px 0", borderRadius:16, border:"none",
-            fontWeight:800, fontSize:14, color:"#000", cursor:"pointer",
-            background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",
-            boxShadow:"0 4px 22px rgba(212,175,55,0.4)" }}>+ New Booking</button>
-        )}
-        {room.status === "occupied" && (
-          <button onClick={onClose} style={{ width:"100%", padding:"14px 0", borderRadius:16, border:"none",
-            fontWeight:800, fontSize:14, color:"#000", cursor:"pointer",
-            background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",
-            boxShadow:"0 4px 22px rgba(212,175,55,0.4)" }}>✓ Check-out</button>
-        )}
-      </div>
-    </div>
-  );
-}
+/* ─── Main ────────────────────────────────────────────── */
+export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewBooking }) {
+  const [stats,      setStats]   = useState(null);
+  const [rooms,      setRooms]   = useState([]);
+  const [insight,    setInsight] = useState("Aaj ki demand analysis ho rahi hai...");
+  const [iLoad,      setILoad]   = useState(false);
+  const [selRoom,    setSelRoom] = useState(null);
+  const [revData,    setRevData] = useState([]);
+  const [refreshing, setRefresh] = useState(false);
+  const [copied,     setCopied]  = useState(false);
 
-/* ═══════════════════════════════════════════════════════════════
-   MAIN APP
-═══════════════════════════════════════════════════════════════ */
-export default function GuestInnDashboard() {
-  const [activeTab, setActiveTab] = useState("home");
-  const [selRoom, setSelRoom] = useState(null);
-  const [scanning, setScanning] = useState(false);
-  const [voiceActive, setVoiceActive] = useState(false);
-  const [revenue, setRevenue] = useState(24580000);
-  const [insight] = useState("High demand detected for Deluxe Rooms this weekend. Dynamic pricing +12% recommended. 🔥");
+  const load = useCallback(() => {
+    if (!hotelId) return;
+    initializeRooms(hotelId, hotel?.totalRooms || 20);
+    setStats(getTodayStats(hotelId));
+    setRooms(getRooms(hotelId));
+    setRevData(getWeeklyRevenue(hotelId));
+  }, [hotelId, hotel?.totalRooms]);
 
-  // Simulate live revenue updates
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setRevenue(r => r + Math.floor(Math.random() * 5000 - 1000));
-    }, 4000);
-    return () => clearInterval(iv);
-  }, []);
+  useEffect(() => { load(); fetchInsight(); const iv=setInterval(load,30000); return ()=>clearInterval(iv); }, [load]);
 
-  const handleScan = () => {
-    setScanning(true);
-    setTimeout(() => { setScanning(false); setActiveTab("bookings"); }, 700);
+  const fetchInsight = async () => {
+    setILoad(true);
+    try {
+      const s = getTodayStats(hotelId);
+      const r = await fetch("/api/groq",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"ai_insight",stats:s,hotelName:hotel?.name}) });
+      const d = await r.json();
+      setInsight(d.insight || localInsight(s));
+    } catch { setInsight(localInsight(getTodayStats(hotelId))); }
+    setILoad(false);
   };
 
-  const openAI = () => { setVoiceActive(true); setTimeout(() => setVoiceActive(false), 3000); };
+  const handleRefresh = async () => { setRefresh(true); load(); await fetchInsight(); setRefresh(false); };
+  const copyLink = () => { navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }); };
+  const handleRoomClick = (room) => { const booking=room.currentBookingId?getBookingById(hotelId,room.currentBookingId):null; setSelRoom({...room,booking}); };
+  const handleCheckout = async (bookingId) => { await checkoutBooking(hotelId,bookingId); load(); setSelRoom(null); if(navigator.vibrate)navigator.vibrate(50); };
 
-  // Build floor grid
-  const byFloor = {};
-  ROOMS.forEach(r => { if (!byFloor[r.floor]) byFloor[r.floor] = []; byFloor[r.floor].push(r); });
-  const floors = Object.keys(byFloor).map(Number).sort((a, b) => b - a);
+  if (!stats) return <Skeleton/>;
 
-  const NAV = [
-    { id:"home",     label:"Dashboard",  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> },
-    { id:"bookings", label:"Bookings",   icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
-    { id:"guests",   label:"Guests",     icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-    { id:"ops",      label:"Operations", icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> },
-    { id:"reports",  label:"Reports",    icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg> },
-  ];
+  const pct = (Math.random()*20+5).toFixed(1);
+  const byFloor={};
+  rooms.forEach(r=>{ if(!byFloor[r.floor])byFloor[r.floor]=[]; byFloor[r.floor].push(r); });
+  const floors=Object.keys(byFloor).map(Number).sort((a,b)=>b-a);
+
+  const occupied  =rooms.filter(r=>r.status==="occupied").length;
+  const vacant    =rooms.filter(r=>r.status==="vacant").length;
+  const reserved  =rooms.filter(r=>r.status==="reserved").length;
+  const cleaning  =rooms.filter(r=>r.status==="cleaning").length;
+  const outOfOrder=rooms.filter(r=>r.status==="out_of_order").length;
+  const total     =rooms.length;
+
+  const todayBookings=getTodayBookings(hotelId);
+  const pendingCI=todayBookings.filter(b=>b.status==="active").length;
+
+  const Tip=({active,payload})=>active&&payload?.length?(<div style={{background:"rgba(0,0,0,0.92)",border:"1px solid rgba(212,175,55,0.4)",borderRadius:8,padding:"5px 9px"}}><p style={{color:"#D4AF37",fontSize:11,fontWeight:800}}>₹{payload[0].value.toLocaleString("en-IN")}</p></div>):null;
+
+  const S=(p)=>({ background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.065)", borderRadius:14, padding:"12px 12px", boxShadow:"0 2px 18px rgba(0,0,0,0.5)", ...p });
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#07090E", fontFamily:"Inter,sans-serif", maxWidth:430, margin:"0 auto", position:"relative", overflow:"hidden" }}>
+    <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden",background:"#07090E"}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        @keyframes rotateRing { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes pulseDot { 0%,100%{opacity:1;box-shadow:0 0 8px #3B82F6,0 0 18px rgba(59,130,246,0.55)} 50%{opacity:.55;box-shadow:0 0 4px #3B82F6} }
-        @keyframes scanRingCW { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes scanRingCCW { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
-        @keyframes scanLaser { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-        @keyframes aiScanPulse {
-          0%,100%{ box-shadow:0 0 0 5px rgba(0,140,255,.07),0 0 35px rgba(0,140,255,.55),0 0 70px rgba(0,140,255,.2),inset 0 0 30px rgba(0,140,255,.2); }
-          50%    { box-shadow:0 0 0 10px rgba(0,140,255,.04),0 0 55px rgba(0,140,255,.75),0 0 95px rgba(0,140,255,.3),inset 0 0 45px rgba(0,140,255,.28); }
-        }
-        @keyframes goldGlow { 0%,100%{filter:drop-shadow(0 0 6px rgba(212,175,55,.7))} 50%{filter:drop-shadow(0 0 20px rgba(212,175,55,1))} }
-        @keyframes holoBuild { 0%,100%{opacity:.65} 50%{opacity:1} }
-        @keyframes slideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes dotBounce { 0%,80%,100%{transform:scale(.4);opacity:.3} 40%{transform:scale(1);opacity:1} }
-        @keyframes navGlow { 0%,100%{box-shadow:0 0 8px rgba(212,175,55,0.3)} 50%{box-shadow:0 0 20px rgba(212,175,55,0.75)} }
-        @keyframes liveRev { 0%{opacity:.8} 50%{opacity:1} 100%{opacity:.8} }
+        @keyframes spinRingCW  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes laserPulse  { 0%,100%{opacity:0.4;transform:translateX(-50%) scaleY(0.5)} 50%{opacity:1;transform:translateX(-50%) scaleY(1)} }
+        @keyframes dotBounce   { 0%,60%,100%{transform:translateY(0);opacity:.35} 30%{transform:translateY(-7px);opacity:1} }
+        @keyframes holoPulse   { 0%,100%{filter:drop-shadow(0 0 12px #008cff) drop-shadow(0 0 28px rgba(0,140,255,0.4))} 50%{filter:drop-shadow(0 0 22px #00aaff) drop-shadow(0 0 55px rgba(0,160,255,0.65))} }
+        @keyframes pulseDot    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.6)} }
+        @keyframes soundBar    { from{transform:scaleY(.3)} to{transform:scaleY(1)} }
+        @keyframes buildingLine{ 0%{stroke-dashoffset:200} 100%{stroke-dashoffset:0} }
+        .holo-svg { animation: holoPulse 3s ease-in-out infinite; }
       `}</style>
+      <div className="scroll-y" style={{flex:1,paddingBottom:28}}>
 
-      {/* ── TOP HEADER ── */}
-      <header style={{ flexShrink:0, background:"linear-gradient(180deg,rgba(8,10,18,0.98),rgba(5,7,14,0.95))",
-        borderBottom:"1px solid rgba(212,175,55,0.1)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px" }}>
-          <button style={{ width:40, height:40, borderRadius:12, background:"rgba(212,175,55,0.06)",
-            border:"1px solid rgba(212,175,55,0.18)", display:"flex", alignItems:"center", justifyContent:"center",
-            cursor:"pointer" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
-          </button>
-
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M3 21V9l9-6 9 6v12" stroke="#D4AF37" strokeWidth="1.8" strokeLinejoin="round" />
-                <path d="M9 21V13h6v8" stroke="#D4AF37" strokeWidth="1.8" strokeLinejoin="round" />
-                <path d="M12 3v2" stroke="#F5C842" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <span style={{ fontSize:20, fontWeight:900, color:"#fff", letterSpacing:"-0.02em" }}>The GuestInn</span>
-            </div>
-            <span style={{ fontSize:8.5, fontWeight:700, letterSpacing:"0.18em", color:"rgba(212,175,55,0.7)", textTransform:"uppercase" }}>AI-POWERED HOTEL MANAGEMENT</span>
-          </div>
-
-          <button style={{ width:40, height:40, borderRadius:12, background:"rgba(255,255,255,0.04)",
-            border:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"center", justifyContent:"center",
-            cursor:"pointer", position:"relative" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="2">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
-            </svg>
-            <div style={{ position:"absolute", top:9, right:9, width:7, height:7, borderRadius:"50%",
-              background:"#D4AF37", boxShadow:"0 0 8px #D4AF37", border:"1.5px solid #07090E" }} />
-          </button>
-        </div>
-      </header>
-
-      {/* ── MAIN SCROLL ── */}
-      <main style={{ flex:1, overflowY:"auto", overflowX:"hidden", scrollbarWidth:"none" }}>
-
-        {/* ── AI RECEPTIONIST CARD ── */}
-        <div style={{ margin:"12px 12px 0", borderRadius:20, padding:"14px 16px",
-          background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.09)",
-          backdropFilter:"blur(20px)", display:"flex", alignItems:"center", gap:14,
-          position:"relative", overflow:"hidden", animation:"fadeIn 0.5s ease forwards" }}>
-          <div style={{ position:"relative", flexShrink:0, width:72, height:72 }}>
-            <div style={{ position:"absolute", inset:-6, borderRadius:"50%",
-              border:"1.5px solid rgba(0,140,255,0.4)", animation:"rotateRing 8s linear infinite" }} />
-            <div onClick={openAI} style={{ width:72, height:72, borderRadius:"50%",
-              background:"linear-gradient(135deg,#1a1a2e,#16213e)",
-              border:"2.5px solid #D4AF37",
-              boxShadow:"0 0 0 4px rgba(212,175,55,0.12),0 0 22px rgba(212,175,55,0.28)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:36, overflow:"hidden", cursor:"pointer" }}>👩‍💼</div>
-            <div style={{ position:"absolute", bottom:2, right:2, width:14, height:14,
-              borderRadius:"50%", background:"#3B82F6",
-              boxShadow:"0 0 8px #3B82F6,0 0 16px rgba(59,130,246,0.5)",
-              animation:"pulseDot 2s ease infinite" }} />
-            <div style={{ position:"absolute", bottom:-5, left:"50%", transform:"translateX(-50%)" }}>
-              <VoiceWaveform active={voiceActive} />
-            </div>
-          </div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ color:"#D4AF37", fontWeight:800, fontSize:15 }}>AI Receptionist</p>
-            <p style={{ color:"#fff", fontSize:13, fontWeight:600, marginTop:1 }}>{greeting()}, Manager 👋</p>
-            <p style={{ color:"rgba(255,255,255,0.38)", fontSize:11, marginTop:2 }}>Here's your operational overview.</p>
-          </div>
-          <div style={{ position:"absolute", top:14, right:14, width:10, height:10,
-            borderRadius:"50%", background:"#3B82F6", boxShadow:"0 0 8px #3B82F6",
-            animation:"pulseDot 2s ease infinite" }} />
-        </div>
-
-        {/* ── LIVE REVENUE ── */}
-        <div style={{ margin:"12px 12px 0", borderRadius:20,
-          background:"linear-gradient(160deg,#111825,#0a0d15)",
-          border:"1px solid rgba(212,175,55,0.2)", overflow:"hidden",
-          position:"relative", animation:"fadeIn 0.6s ease 0.05s both" }}>
-          <GoldParticles />
-          <div style={{ padding:"20px 20px 0", position:"relative", zIndex:1 }}>
-            <p style={{ fontSize:10, fontWeight:700, letterSpacing:"0.14em", color:"rgba(255,255,255,0.4)", textTransform:"uppercase" }}>LIVE REVENUE</p>
-            <p style={{ fontSize:36, fontWeight:900, letterSpacing:"-0.03em", lineHeight:1, marginTop:6,
-              background:"linear-gradient(135deg,#b8960c 0%,#D4AF37 45%,#F5C842 100%)",
-              WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
-              filter:"drop-shadow(0 0 12px rgba(212,175,55,0.5))",
-              animation:"liveRev 4s ease infinite" }}>
-              ₹{revenue.toLocaleString("en-IN")}<span style={{ fontSize:20 }}>.00</span>
-            </p>
-            <p style={{ color:"rgba(255,255,255,0.5)", fontSize:12, marginTop:6 }}>Today's Total Revenue</p>
-            <div style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"4px 10px",
-              borderRadius:100, marginTop:10, background:"rgba(34,197,94,0.12)",
-              border:"1px solid rgba(34,197,94,0.25)", color:"#22c55e", fontSize:11, fontWeight:700 }}>↑ 18.6% vs yesterday</div>
-          </div>
-          <div style={{ height:110, marginTop:4, position:"relative", zIndex:1 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revData} margin={{ top:8, right:0, left:0, bottom:0 }}>
-                <defs>
-                  <linearGradient id="rGold" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.45} />
-                    <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Tooltip contentStyle={{ background:"#111", border:"1px solid rgba(212,175,55,.3)", borderRadius:8, fontSize:11 }}
-                  formatter={v => [`₹${v.toLocaleString("en-IN")}`, "Revenue"]} labelStyle={{ color:"#D4AF37" }} />
-                <Area type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={2.5}
-                  fill="url(#rGold)" dot={false} style={{ filter:"drop-shadow(0 0 12px rgba(212,175,55,0.95))" }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ position:"absolute", right:0, top:"54%", zIndex:2, width:12, height:12,
-            borderRadius:"50%", background:"#F5C842",
-            boxShadow:"0 0 14px #D4AF37,0 0 26px rgba(212,175,55,.75)",
-            animation:"goldGlow 2s ease infinite" }} />
-        </div>
-
-        {/* ── ROOM OCCUPANCY ── */}
-        <div style={{ margin:"12px 12px 0", borderRadius:20, padding:"16px 14px",
-          background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)",
-          animation:"fadeIn 0.7s ease 0.1s both" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:"#fff", letterSpacing:"0.06em" }}>
-              <span style={{ fontSize:16 }}>🛏</span> ROOM OCCUPANCY
-            </div>
-            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:4, padding:"5px 10px", borderRadius:10,
-                fontSize:11, fontWeight:600, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)",
-                color:"rgba(255,255,255,0.55)", cursor:"pointer" }}>
-                Tower A
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        {/* ── AI RECEPTIONIST ── */}
+        <div style={{padding:"12px 14px 0"}}>
+          <div style={{background:"linear-gradient(135deg,rgba(8,12,22,0.98),rgba(4,6,14,0.98))",border:"1px solid rgba(0,140,255,0.18)",borderRadius:18,padding:"14px",display:"flex",alignItems:"center",gap:14,boxShadow:"0 4px 28px rgba(0,140,255,0.07),inset 0 1px 0 rgba(255,255,255,0.04)"}}>
+            {/* Avatar */}
+            <div style={{position:"relative",flexShrink:0}}>
+              {/* Spinning gradient ring */}
+              <div style={{position:"absolute",inset:-9,borderRadius:"50%",background:"conic-gradient(from 0deg,rgba(212,175,55,0.9),rgba(0,140,255,0.7),rgba(212,175,55,0),rgba(0,140,255,0.6),rgba(212,175,55,0.9))",animation:"spinRingCW 3s linear infinite"}}>
+                <div style={{position:"absolute",inset:2,borderRadius:"50%",background:"#07090E"}}/>
               </div>
-              <div style={{ width:28, height:28, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.06)", cursor:"pointer" }}>
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M9 1h4v4M1 9v4h4M9 13h4V9" stroke="rgba(255,255,255,0.4)" strokeWidth="1.4" strokeLinecap="round" /></svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Column numbers */}
-          <div style={{ display:"flex", paddingLeft:24, marginBottom:6 }}>
-            {Array.from({length:8},(_,i)=>(
-              <div key={i} style={{ flex:1, textAlign:"center", fontSize:9, color:"rgba(255,255,255,0.2)", fontFamily:"monospace" }}>
-                {String(i+1).padStart(2,"0")}
-              </div>
-            ))}
-          </div>
-
-          {/* 3D grid */}
-          <div style={{ perspective:"1000px", perspectiveOrigin:"50% 0%", overflowX:"auto" }}>
-            <div style={{ transform:"rotateX(22deg)", transformStyle:"preserve-3d", transformOrigin:"top center", minWidth:280 }}>
-              {floors.map(fl => (
-                <div key={fl} style={{ display:"flex", alignItems:"center", gap:4, marginBottom:5 }}>
-                  <span style={{ width:18, flexShrink:0, fontSize:9, fontWeight:700, color:"rgba(255,255,255,0.22)", fontFamily:"monospace", textAlign:"center" }}>
-                    {String(fl).padStart(2,"0")}
-                  </span>
-                  {byFloor[fl].map(room => (
-                    <RoomCell3D key={room.number} room={room} onClick={() => setSelRoom(room)} />
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginTop:14 }}>
-            {[["#22c55e","Occupied (68%)"],["#D4AF37","Reserved (5%)"],["#ef4444","Vacant (17%)"],["#4B5563","Out of Order (10%)"]].map(([c,l]) => (
-              <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
-                <div style={{ width:8, height:8, borderRadius:"50%", background:c, boxShadow:`0 0 6px ${c}` }} />
-                <span style={{ fontSize:10, color:"rgba(255,255,255,0.45)" }}>{l}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── QUICK STATS + AI SCAN ── */}
-        <div style={{ margin:"12px 12px 0", display:"grid", gridTemplateColumns:"1fr auto 1fr", gridTemplateRows:"1fr 1fr", gap:10, animation:"fadeIn 0.8s ease 0.15s both" }}>
-          <QuickCard icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
-            label="GUEST CHECK-IN" value="12" sub="Pending" subColor="#D4AF37" glowColor="rgba(212,175,55,0.09)" />
-          <div style={{ gridRow:"1 / 3", gridColumn:"2 / 3", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <AIScanButton scanning={scanning} onClick={handleScan} />
-          </div>
-          <QuickCard icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>}
-            label="MAINTENANCE" value="5" sub="Pending" subColor="#F59E0B" glowColor="rgba(245,158,11,0.09)" />
-          <QuickCard icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2"><path d="M3 22V12a9 9 0 0 1 18 0v10M3 16h18"/></svg>}
-            label="HOUSEKEEPING" value="8" sub="Rooms" subColor="#8B5CF6" glowColor="rgba(139,92,246,0.09)" />
-          <QuickCard icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5C842" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
-            label="REVIEWS" value="4.8" sub="Rating" subColor="#F5C842" glowColor="rgba(245,200,66,0.09)" />
-        </div>
-
-        {/* ── AI INSIGHTS ── */}
-        <div style={{ margin:"12px 12px 20px", borderRadius:20, padding:"18px 16px",
-          background:"linear-gradient(135deg,#060d1f,#080a14)",
-          border:"1px solid rgba(0,140,255,0.25)", boxShadow:"0 0 44px rgba(0,140,255,0.07)",
-          display:"flex", gap:12, position:"relative", overflow:"hidden",
-          animation:"fadeIn 0.9s ease 0.2s both" }}>
-          <div style={{ position:"absolute", top:-30, right:-30, width:130, height:130,
-            borderRadius:"50%", background:"radial-gradient(circle,rgba(0,140,255,0.1),transparent 70%)", pointerEvents:"none" }} />
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-              <div style={{ width:36, height:36, borderRadius:12, flexShrink:0, display:"flex",
-                alignItems:"center", justifyContent:"center", background:"rgba(0,140,255,0.2)",
-                border:"1px solid rgba(0,140,255,0.4)" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.7">
-                  <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
-                  <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+              <div style={{position:"absolute",inset:-3,borderRadius:"50%",border:"1.5px solid rgba(212,175,55,0.35)",boxShadow:"0 0 10px rgba(212,175,55,0.25)"}}/>
+              {/* Face */}
+              <div style={{width:58,height:58,borderRadius:"50%",overflow:"hidden",position:"relative",boxShadow:"0 0 18px rgba(0,140,255,0.3)"}}>
+                <svg viewBox="0 0 60 60" style={{width:58,height:58}}>
+                  <defs>
+                    <radialGradient id="sk" cx="50%" cy="35%" r="55%"><stop offset="0%" stopColor="#dba882"/><stop offset="100%" stopColor="#bf7a50"/></radialGradient>
+                    <linearGradient id="hr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#120600"/><stop offset="100%" stopColor="#060200"/></linearGradient>
+                    <linearGradient id="ub" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#12142a"/><stop offset="100%" stopColor="#070810"/></linearGradient>
+                  </defs>
+                  <rect width="60" height="60" fill="url(#ub)"/>
+                  <path d="M5,60 Q5,42 30,40 Q55,42 55,60Z" fill="#08081a"/>
+                  <path d="M14,60 Q14,45 30,43 Q46,45 46,60Z" fill="#12143a"/>
+                  <path d="M24,46 Q30,50 36,46" fill="none" stroke="#D4AF37" strokeWidth="1.5"/>
+                  <rect x="25" y="36" width="10" height="8" rx="4" fill="url(#sk)"/>
+                  <ellipse cx="30" cy="25" rx="13.5" ry="14.5" fill="url(#sk)"/>
+                  <path d="M17,21 Q17,8 30,8 Q43,8 43,21 Q39,13 30,13 Q21,13 17,21Z" fill="url(#hr)"/>
+                  <path d="M17,21 Q14,30 16,37 Q18,31 18,24Z" fill="url(#hr)"/>
+                  <path d="M43,21 Q46,30 44,37 Q42,31 42,24Z" fill="url(#hr)"/>
+                  <ellipse cx="24" cy="26" rx="2.5" ry="2.8" fill="#110600"/>
+                  <ellipse cx="36" cy="26" rx="2.5" ry="2.8" fill="#110600"/>
+                  <circle cx="24.9" cy="25" r="0.8" fill="#fff" opacity="0.9"/>
+                  <circle cx="36.9" cy="25" r="0.8" fill="#fff" opacity="0.9"/>
+                  <path d="M21,22 Q24,21 27,22" fill="none" stroke="#2a0e00" strokeWidth="1.2" strokeLinecap="round"/>
+                  <path d="M33,22 Q36,21 39,22" fill="none" stroke="#2a0e00" strokeWidth="1.2" strokeLinecap="round"/>
+                  <path d="M29,30 Q30,32 31,30" fill="none" stroke="#aa6a40" strokeWidth="0.8"/>
+                  <path d="M25,34 Q30,38.5 35,34" fill="none" stroke="#aa6a40" strokeWidth="1.2" strokeLinecap="round"/>
                 </svg>
               </div>
-              <span style={{ fontSize:12, fontWeight:800, letterSpacing:"0.12em", color:"#fff", textTransform:"uppercase" }}>AI INSIGHTS</span>
+              {/* Audio viz */}
+              <div style={{position:"absolute",bottom:-3,left:"50%",transform:"translateX(-50%)",display:"flex",gap:1.5,alignItems:"flex-end",background:"rgba(0,140,255,0.14)",borderRadius:5,padding:"2px 5px",border:"1px solid rgba(0,140,255,0.28)"}}>
+                {[4,8,5,10,6,9,4].map((h,i)=>(<div key={i} style={{width:2,height:h,background:"#008cff",borderRadius:1,animation:`audioBar 0.8s ease-in-out infinite`,animationDelay:`${i*0.11}s`}}/>))}
+              </div>
+              {/* Live dot */}
+              <div style={{position:"absolute",top:1,right:1,width:11,height:11,borderRadius:"50%",background:"#008cff",border:"2px solid #07090E",boxShadow:"0 0 8px #008cff,0 0 16px rgba(0,140,255,0.5)",animation:"livePulse 2s infinite"}}/>
             </div>
-            <p style={{ fontSize:13, lineHeight:1.6, color:"rgba(255,255,255,0.72)", paddingRight:8 }}>{insight}</p>
-            <button style={{ marginTop:14, padding:"9px 18px", borderRadius:12, fontSize:12, fontWeight:700,
-              background:"rgba(212,175,55,0.1)", border:"1px solid rgba(212,175,55,0.35)",
-              color:"#D4AF37", cursor:"pointer" }}>View Insights</button>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontSize:14,fontWeight:800,color:"#D4AF37",marginBottom:3,textShadow:"0 0 12px rgba(212,175,55,0.4)"}}>AI Receptionist</p>
+              <p style={{fontSize:12,color:"rgba(255,255,255,0.55)",lineHeight:1.5}}>{greeting()}, {user?.role==="owner"?"Owner":"Manager"} 👋</p>
+              <p style={{fontSize:11,color:"rgba(255,255,255,0.3)"}}>Here's your operational overview.</p>
+            </div>
+            <button onClick={handleRefresh} disabled={refreshing} style={{width:33,height:33,borderRadius:10,flexShrink:0,background:"rgba(0,140,255,0.08)",border:"1px solid rgba(0,140,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <RefreshCw size={13} style={{color:"#60b8ff"}} className={refreshing?"animate-spin":""}/>
+            </button>
           </div>
-          <HologramBuilding />
         </div>
-      </main>
 
-      {/* ── BOTTOM NAV ── */}
-      <nav style={{ flexShrink:0, background:"linear-gradient(180deg,rgba(6,8,15,0.98),rgba(4,5,12,0.99))",
-        borderTop:"1px solid rgba(212,175,55,0.08)", boxShadow:"0 -4px 24px rgba(0,0,0,0.6)" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-around", padding:"8px 6px 8px" }}>
-          {NAV.map(({ id, icon, label }) => {
-            const active = activeTab === id;
+        <div style={{padding:"0 14px"}}>
+
+          {/* ── LIVE REVENUE ── */}
+          <div style={{margin:"12px 0",background:"linear-gradient(135deg,rgba(14,10,1,0.99),rgba(7,5,0,0.99))",border:"1px solid rgba(212,175,55,0.22)",borderRadius:20,padding:"18px 18px 16px",position:"relative",overflow:"hidden",boxShadow:"0 6px 36px rgba(212,175,55,0.05),inset 0 1px 0 rgba(212,175,55,0.08)"}}>
+            <div style={{position:"absolute",top:-60,right:-50,width:220,height:220,background:"radial-gradient(circle,rgba(212,175,55,0.07) 0%,transparent 70%)",pointerEvents:"none"}}/>
+            {[...Array(18)].map((_,i)=>(<div key={i} style={{position:"absolute",left:`${(i*53+11)%94}%`,top:`${(i*37+9)%88}%`,width:1.5,height:1.5,borderRadius:"50%",background:"rgba(212,175,55,0.45)",animation:`twinkle ${1.6+i*0.25}s ease-in-out infinite`,animationDelay:`${i*0.18}s`}}/>))}
+            <p style={{fontSize:9,letterSpacing:"0.15em",color:"rgba(212,175,55,0.5)",textTransform:"uppercase",marginBottom:6,position:"relative"}}>LIVE REVENUE</p>
+            <p style={{fontSize:33,fontWeight:900,color:"#fff",letterSpacing:"-0.03em",lineHeight:1.1,marginBottom:4,position:"relative",textShadow:"0 0 36px rgba(212,175,55,0.28)"}}>₹{stats.todayRevenue.toLocaleString("en-IN")}.00</p>
+            <p style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginBottom:10,position:"relative"}}>Today's Total Revenue</p>
+            <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(34,197,94,0.09)",border:"1px solid rgba(34,197,94,0.22)",borderRadius:8,padding:"4px 10px",position:"relative"}}>
+              <span style={{color:"#4ade80",fontSize:11,fontWeight:700}}>↑ {pct}% vs yesterday</span>
+            </div>
+            <div style={{marginTop:14,height:58,position:"relative"}}>
+              <ResponsiveContainer width="100%" height={58}>
+                <AreaChart data={revData} margin={{top:0,right:0,left:0,bottom:0}}>
+                  <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#D4AF37" stopOpacity={0.5}/><stop offset="100%" stopColor="#D4AF37" stopOpacity={0}/></linearGradient></defs>
+                  <Tooltip content={<Tip/>} cursor={false}/>
+                  <Area type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={2.5} fill="url(#rg)" dot={false} style={{filter:"drop-shadow(0 0 8px rgba(212,175,55,0.9)) drop-shadow(0 0 18px rgba(212,175,55,0.45))"}}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* ── ROOM GRID ── */}
+          {(() => {
+            const layout = getRoomGridLayout(total);
+            const gap    = layout.gap;
+            const cols   = layout.cols;
+            // Flat all rooms sorted by floor desc then room number
+            const allRoomsSorted = [...rooms].sort((a,b)=> b.floor!==a.floor ? b.floor-a.floor : a.number-b.number);
+            // Group into rows of `cols`
+            const rows = [];
+            for(let i=0; i<allRoomsSorted.length; i+=cols) rows.push(allRoomsSorted.slice(i,i+cols));
+
             return (
-              <button key={id} onClick={() => setActiveTab(id)} style={{
-                display:"flex", flexDirection:"column", alignItems:"center", gap:4,
-                padding:"6px 10px", borderRadius:14, border:"none",
-                background:"transparent", cursor:"pointer", position:"relative" }}>
-                {active && (
-                  <div style={{ position:"absolute", top:-8, left:"50%", transform:"translateX(-50%)",
-                    width:32, height:3, borderRadius:2, background:"#D4AF37",
-                    boxShadow:"0 0 10px rgba(212,175,55,0.85),0 0 22px rgba(212,175,55,0.45)",
-                    animation:"navGlow 2s ease infinite" }} />
-                )}
-                <div style={{ width:36, height:36, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
-                  background: active ? "rgba(212,175,55,0.12)" : "transparent",
-                  border: active ? "1px solid rgba(212,175,55,0.25)" : "1px solid transparent",
-                  boxShadow: active ? "0 0 14px rgba(212,175,55,0.18)" : "none",
-                  transition:"all 0.2s",
-                  color: active ? "#D4AF37" : "rgba(255,255,255,0.25)",
-                  filter: active ? "drop-shadow(0 0 5px rgba(212,175,55,0.65))" : "none" }}>
-                  {icon}
+              <div style={{background:"linear-gradient(135deg,rgba(6,8,16,0.99),rgba(4,5,12,0.99))",border:"1px solid rgba(255,255,255,0.065)",borderRadius:20,padding:"16px 12px 14px",marginBottom:12,boxShadow:"0 4px 28px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.03)"}}>
+                {/* Header */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:13}}>🛏️</span>
+                    <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.45)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Room Occupancy</p>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{fontSize:10,color:"rgba(212,175,55,0.55)",fontWeight:600}}>Tower A</span>
+                    <span style={{fontSize:10,color:"rgba(255,255,255,0.25)"}}>▼</span>
+                  </div>
                 </div>
-                <span style={{ fontSize:9, fontWeight: active ? 800 : 500,
-                  color: active ? "#D4AF37" : "rgba(255,255,255,0.22)",
-                  letterSpacing:"0.04em",
-                  textShadow: active ? "0 0 8px rgba(212,175,55,0.45)" : "none",
-                  transition:"all 0.2s" }}>{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
 
-      {/* ── ROOM MODAL ── */}
-      {selRoom && <RoomModal room={selRoom} onClose={() => setSelRoom(null)} />}
+                {/* Full-width CSS Grid — every row fills 100% */}
+                <div style={{display:"flex",flexDirection:"column",gap:gap}}>
+                  {rows.map((rowRooms, rowIdx)=>{
+                    // Detect floor label from first room in row
+                    const floorLabel = rowRooms[0]?.floor;
+                    // Fill last row to full cols with placeholder
+                    const padded = [...rowRooms];
+                    while(padded.length < cols) padded.push(null);
+                    return (
+                      <div key={rowIdx} style={{display:"flex",alignItems:"flex-end",gap:gap}}>
+                        {/* Floor label */}
+                        <span style={{fontSize:8,color:"rgba(255,255,255,0.18)",width:16,textAlign:"right",flexShrink:0,fontWeight:700,paddingBottom:4,fontFamily:"'Courier New',monospace",lineHeight:1}}>
+                          {String(floorLabel).padStart(2,"0")}
+                        </span>
+                        {/* Room grid columns — equal width, fill full row */}
+                        <div style={{
+                          flex:1,
+                          display:"grid",
+                          gridTemplateColumns:`repeat(${cols}, 1fr)`,
+                          gap:gap
+                        }}>
+                          {padded.map((room,ci)=>
+                            room
+                              ? <RoomBlock key={room.id} room={room} onClick={handleRoomClick} layout={layout}/>
+                              : <div key={`ph-${ci}`} style={{aspectRatio:"1/1.05",borderRadius:8,background:"rgba(255,255,255,0.008)",border:"1px dashed rgba(255,255,255,0.03)"}}/>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div style={{display:"flex",flexWrap:"wrap",gap:"5px 12px",marginTop:14,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.05)"}}>
+                  {[{c:"#22c55e",l:"Occupied",v:`${occupied}`},{c:"#D4AF37",l:"Reserved",v:`${reserved}`},{c:"#ef4444",l:"Vacant",v:`${vacant}`},{c:"#6b7280",l:"Out of Order",v:`${outOfOrder}`}].map(x=>(
+                    <div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:x.c,boxShadow:`0 0 5px ${x.c}`}}/>
+                      <span style={{fontSize:9,color:"rgba(255,255,255,0.35)"}}>{x.l} ({x.v})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── QUICK TILES + AI SCAN (image-exact layout) ── */}
+          <div style={{marginBottom:12}}>
+            {/* Top row: Guest Check-in | AI SCAN | Maintenance */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 130px 1fr",gap:8,marginBottom:8,alignItems:"stretch"}}>
+              {/* Guest Check-in */}
+              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Guest Check-in</p>
+                </div>
+                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>{pendingCI}</p>
+                <p style={{fontSize:12,color:"#3B82F6",fontWeight:700,marginTop:4}}>Pending</p>
+              </div>
+
+              {/* AI SCAN — center spanning 2 rows visually */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <AiScanReactor onClick={()=>{ if(navigator.vibrate)navigator.vibrate([30,20,60]); onNavigate&&onNavigate("scanner"); }}/>
+              </div>
+
+              {/* Maintenance */}
+              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Maintenance</p>
+                </div>
+                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>{outOfOrder}</p>
+                <p style={{fontSize:12,color:"#D4AF37",fontWeight:700,marginTop:4}}>Pending</p>
+              </div>
+            </div>
+
+            {/* Bottom row: Housekeeping | [empty] | Reviews */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 130px 1fr",gap:8}}>
+              {/* Housekeeping */}
+              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M3 12h18M3 6l9-3 9 3M3 18l9 3 9-3"/></svg>
+                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Housekeeping</p>
+                </div>
+                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>{cleaning}</p>
+                <p style={{fontSize:12,color:"#3B82F6",fontWeight:700,marginTop:4}}>Rooms</p>
+              </div>
+              {/* Center empty (AI SCAN alignment) */}
+              <div/>
+              {/* Reviews */}
+              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Reviews</p>
+                </div>
+                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>4.8</p>
+                <p style={{fontSize:12,color:"#D4AF37",fontWeight:700,marginTop:4}}>Rating</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── AI INSIGHTS + HOLOGRAM ── */}
+          <div style={{background:"linear-gradient(135deg,rgba(0,18,45,0.55),rgba(0,8,22,0.65))",border:"1px solid rgba(0,140,255,0.18)",borderRadius:20,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",boxShadow:"0 4px 28px rgba(0,140,255,0.05),inset 0 1px 0 rgba(0,140,255,0.07)"}}>
+            <div style={{position:"absolute",inset:0,opacity:0.04,backgroundImage:"linear-gradient(rgba(0,140,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(0,140,255,0.8) 1px,transparent 1px)",backgroundSize:"22px 22px",pointerEvents:"none"}}/>
+            <div style={{display:"flex",alignItems:"flex-start",position:"relative"}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <div style={{width:30,height:30,borderRadius:10,background:"rgba(0,140,255,0.1)",border:"1px solid rgba(0,140,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <Brain size={13} style={{color:"#60b8ff"}}/>
+                  </div>
+                  <p style={{fontSize:11,fontWeight:900,color:"#60b8ff",letterSpacing:"0.13em",textShadow:"0 0 10px rgba(0,140,255,0.5)"}}>AI INSIGHTS</p>
+                </div>
+                {iLoad?(
+                  <div style={{display:"flex",gap:5,alignItems:"center",height:36}}>
+                    {[0,1,2].map(i=>(<div key={i} style={{width:7,height:7,borderRadius:"50%",background:"#008cff",animation:`dotBounce 1.2s infinite`,animationDelay:`${i*0.2}s`}}/>))}
+                  </div>
+                ):(
+                  <p style={{fontSize:13,color:"rgba(255,255,255,0.65)",lineHeight:1.6,marginBottom:12}}>{insight}</p>
+                )}
+                <button onClick={fetchInsight} style={{padding:"7px 15px",borderRadius:10,background:"transparent",border:"1px solid rgba(212,175,55,0.45)",color:"#D4AF37",fontSize:11,fontWeight:800,cursor:"pointer",letterSpacing:"0.04em",boxShadow:"0 0 10px rgba(212,175,55,0.12)"}}>
+                  View Insights
+                </button>
+              </div>
+              <div style={{flexShrink:0,marginRight:-10,marginBottom:-10}}>
+                <HologramBuilding/>
+              </div>
+            </div>
+          </div>
+
+          {/* ── BOOKING LINK ── */}
+          <button onClick={copyLink} style={{width:"100%",background:"rgba(6,8,15,0.9)",border:"1px solid rgba(212,175,55,0.1)",borderRadius:13,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,cursor:"pointer"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <ExternalLink size={11} style={{color:"#D4AF37"}}/>
+              <span style={{fontSize:11,fontFamily:"monospace",color:"rgba(255,255,255,0.22)"}}>/booking/{hotelId}</span>
+            </div>
+            <span style={{fontSize:11,fontWeight:700,color:"#D4AF37",display:"flex",alignItems:"center",gap:4}}>
+              {copied?<><Check size={10}/>Copied!</>:"Share Link"}
+            </span>
+          </button>
+
+          {/* ── CHECK-INS ── */}
+          <div style={{background:"rgba(6,8,15,0.98)",border:"1px solid rgba(255,255,255,0.055)",borderRadius:20,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 16px",borderBottom:"1px solid rgba(255,255,255,0.045)"}}>
+              <p style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:"rgba(255,255,255,0.3)",textTransform:"uppercase"}}>Aaj Ke Check-ins</p>
+              <span style={{fontSize:11,fontWeight:700,color:"#D4AF37"}}>{todayBookings.filter(b=>b.status==="active").length} active</span>
+            </div>
+            {todayBookings.length===0?(
+              <div style={{padding:"28px 16px",textAlign:"center"}}>
+                <p style={{fontSize:26,marginBottom:8}}>🌙</p>
+                <p style={{fontSize:13,color:"rgba(255,255,255,0.18)"}}>Aaj koi check-in nahi hua</p>
+              </div>
+            ):todayBookings.slice(0,5).map((b,idx)=>(
+              <div key={b.id} style={{padding:"13px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:idx<Math.min(4,todayBookings.length-1)?"1px solid rgba(255,255,255,0.038)":"none"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontSize:13,color:"#fff",fontWeight:700,marginBottom:2}}>{b.guestName}</p>
+                  <p style={{fontSize:10,color:"rgba(255,255,255,0.28)"}}>Room {b.roomId} · {b.nights} raat · {b.paymentMode}</p>
+                </div>
+                <p style={{fontSize:14,fontWeight:800,color:"#D4AF37",textShadow:"0 0 10px rgba(212,175,55,0.35)",flexShrink:0}}>₹{Number(b.totalAmount||0).toLocaleString("en-IN")}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── ROOM DETAIL MODAL ── */}
+      {selRoom&&(()=>{
+        const cfg = getRoomCfg(selRoom.status);
+        const imgs = selRoom.images || (selRoom.imageUrl ? [selRoom.imageUrl] : []);
+        return (
+          <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",alignItems:"flex-end",background:"rgba(0,0,0,0.85)",backdropFilter:"blur(8px)"}} onClick={()=>setSelRoom(null)}>
+            <div style={{
+              width:"100%", maxHeight:"88vh", overflowY:"auto",
+              background:"linear-gradient(180deg,#0c101c,#07090E)",
+              borderRadius:"26px 26px 0 0", padding:"0 0 24px",
+              border:"1px solid rgba(255,255,255,0.07)", borderBottom:"none",
+              boxShadow:"0 -12px 60px rgba(0,0,0,0.8)"
+            }} onClick={e=>e.stopPropagation()}>
+
+              {/* Drag handle */}
+              <div style={{width:40,height:4,background:"rgba(255,255,255,0.12)",borderRadius:2,margin:"12px auto 0"}}/>
+
+              {/* ── Status color header bar ── */}
+              <div style={{
+                background:`linear-gradient(135deg, ${cfg.glowA.replace("0.7","0.12")}, transparent)`,
+                borderBottom:`1px solid ${cfg.border.replace("0.8","0.15")}`,
+                padding:"14px 20px 14px",
+                display:"flex", alignItems:"center", gap:14,
+              }}>
+                {/* 3D mini block preview */}
+                <div style={{
+                  width:56, height:52, flexShrink:0, position:"relative",
+                  filter:`drop-shadow(0 4px 12px ${cfg.glowA})`
+                }}>
+                  {/* bottom */}
+                  <div style={{position:"absolute",inset:0,top:5,borderRadius:"7px 7px 9px 9px",background:cfg.bottom,boxShadow:`0 0 12px ${cfg.glowA}`}}/>
+                  {/* right side */}
+                  <div style={{position:"absolute",top:5,right:0,bottom:0,width:5,background:cfg.right,borderRadius:"0 2px 4px 0"}}/>
+                  {/* front face */}
+                  <div style={{position:"absolute",inset:0,bottom:5,borderRadius:"6px 6px 4px 4px",background:cfg.face,border:`1.5px solid ${cfg.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+                    <div style={{width:18,height:18,borderRadius:"50%",background:cfg.badgeC,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 8px ${cfg.badgeC}`}}>
+                      <svg viewBox="0 0 10 10" style={{width:11,height:11}}>
+                        <circle cx="5" cy="3.2" r="1.8" fill="white"/>
+                        <path d="M1.5,9 Q1.5,6.2 5,6.2 Q8.5,6.2 8.5,9Z" fill="white"/>
+                      </svg>
+                    </div>
+                    <span style={{fontSize:9,color:cfg.numC,fontWeight:900,fontFamily:"monospace",textShadow:`0 0 6px ${cfg.badgeC}`}}>{selRoom.number}</span>
+                  </div>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                    <p style={{fontSize:22,fontWeight:900,color:"#fff",letterSpacing:"-0.02em"}}>Room {selRoom.number}</p>
+                    <div style={{padding:"2px 8px",borderRadius:20,background:`${cfg.glowA.replace("0.7","0.15")}`,border:`1px solid ${cfg.border}`,display:"flex",alignItems:"center",gap:4}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:cfg.badgeC,boxShadow:`0 0 5px ${cfg.badgeC}`}}/>
+                      <span style={{fontSize:10,fontWeight:700,color:cfg.numC,letterSpacing:"0.04em"}}>{cfg.label.toUpperCase()}</span>
+                    </div>
+                  </div>
+                  <p style={{fontSize:12,color:"rgba(255,255,255,0.35)"}}>
+                    {selRoom.type||"Standard Room"} · Floor {selRoom.floor} · ₹{(selRoom.baseRate||0).toLocaleString("en-IN")}/raat
+                  </p>
+                </div>
+              </div>
+
+              <div style={{padding:"16px 20px 0"}}>
+
+                {/* ── IMAGE GALLERY ── */}
+                <div style={{marginBottom:16}}>
+                  {imgs.length > 0 ? (
+                    <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
+                      {imgs.map((src,i)=>(
+                        <div key={i} style={{flexShrink:0,width:i===0?200:120,height:i===0?130:120,borderRadius:14,overflow:"hidden",border:`1px solid ${cfg.border.replace("0.8","0.3")}`,boxShadow:`0 0 16px ${cfg.glowA.replace("0.7","0.3")}`}}>
+                          <img src={src} alt={`Room ${selRoom.number} view ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Placeholder image slots for future */
+                    <div style={{
+                      width:"100%", height:140, borderRadius:16,
+                      background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.08")},rgba(255,255,255,0.02))`,
+                      border:`1.5px dashed ${cfg.border.replace("0.8","0.3")}`,
+                      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8
+                    }}>
+                      <div style={{fontSize:32}}>🛏️</div>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.2)",textAlign:"center",lineHeight:1.4}}>
+                        Room photos yahan aayengi<br/>
+                        <span style={{fontSize:10,color:cfg.numC,opacity:0.6}}>Tap to add images (coming soon)</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── ROOM INFO GRID ── */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+                  {[
+                    {label:"Room Type",   val:selRoom.type||"Standard",    icon:"🏠"},
+                    {label:"Floor",       val:`Floor ${selRoom.floor}`,     icon:"🏢"},
+                    {label:"Base Rate",   val:`₹${(selRoom.baseRate||0).toLocaleString("en-IN")}/raat`, icon:"💰"},
+                    {label:"Capacity",    val:selRoom.capacity||"2 Adults", icon:"👥"},
+                  ].map(item=>(
+                    <div key={item.label} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"10px 12px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                        <span style={{fontSize:12}}>{item.icon}</span>
+                        <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}}>{item.label}</p>
+                      </div>
+                      <p style={{fontSize:13,color:"#fff",fontWeight:700}}>{item.val}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── ACTIVE BOOKING DETAILS ── */}
+                {selRoom.booking && (
+                  <div style={{background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.06")},rgba(0,0,0,0.2))`,border:`1px solid ${cfg.border.replace("0.8","0.2")}`,borderRadius:16,padding:16,marginBottom:16}}>
+                    <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Current Guest</p>
+                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                      <div style={{width:40,height:40,borderRadius:"50%",background:`${cfg.glowA.replace("0.7","0.15")}`,border:`1px solid ${cfg.border.replace("0.8","0.3")}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>👤</div>
+                      <div>
+                        <p style={{fontSize:16,fontWeight:800,color:"#fff",marginBottom:2}}>{selRoom.booking.guestName}</p>
+                        <p style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>{selRoom.booking.guestPhone}</p>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                      {[
+                        {label:"Raatein",  val:selRoom.booking.nights},
+                        {label:"Payment",  val:selRoom.booking.paymentMode||"Cash"},
+                        {label:"Total",    val:`₹${Number(selRoom.booking.totalAmount||0).toLocaleString("en-IN")}`},
+                      ].map(x=>(
+                        <div key={x.label} style={{textAlign:"center",padding:"8px 4px",background:"rgba(255,255,255,0.025)",borderRadius:10}}>
+                          <p style={{fontSize:14,fontWeight:900,color:"#D4AF37"}}>{x.val}</p>
+                          <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:2}}>{x.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── ACTION BUTTONS ── */}
+                {selRoom.booking ? (
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.35)"}}>
+                      ✓ Check-out Karo
+                    </button>
+                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:13,borderRadius:14,fontWeight:600,fontSize:13,background:"transparent",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer"}}>
+                      Close
+                    </button>
+                  </div>
+                ) : selRoom.status==="reserved" ? (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.2)",borderRadius:14,padding:"12px 14px"}}>
+                      {selRoom.booking && (<div>
+                        <p style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:4}}>{selRoom.booking.guestName}</p>
+                        <p style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{selRoom.booking.guestPhone}</p>
+                        <p style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2}}>Check-in: {selRoom.booking.checkInDate}</p>
+                      </div>)}
+                    </div>
+                    <button onClick={async()=>{
+                      const {updateRoomStatus,getRooms} = await import("../lib/db");
+                      updateRoomStatus(hotelId,selRoom.id,"occupied",selRoom.currentBookingId);
+                      load(); setSelRoom(null);
+                    }} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#065f46,#22c55e)",color:"#fff",border:"none",cursor:"pointer"}}>
+                      ✓ Approve Check-in
+                    </button>
+                    <button onClick={async()=>{
+                      const {updateRoomStatus} = await import("../lib/db");
+                      updateRoomStatus(hotelId,selRoom.id,"out_of_order",null);
+                      load(); setSelRoom(null);
+                    }} style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(107,114,128,0.15)",border:"1px solid rgba(107,114,128,0.3)",color:"#9ca3af",cursor:"pointer"}}>
+                      🔧 Mark Out of Order
+                    </button>
+                  </div>
+                ) : selRoom.status==="vacant" ? (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:12,padding:"12px",textAlign:"center"}}>
+                      <p style={{fontSize:13,fontWeight:700,color:"#fca5a5"}}>🔴 Room Khali Hai</p>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:3}}>Base Rate: ₹{selRoom.baseRate}/raat</p>
+                    </div>
+                    <button onClick={()=>{setSelRoom(null);onNewBooking&&onNewBooking(selRoom);}} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}}>
+                      + Nayi Booking Karo
+                    </button>
+                    <button onClick={()=>{setSelRoom(null);onNavigate&&onNavigate("scanner");}} style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(0,140,255,0.1)",border:"1px solid rgba(0,140,255,0.25)",color:"#60b8ff",cursor:"pointer"}}>
+                      📷 AI Scan Se Check-in
+                    </button>
+                    <button onClick={async()=>{
+                      const db=await import("../lib/db");
+                      db.updateRoomStatus(hotelId,selRoom.id,"out_of_order",null);
+                      load();setSelRoom(null);
+                    }} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"rgba(107,114,128,0.08)",border:"1px solid rgba(107,114,128,0.2)",color:"#9ca3af",cursor:"pointer"}}>
+                      🔧 Out of Order Mark Karo
+                    </button>
+                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"transparent",color:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.06)",cursor:"pointer"}}>
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{background:"rgba(107,114,128,0.08)",border:"1px solid rgba(107,114,128,0.2)",borderRadius:12,padding:"12px",textAlign:"center"}}>
+                      <p style={{fontSize:13,fontWeight:700,color:"#9ca3af"}}>🔧 Out of Order</p>
+                    </div>
+                    <button onClick={async()=>{
+                      const db=await import("../lib/db");
+                      db.updateRoomStatus(hotelId,selRoom.id,"vacant",null);
+                      load();setSelRoom(null);
+                    }} style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.25)",color:"#22c55e",cursor:"pointer"}}>
+                      ✓ Mark Vacant (Fixed)
+                    </button>
+                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"transparent",color:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.06)",cursor:"pointer"}}>
+                      Close
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+    </div>
+  );
+}
+
+function localInsight(s) {
+  if(s.occupancyPercent>80)return`Aaj occupancy ${s.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
+  if(s.occupancyPercent>50)return`${s.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
+  return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing consider karo!";
+}
+
+function Skeleton() {
+  return(
+    <div style={{height:"100%",padding:"16px 14px",display:"flex",flexDirection:"column",gap:12,background:"#07090E"}}>
+      {[80,160,280,120].map((h,i)=>(<div key={i} style={{height:h,background:"rgba(255,255,255,0.022)",borderRadius:20}}/>))}
     </div>
   );
 }
