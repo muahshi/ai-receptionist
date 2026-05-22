@@ -20,22 +20,18 @@ function HologramBuilding() {
       <ellipse cx="80" cy="160" rx="50" ry="7" fill="none" stroke="rgba(212,175,55,0.55)" strokeWidth="1"/>
       <ellipse cx="80" cy="160" rx="38" ry="5" fill="none" stroke="rgba(212,175,55,0.3)" strokeWidth="0.7"/>
       <ellipse cx="80" cy="160" rx="62" ry="10" fill="rgba(212,175,55,0.05)"/>
-      {/* Main isometric box */}
       <polygon points="80,18 122,48 122,148 80,168 38,148 38,48" fill="none" stroke="rgba(0,140,255,0.6)" strokeWidth="1.2"/>
       <polygon points="80,18 38,48 38,148 80,168" fill="rgba(0,50,110,0.12)" stroke="rgba(0,140,255,0.55)" strokeWidth="0.8"/>
       <polygon points="80,18 122,48 122,148 80,168" fill="rgba(0,70,140,0.08)" stroke="rgba(0,140,255,0.45)" strokeWidth="0.8"/>
       <polygon points="80,18 122,48 80,78 38,48" fill="rgba(0,90,180,0.18)" stroke="rgba(0,140,255,0.8)" strokeWidth="1.2"/>
-      {/* Grid lines */}
       {[70,90,110,130].map(y=>(<line key={`l${y}`} x1="38" y1={y} x2="80" y2={y+20} stroke="rgba(0,140,255,0.25)" strokeWidth="0.5"/>))}
       {[70,90,110,130].map(y=>(<line key={`r${y}`} x1="80" y1={y+20} x2="122" y2={y} stroke="rgba(0,140,255,0.2)" strokeWidth="0.5"/>))}
-      {/* Windows */}
       {[[48,78],[48,98],[48,118],[60,78],[60,98],[60,118],[72,78],[72,98],[72,118]].map(([x,y],i)=>(
         <rect key={`wl${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%3===0?"rgba(0,200,255,0.7)":"rgba(0,160,220,0.4)"}/>
       ))}
       {[[88,78],[88,98],[88,118],[100,78],[100,98],[100,118],[112,78],[112,98],[112,118]].map(([x,y],i)=>(
         <rect key={`wr${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%2===0?"rgba(0,180,255,0.6)":"rgba(0,140,200,0.35)"}/>
       ))}
-      {/* Antenna */}
       <line x1="80" y1="18" x2="80" y2="2" stroke="rgba(0,140,255,0.9)" strokeWidth="1.5"/>
       <circle cx="80" cy="2" r="2.5" fill="#008cff"/>
       <circle cx="80" cy="2" r="4" fill="none" stroke="rgba(0,140,255,0.4)" strokeWidth="0.8"/>
@@ -51,7 +47,6 @@ function AiScanReactor({ onClick }) {
       background:"transparent", border:"none", cursor:"pointer",
       display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
     }}>
-      {/* Dashed outer rings */}
       {[{sz:-10,color:"rgba(0,140,255,0.65)",dash:"6,4",spd:"3s",dir:"normal"},{sz:4,color:"rgba(212,175,55,0.5)",dash:"4,6",spd:"5s",dir:"reverse"},{sz:16,color:"rgba(0,140,255,0.3)",dash:"8,8",spd:"7s",dir:"normal"}].map((r,i)=>(
         <div key={i} style={{
           position:"absolute", inset:r.sz, borderRadius:"50%",
@@ -59,7 +54,6 @@ function AiScanReactor({ onClick }) {
           animation:`spinRingCW ${r.spd} linear infinite ${r.dir==="reverse"?"reverse":""}`
         }}/>
       ))}
-      {/* Sonar lines */}
       {[0,45,90,135,180,225,270,315].map(deg=>(
         <div key={deg} style={{
           position:"absolute", width:1, bottom:"50%", left:"50%",
@@ -68,19 +62,15 @@ function AiScanReactor({ onClick }) {
           background:`linear-gradient(to bottom,rgba(0,140,255,${deg%90===0?0.6:0.2}),transparent)`
         }}/>
       ))}
-      {/* Laser flares */}
       <div style={{ position:"absolute", left:"50%", top:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to top,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite" }}/>
       <div style={{ position:"absolute", left:"50%", bottom:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to bottom,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite 0.6s" }}/>
-      {/* Gold bottom arc */}
       <div style={{ position:"absolute", bottom:20, left:"50%", transform:"translateX(-50%)", width:70, height:3, background:"linear-gradient(90deg,transparent,rgba(212,175,55,0.9),transparent)", filter:"blur(2px)" }}/>
-      {/* Core disk */}
       <div style={{
         position:"absolute", inset:18, borderRadius:"50%",
         background:"radial-gradient(circle,rgba(0,20,60,0.97) 0%,rgba(0,5,18,0.99) 100%)",
         border:"2px solid rgba(0,140,255,0.55)",
         boxShadow:"0 0 28px rgba(0,140,255,0.5),0 0 55px rgba(0,140,255,0.2),inset 0 0 24px rgba(0,140,255,0.12)"
       }}/>
-      {/* Text */}
       <div style={{ position:"relative", zIndex:2, textAlign:"center", pointerEvents:"none" }}>
         <p style={{ fontSize:20, fontWeight:900, letterSpacing:"0.08em", color:"#fff", textShadow:"0 0 18px #008cff,0 0 36px rgba(0,140,255,0.7)", lineHeight:1, fontFamily:"'Courier New',monospace" }}>AI</p>
         <p style={{ fontSize:9, fontWeight:800, letterSpacing:"0.28em", color:"#60b8ff", textShadow:"0 0 8px #008cff", marginTop:3 }}>SCAN</p>
@@ -89,7 +79,6 @@ function AiScanReactor({ onClick }) {
   );
 }
 
-/* ─── 3D Keycap ───────────────────────────────────────── */
 /* ── Dynamic grid sizing ──────────────────────────────────── */
 function getRoomGridLayout(totalRooms) {
   if (totalRooms <= 10)  return { cols:5,  gap:6, numSz:10, badgeSz:15, depth:7  };
@@ -116,7 +105,7 @@ function getRoomCfg(status) {
 function RoomBlock({ room, onClick, layout }) {
   const cfg = getRoomCfg(room.status);
   const { numSz=9, badgeSz=13, depth=6 } = layout || {};
-  const hasImg = room.imageUrl; // future: room.imageUrl
+  const hasImg = room.imageUrl;
 
   return (
     <button
@@ -125,16 +114,12 @@ function RoomBlock({ room, onClick, layout }) {
         width:"100%", aspectRatio:"1/1.05",
         position:"relative", background:"transparent",
         border:"none", cursor:"pointer", padding:0,
-        /* Isometric perspective tilt */
         transform:"perspective(400px) rotateX(20deg) rotateZ(0deg)",
         transformOrigin:"center 90%",
         transition:"transform 0.15s ease, filter 0.15s ease",
         filter:`drop-shadow(0 ${depth+2}px ${depth*2}px rgba(0,0,0,0.7)) drop-shadow(0 0 ${depth*2}px ${cfg.glowA})`,
       }}
-      onTouchStart={e=>{ e.currentTarget.style.transform="perspective(400px) rotateX(24deg) scale(0.92)"; e.currentTarget.style.filter=`drop-shadow(0 2px 4px rgba(0,0,0,0.9)) drop-shadow(0 0 8px ${cfg.glowA})`; }}
-      onTouchEnd={e=>{ e.currentTarget.style.transform="perspective(400px) rotateX(20deg)"; e.currentTarget.style.filter=`drop-shadow(0 ${depth+2}px ${depth*2}px rgba(0,0,0,0.7)) drop-shadow(0 0 ${depth*2}px ${cfg.glowA})`; }}
     >
-      {/* ── Bottom depth face (shadow illusion) ── */}
       <div style={{
         position:"absolute", inset:0, top:`${depth}px`,
         borderRadius:"6px 6px 8px 8px",
@@ -142,7 +127,6 @@ function RoomBlock({ room, onClick, layout }) {
         boxShadow:`0 4px 12px rgba(0,0,0,0.9), 0 0 ${depth*3}px ${cfg.glowA}`,
       }}/>
 
-      {/* ── Right depth side face ── */}
       <div style={{
         position:"absolute",
         top:`${depth}px`, right:0, bottom:0,
@@ -152,7 +136,6 @@ function RoomBlock({ room, onClick, layout }) {
         opacity:0.9,
       }}/>
 
-      {/* ── Front top face ── */}
       <div style={{
         position:"absolute", inset:0, bottom:`${depth}px`,
         borderRadius:"7px 7px 5px 5px",
@@ -164,7 +147,6 @@ function RoomBlock({ room, onClick, layout }) {
         alignItems:"center", justifyContent:"center",
         gap:2, padding:"3px 2px",
       }}>
-        {/* Room image (future) */}
         {hasImg && (
           <img src={room.imageUrl} alt={`Room ${room.number}`} style={{
             position:"absolute", inset:0, width:"100%", height:"100%",
@@ -172,7 +154,6 @@ function RoomBlock({ room, onClick, layout }) {
           }}/>
         )}
 
-        {/* Top glass sheen */}
         <div style={{
           position:"absolute", top:0, left:"6%", right:"6%", height:"35%",
           background:"linear-gradient(180deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.02) 100%)",
@@ -180,21 +161,18 @@ function RoomBlock({ room, onClick, layout }) {
           zIndex:2,
         }}/>
 
-        {/* Bottom underlight glow bar */}
         <div style={{
           position:"absolute", bottom:1, left:"8%", right:"8%", height:2,
           background:cfg.badgeC, filter:"blur(3px)", opacity:0.95,
           zIndex:2,
         }}/>
 
-        {/* Left edge light streak */}
         <div style={{
           position:"absolute", top:"10%", left:1, bottom:"10%", width:1.5,
           background:`linear-gradient(180deg,transparent,${cfg.badgeC},transparent)`,
           opacity:0.5, zIndex:2,
         }}/>
 
-        {/* Badge circle with person icon */}
         <div style={{
           width:badgeSz, height:badgeSz, borderRadius:"50%",
           background:`radial-gradient(circle, ${cfg.badgeC} 0%, ${cfg.badgeC}cc 100%)`,
@@ -203,14 +181,12 @@ function RoomBlock({ room, onClick, layout }) {
           position:"relative", zIndex:3, flexShrink:0,
           border:`1px solid ${cfg.badgeC}90`,
         }}>
-          {/* Person silhouette SVG */}
           <svg viewBox="0 0 10 10" style={{width:badgeSz*0.6, height:badgeSz*0.6}}>
             <circle cx="5" cy="3.2" r="1.8" fill="white" opacity="0.95"/>
             <path d="M1.5,9 Q1.5,6.2 5,6.2 Q8.5,6.2 8.5,9Z" fill="white" opacity="0.95"/>
           </svg>
         </div>
 
-        {/* Room number */}
         <span style={{
           fontSize:numSz, color:cfg.numC, fontWeight:900,
           fontFamily:"'Courier New',monospace",
@@ -222,7 +198,6 @@ function RoomBlock({ room, onClick, layout }) {
         </span>
       </div>
 
-      {/* Outer ambient glow ring (very subtle) */}
       <div style={{
         position:"absolute", inset:-2, bottom:depth-2,
         borderRadius:"9px 9px 7px 7px",
@@ -270,12 +245,11 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   const handleRoomClick = (room) => { const booking=room.currentBookingId?getBookingById(hotelId,room.currentBookingId):null; setSelRoom({...room,booking}); };
   const handleCheckout = async (bookingId) => { await checkoutBooking(hotelId,bookingId); load(); setSelRoom(null); if(navigator.vibrate)navigator.vibrate(50); };
 
-  if (!stats) return <Skeleton/>;
+  if (!stats) return <Skeleton />;
 
   const pct = (Math.random()*20+5).toFixed(1);
   const byFloor={};
   rooms.forEach(r=>{ if(!byFloor[r.floor])byFloor[r.floor]=[]; byFloor[r.floor].push(r); });
-  const floors=Object.keys(byFloor).map(Number).sort((a,b)=>b-a);
 
   const occupied  =rooms.filter(r=>r.status==="occupied").length;
   const vacant    =rooms.filter(r=>r.status==="vacant").length;
@@ -289,8 +263,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
 
   const Tip=({active,payload})=>active&&payload?.length?(<div style={{background:"rgba(0,0,0,0.92)",border:"1px solid rgba(212,175,55,0.4)",borderRadius:8,padding:"5px 9px"}}><p style={{color:"#D4AF37",fontSize:11,fontWeight:800}}>₹{payload[0].value.toLocaleString("en-IN")}</p></div>):null;
 
-  const S=(p)=>({ background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.065)", borderRadius:14, padding:"12px 12px", boxShadow:"0 2px 18px rgba(0,0,0,0.5)", ...p });
-
   return (
     <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden",background:"#07090E"}}>
       <style>{`
@@ -299,8 +271,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         @keyframes dotBounce   { 0%,60%,100%{transform:translateY(0);opacity:.35} 30%{transform:translateY(-7px);opacity:1} }
         @keyframes holoPulse   { 0%,100%{filter:drop-shadow(0 0 12px #008cff) drop-shadow(0 0 28px rgba(0,140,255,0.4))} 50%{filter:drop-shadow(0 0 22px #00aaff) drop-shadow(0 0 55px rgba(0,160,255,0.65))} }
         @keyframes pulseDot    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.6)} }
-        @keyframes soundBar    { from{transform:scaleY(.3)} to{transform:scaleY(1)} }
-        @keyframes buildingLine{ 0%{stroke-dashoffset:200} 100%{stroke-dashoffset:0} }
+        @keyframes audioBar    { 0%,100%{transform:scaleY(.3)} 50%{transform:scaleY(1)} }
         .holo-svg { animation: holoPulse 3s ease-in-out infinite; }
       `}</style>
       <div className="scroll-y" style={{flex:1,paddingBottom:28}}>
@@ -308,14 +279,11 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         {/* ── AI RECEPTIONIST ── */}
         <div style={{padding:"12px 14px 0"}}>
           <div style={{background:"linear-gradient(135deg,rgba(8,12,22,0.98),rgba(4,6,14,0.98))",border:"1px solid rgba(0,140,255,0.18)",borderRadius:18,padding:"14px",display:"flex",alignItems:"center",gap:14,boxShadow:"0 4px 28px rgba(0,140,255,0.07),inset 0 1px 0 rgba(255,255,255,0.04)"}}>
-            {/* Avatar */}
             <div style={{position:"relative",flexShrink:0}}>
-              {/* Spinning gradient ring */}
               <div style={{position:"absolute",inset:-9,borderRadius:"50%",background:"conic-gradient(from 0deg,rgba(212,175,55,0.9),rgba(0,140,255,0.7),rgba(212,175,55,0),rgba(0,140,255,0.6),rgba(212,175,55,0.9))",animation:"spinRingCW 3s linear infinite"}}>
                 <div style={{position:"absolute",inset:2,borderRadius:"50%",background:"#07090E"}}/>
               </div>
               <div style={{position:"absolute",inset:-3,borderRadius:"50%",border:"1.5px solid rgba(212,175,55,0.35)",boxShadow:"0 0 10px rgba(212,175,55,0.25)"}}/>
-              {/* Face */}
               <div style={{width:58,height:58,borderRadius:"50%",overflow:"hidden",position:"relative",boxShadow:"0 0 18px rgba(0,140,255,0.3)"}}>
                 <svg viewBox="0 0 60 60" style={{width:58,height:58}}>
                   <defs>
@@ -342,11 +310,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   <path d="M25,34 Q30,38.5 35,34" fill="none" stroke="#aa6a40" strokeWidth="1.2" strokeLinecap="round"/>
                 </svg>
               </div>
-              {/* Audio viz */}
               <div style={{position:"absolute",bottom:-3,left:"50%",transform:"translateX(-50%)",display:"flex",gap:1.5,alignItems:"flex-end",background:"rgba(0,140,255,0.14)",borderRadius:5,padding:"2px 5px",border:"1px solid rgba(0,140,255,0.28)"}}>
                 {[4,8,5,10,6,9,4].map((h,i)=>(<div key={i} style={{width:2,height:h,background:"#008cff",borderRadius:1,animation:`audioBar 0.8s ease-in-out infinite`,animationDelay:`${i*0.11}s`}}/>))}
               </div>
-              {/* Live dot */}
               <div style={{position:"absolute",top:1,right:1,width:11,height:11,borderRadius:"50%",background:"#008cff",border:"2px solid #07090E",boxShadow:"0 0 8px #008cff,0 0 16px rgba(0,140,255,0.5)",animation:"livePulse 2s infinite"}}/>
             </div>
             <div style={{flex:1,minWidth:0}}>
@@ -361,11 +327,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         </div>
 
         <div style={{padding:"0 14px"}}>
-
           {/* ── LIVE REVENUE ── */}
           <div style={{margin:"12px 0",background:"linear-gradient(135deg,rgba(14,10,1,0.99),rgba(7,5,0,0.99))",border:"1px solid rgba(212,175,55,0.22)",borderRadius:20,padding:"18px 18px 16px",position:"relative",overflow:"hidden",boxShadow:"0 6px 36px rgba(212,175,55,0.05),inset 0 1px 0 rgba(212,175,55,0.08)"}}>
             <div style={{position:"absolute",top:-60,right:-50,width:220,height:220,background:"radial-gradient(circle,rgba(212,175,55,0.07) 0%,transparent 70%)",pointerEvents:"none"}}/>
-            {[...Array(18)].map((_,i)=>(<div key={i} style={{position:"absolute",left:`${(i*53+11)%94}%`,top:`${(i*37+9)%88}%`,width:1.5,height:1.5,borderRadius:"50%",background:"rgba(212,175,55,0.45)",animation:`twinkle ${1.6+i*0.25}s ease-in-out infinite`,animationDelay:`${i*0.18}s`}}/>))}
             <p style={{fontSize:9,letterSpacing:"0.15em",color:"rgba(212,175,55,0.5)",textTransform:"uppercase",marginBottom:6,position:"relative"}}>LIVE REVENUE</p>
             <p style={{fontSize:33,fontWeight:900,color:"#fff",letterSpacing:"-0.03em",lineHeight:1.1,marginBottom:4,position:"relative",textShadow:"0 0 36px rgba(212,175,55,0.28)"}}>₹{stats.todayRevenue.toLocaleString("en-IN")}.00</p>
             <p style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginBottom:10,position:"relative"}}>Today's Total Revenue</p>
@@ -388,15 +352,12 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             const layout = getRoomGridLayout(total);
             const gap    = layout.gap;
             const cols   = layout.cols;
-            // Flat all rooms sorted by floor desc then room number
             const allRoomsSorted = [...rooms].sort((a,b)=> b.floor!==a.floor ? b.floor-a.floor : a.number-b.number);
-            // Group into rows of `cols`
             const rows = [];
             for(let i=0; i<allRoomsSorted.length; i+=cols) rows.push(allRoomsSorted.slice(i,i+cols));
 
             return (
               <div style={{background:"linear-gradient(135deg,rgba(6,8,16,0.99),rgba(4,5,12,0.99))",border:"1px solid rgba(255,255,255,0.065)",borderRadius:20,padding:"16px 12px 14px",marginBottom:12,boxShadow:"0 4px 28px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.03)"}}>
-                {/* Header */}
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontSize:13}}>🛏️</span>
@@ -408,21 +369,16 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   </div>
                 </div>
 
-                {/* Full-width CSS Grid — every row fills 100% */}
                 <div style={{display:"flex",flexDirection:"column",gap:gap}}>
                   {rows.map((rowRooms, rowIdx)=>{
-                    // Detect floor label from first room in row
                     const floorLabel = rowRooms[0]?.floor;
-                    // Fill last row to full cols with placeholder
                     const padded = [...rowRooms];
                     while(padded.length < cols) padded.push(null);
                     return (
                       <div key={rowIdx} style={{display:"flex",alignItems:"flex-end",gap:gap}}>
-                        {/* Floor label */}
                         <span style={{fontSize:8,color:"rgba(255,255,255,0.18)",width:16,textAlign:"right",flexShrink:0,fontWeight:700,paddingBottom:4,fontFamily:"'Courier New',monospace",lineHeight:1}}>
                           {String(floorLabel).padStart(2,"0")}
                         </span>
-                        {/* Room grid columns — equal width, fill full row */}
                         <div style={{
                           flex:1,
                           display:"grid",
@@ -440,7 +396,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   })}
                 </div>
 
-                {/* Legend */}
                 <div style={{display:"flex",flexWrap:"wrap",gap:"5px 12px",marginTop:14,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.05)"}}>
                   {[{c:"#22c55e",l:"Occupied",v:`${occupied}`},{c:"#D4AF37",l:"Reserved",v:`${reserved}`},{c:"#ef4444",l:"Vacant",v:`${vacant}`},{c:"#6b7280",l:"Out of Order",v:`${outOfOrder}`}].map(x=>(
                     <div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}>
@@ -453,11 +408,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             );
           })()}
 
-          {/* ── QUICK TILES + AI SCAN (image-exact layout) ── */}
+          {/* ── QUICK TILES + AI SCAN ── */}
           <div style={{marginBottom:12}}>
-            {/* Top row: Guest Check-in | AI SCAN | Maintenance */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 130px 1fr",gap:8,marginBottom:8,alignItems:"stretch"}}>
-              {/* Guest Check-in */}
               <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -467,12 +420,10 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                 <p style={{fontSize:12,color:"#3B82F6",fontWeight:700,marginTop:4}}>Pending</p>
               </div>
 
-              {/* AI SCAN — center spanning 2 rows visually */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <AiScanReactor onClick={()=>{ if(navigator.vibrate)navigator.vibrate([30,20,60]); onNavigate&&onNavigate("scanner"); }}/>
               </div>
 
-              {/* Maintenance */}
               <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -483,9 +434,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </div>
             </div>
 
-            {/* Bottom row: Housekeeping | [empty] | Reviews */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 130px 1fr",gap:8}}>
-              {/* Housekeeping */}
               <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M3 12h18M3 6l9-3 9 3M3 18l9 3 9-3"/></svg>
@@ -494,9 +443,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                 <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>{cleaning}</p>
                 <p style={{fontSize:12,color:"#3B82F6",fontWeight:700,marginTop:4}}>Rooms</p>
               </div>
-              {/* Center empty (AI SCAN alignment) */}
               <div/>
-              {/* Reviews */}
               <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -572,7 +519,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
       </div>
 
       {/* ── ROOM DETAIL MODAL ── */}
-      {selRoom&&(()=>{
+      {selRoom&&(() => {
         const cfg = getRoomCfg(selRoom.status);
         const imgs = selRoom.images || (selRoom.imageUrl ? [selRoom.imageUrl] : []);
         return (
@@ -585,26 +532,20 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               boxShadow:"0 -12px 60px rgba(0,0,0,0.8)"
             }} onClick={e=>e.stopPropagation()}>
 
-              {/* Drag handle */}
               <div style={{width:40,height:4,background:"rgba(255,255,255,0.12)",borderRadius:2,margin:"12px auto 0"}}/>
 
-              {/* ── Status color header bar ── */}
               <div style={{
                 background:`linear-gradient(135deg, ${cfg.glowA.replace("0.7","0.12")}, transparent)`,
                 borderBottom:`1px solid ${cfg.border.replace("0.8","0.15")}`,
                 padding:"14px 20px 14px",
                 display:"flex", alignItems:"center", gap:14,
               }}>
-                {/* 3D mini block preview */}
                 <div style={{
                   width:56, height:52, flexShrink:0, position:"relative",
                   filter:`drop-shadow(0 4px 12px ${cfg.glowA})`
                 }}>
-                  {/* bottom */}
                   <div style={{position:"absolute",inset:0,top:5,borderRadius:"7px 7px 9px 9px",background:cfg.bottom,boxShadow:`0 0 12px ${cfg.glowA}`}}/>
-                  {/* right side */}
                   <div style={{position:"absolute",top:5,right:0,bottom:0,width:5,background:cfg.right,borderRadius:"0 2px 4px 0"}}/>
-                  {/* front face */}
                   <div style={{position:"absolute",inset:0,bottom:5,borderRadius:"6px 6px 4px 4px",background:cfg.face,border:`1.5px solid ${cfg.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
                     <div style={{width:18,height:18,borderRadius:"50%",background:cfg.badgeC,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 8px ${cfg.badgeC}`}}>
                       <svg viewBox="0 0 10 10" style={{width:11,height:11}}>
@@ -630,8 +571,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               </div>
 
               <div style={{padding:"16px 20px 0"}}>
-
-                {/* ── IMAGE GALLERY ── */}
                 <div style={{marginBottom:16}}>
                   {imgs.length > 0 ? (
                     <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
@@ -642,7 +581,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                       ))}
                     </div>
                   ) : (
-                    /* Placeholder image slots for future */
                     <div style={{
                       width:"100%", height:140, borderRadius:16,
                       background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.08")},rgba(255,255,255,0.02))`,
@@ -658,7 +596,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   )}
                 </div>
 
-                {/* ── ROOM INFO GRID ── */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
                   {[
                     {label:"Room Type",   val:selRoom.type||"Standard",    icon:"🏠"},
@@ -676,7 +613,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   ))}
                 </div>
 
-                {/* ── ACTIVE BOOKING DETAILS ── */}
                 {selRoom.booking && (
                   <div style={{background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.06")},rgba(0,0,0,0.2))`,border:`1px solid ${cfg.border.replace("0.8","0.2")}`,borderRadius:16,padding:16,marginBottom:16}}>
                     <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Current Guest</p>
@@ -702,7 +638,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   </div>
                 )}
 
-                {/* ── ACTION BUTTONS ── */}
                 {selRoom.booking ? (
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
                     <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.35)"}}>
@@ -722,7 +657,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                       </div>)}
                     </div>
                     <button onClick={async()=>{
-                      const {updateRoomStatus,getRooms} = await import("../lib/db");
+                      const {updateRoomStatus} = await import("../lib/db");
                       updateRoomStatus(hotelId,selRoom.id,"occupied",selRoom.currentBookingId);
                       load(); setSelRoom(null);
                     }} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#065f46,#22c55e)",color:"#fff",border:"none",cursor:"pointer"}}>
@@ -782,11 +717,11 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         );
       })()}
     </div>
-    </div>
   );
 }
 
 function localInsight(s) {
+  if(!s) return "Data load ho raha hai...";
   if(s.occupancyPercent>80)return`Aaj occupancy ${s.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
   if(s.occupancyPercent>50)return`${s.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
   return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing consider karo!";
