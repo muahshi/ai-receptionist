@@ -13,7 +13,7 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
     if (hotelId) setCfg(getHotelConfig(hotelId));
   }, [hotelId]);
 
-  const save = () => {
+  const save = async () => {
     if (!cfg) return;
     // Validate PINs
     if (cfg.ownerPin && cfg.ownerPin.length < 4) { alert("Owner PIN minimum 4 digits chahiye."); return; }
@@ -21,17 +21,63 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
     if (cfg.ownerPin && cfg.managerPin && cfg.ownerPin === cfg.managerPin) {
       alert("Owner aur Manager PIN alag hone chahiye."); return;
     }
+
+    // 1. Save to localStorage (instant, works offline)
     saveHotelConfig(hotelId, cfg);
-    // Also update registry entry
+
+    // 2. Update hotel registry (so login screen reflects new name/location)
     try {
       const reg = JSON.parse(localStorage.getItem("gi_hotel_registry") || "[]");
       const updated = reg.map(h => h.id === hotelId
-        ? { ...h, name: cfg.name, location: cfg.location, ownerPin: cfg.ownerPin, managerPin: cfg.managerPin }
+        ? { ...h, name: cfg.name, location: cfg.location,
+            totalRooms: cfg.totalRooms,
+            ownerPin: cfg.ownerPin, managerPin: cfg.managerPin,
+            ownerPhone: cfg.ownerPhone, rates: cfg.rates }
         : h);
       localStorage.setItem("gi_hotel_registry", JSON.stringify(updated));
+      // Also update cache
+      const cache = JSON.parse(localStorage.getItem("gi_hotel_registry_cache") || "[]");
+      const updCache = cache.map(h => h.id === hotelId ? { ...h, name: cfg.name, location: cfg.location, totalRooms: cfg.totalRooms } : h);
+      localStorage.setItem("gi_hotel_registry_cache", JSON.stringify(updCache));
     } catch {}
+
+    // 3. Sync rates to Supabase (so all devices + booking page get fresh rates)
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (sbUrl && sbKey && sbUrl !== "undefined") {
+      try {
+        await fetch(`${sbUrl}/rest/v1/hotels?id=eq.${encodeURIComponent(hotelId)}`, {
+          method: "PATCH",
+          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`,
+            "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({
+            name:        cfg.name,
+            location:    cfg.location,
+            total_rooms: cfg.totalRooms || 20,
+            owner_pin:   cfg.ownerPin,
+            manager_pin: cfg.managerPin,
+            owner_phone: cfg.ownerPhone || "",
+            updated_at:  new Date().toISOString(),
+            // Store rates as JSON in a custom field
+            // (add rates column to Supabase if needed — stored in config for now)
+          }),
+        });
+      } catch {}
+    }
+
+    // 4. Reinitialize rooms if total count changed
+    try {
+      const { initializeRooms } = await import("../lib/db");
+      // Force re-init by clearing room cache if count changed
+      const currentRooms = JSON.parse(localStorage.getItem(`air_${hotelId}_rooms`) || "[]");
+      if (currentRooms.length !== cfg.totalRooms) {
+        localStorage.removeItem(`air_${hotelId}_rooms`);
+        initializeRooms(hotelId, cfg.totalRooms);
+      }
+    } catch {}
+
     setSaved(true);
-    if (navigator.vibrate) navigator.vibrate(50);
+    if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
     setTimeout(() => setSaved(false), 2500);
   };
 
@@ -65,16 +111,71 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
           <LI label="🔑 Manager Phone" val={cfg.managerPhone} onChange={v => setCfg({ ...cfg, managerPhone: v })} ph="+91 8888888888" type="tel" />
         </Section>
 
+        {/* Booking Page Link */}
+        <Section title="🌐 Your Booking Page">
+          <p className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>
+            Yeh link customers ko bhejo — GMB, WhatsApp, Instagram pe daalo
+          </p>
+          <div className="px-3 py-2.5 rounded-xl" style={{background:"rgba(212,175,55,0.06)",border:"1px solid rgba(212,175,55,0.15)"}}>
+            <p className="text-xs font-mono break-all" style={{color:"rgba(255,255,255,0.45)"}}>
+              {typeof window!=="undefined"?window.location.origin:""}/booking/{hotelId}
+            </p>
+          </div>
+          <button onClick={()=>navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`)}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold"
+            style={{background:"rgba(212,175,55,0.1)",border:"1px solid rgba(212,175,55,0.25)",color:"#D4AF37"}}>
+            📋 Link Copy Karo
+          </button>
+        </Section>
+
         {/* Room Rates */}
         <Section title="💰 Room Rates">
-          {[["Standard","standard"],["Deluxe","deluxe"],["Suite","suite"]].map(([l,k])=>(
+          <p className="text-xs" style={{color:"rgba(255,255,255,0.3)"}}>
+            Yeh rates booking page aur ScannerView dono pe apply honge
+          </p>
+          {[
+            ["Standard","standard","Basic room"],
+            ["Deluxe","deluxe","Premium room"],
+            ["Suite","suite","Luxury suite"],
+          ].map(([l,k,desc])=>(
             <div key={k}>
-              <label className="text-xs mb-1 block" style={{color:"rgba(255,255,255,0.4)"}}>{l} (₹/night)</label>
-              <input type="number" value={cfg.rates?.[k]||""}
-                onChange={e=>setCfg({...cfg,rates:{...cfg.rates,[k]:parseInt(e.target.value)}})}
-                className="inp w-full px-3 py-2.5 text-sm"/>
+              <label className="text-xs mb-1 block" style={{color:"rgba(255,255,255,0.4)"}}>
+                {l} (₹/night) — <span style={{color:"rgba(255,255,255,0.2)"}}>{desc}</span>
+              </label>
+              <div className="flex gap-2">
+                <input type="number" value={cfg.rates?.[k]||""}
+                  onChange={e=>setCfg({...cfg,rates:{...cfg.rates,[k]:parseInt(e.target.value)||0}})}
+                  className="inp flex-1 px-3 py-2.5 text-sm"/>
+                {/* Quick preset buttons */}
+                <div className="flex gap-1">
+                  {(k==="standard"?[800,1200,1500,2000]:k==="deluxe"?[1500,2000,2500,3500]:[3000,4000,4500,6000]).map(p=>(
+                    <button key={p} onClick={()=>setCfg({...cfg,rates:{...cfg.rates,[k]:p}})}
+                      className="px-2 py-1 rounded-lg text-xs font-semibold transition-all"
+                      style={cfg.rates?.[k]===p
+                        ?{background:"rgba(212,175,55,0.25)",color:"#D4AF37",border:"1px solid rgba(212,175,55,0.4)"}
+                        :{background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.3)",border:"1px solid rgba(255,255,255,0.07)"}}>
+                      {p>=1000?`${p/1000}K`:p}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
+          {/* Checkout time */}
+          <div>
+            <label className="text-xs mb-1 block" style={{color:"rgba(255,255,255,0.4)"}}>Checkout Time</label>
+            <div className="flex gap-2">
+              {["10:00","11:00","12:00","13:00"].map(t=>(
+                <button key={t} onClick={()=>setCfg({...cfg,checkoutTime:t})}
+                  className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                  style={cfg.checkoutTime===t
+                    ?{background:"rgba(212,175,55,0.2)",color:"#D4AF37",border:"1px solid rgba(212,175,55,0.3)"}
+                    :{background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.07)"}}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
         </Section>
 
         {/* PIN Management — CRITICAL for new hotels */}
