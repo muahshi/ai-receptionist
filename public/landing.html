@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="google-site-verification" content="QzIovEAmKbFmMIVvLKJvwaIXA_V6_ZGLs62jON9OJ6w" />
+
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>The GuestInn — The AI Operating System for Modern Hotels</title>
@@ -245,7 +247,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 @keyframes spinRing{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .ops-text-badge{display:inline-flex;padding:5px 12px;border-radius:20px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:1.25rem}
 
-/* ── NEW: INTERACTIVE DAY VS NIGHT SECURE MATRIX ── */
+/* ── INTERACTIVE DAY VS NIGHT SECURE MATRIX ── */
 #day-night-matrix {
   padding: clamp(4rem, 7vh, 8rem) 0;
   background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
@@ -278,7 +280,7 @@ nav.scrolled{background:rgba(10,10,9,0.95);border-bottom-color:rgba(201,168,76,0
 }
 .dn-timeline-list strong { color: var(--white); font-weight: 500; }
 
-/* ── NEW: LOCAL SEO EXCLUSIVE BHOPAL CASE STUDY ── */
+/* ── LOCAL SEO EXCLUSIVE BHOPAL CASE STUDY ── */
 #case-study {
   padding: clamp(4rem, 7vh, 8rem) 0;
   background: #0D0D0B;
@@ -963,14 +965,44 @@ const scrollObserver = new IntersectionObserver((entries) => {
 document.querySelectorAll('.scroll-reveal').forEach(el => scrollObserver.observe(el));
 
 function executeMockSubmit(button) {
+  // Input verification variables
+  const operatorName = document.getElementById('opName').value.trim();
+  const propertyName = document.getElementById('propName').value.trim();
+  const contactNode = document.getElementById('contactNode').value.trim();
+  const inventoryCapacity = document.getElementById('invCap').value;
+
+  // Basic Validation Check
+  if (!operatorName || !propertyName || !contactNode) {
+    alert('Please populate all the system installation configuration fields.');
+    return;
+  }
+
+  // Visual feedback for allocation
   button.textContent = 'Allocating Infrastructure Node...';
   button.disabled = true;
   button.style.opacity = '0.7';
+
+  // Constructing dynamic Indian WhatsApp text payload
+  const whatsappNumber = "919575877759"; // <-- Replace this string with your real WhatsApp phone number layout
+  const messageText = `Namaste! New The GuestInn System Request Engine:%0A%0A` +
+                      `• Operator: ${encodeURIComponent(operatorName)}%0A` +
+                      `• Property Identity: ${encodeURIComponent(propertyName)}%0A` +
+                      `• Contact: ${encodeURIComponent(contactNode)}%0A` +
+                      `• Capacity Allocation: ${encodeURIComponent(inventoryCapacity)}`;
+
+  const targetUrl = `https://wa.me/${whatsappNumber}?text=${messageText}`;
+
+  // Delay pipeline execution before redirecting via window stack
   setTimeout(() => {
-    button.textContent = '✓ Mesh Node Provisioned. System Desk Will Connect.';
+    button.textContent = '✓ Route Established. Redirecting to Secure WhatsApp Desk...';
     button.style.background = 'linear-gradient(135deg, #064E3B, #065F46)';
     button.style.color = '#FAFAF8';
     button.style.opacity = '1';
+    
+    // Redirect logic execution window
+    setTimeout(() => {
+      window.open(targetUrl, '_blank');
+    }, 800);
   }, 1400);
 }
 </script>
