@@ -5,7 +5,7 @@ import {
   User, Phone, MapPin, CreditCard, Moon,
   Plus, Minus, RefreshCw, Users, ArrowRight, Edit3
 } from "lucide-react";
-import { createBooking, getRooms } from "../lib/db";
+import { createBooking, getRooms, getHotelConfig } from "../lib/db";
 import { sendBookingAlerts } from "../lib/alerts";
 
 /* ─── STEPS ─────────────────────────────────────────────────── */
@@ -42,8 +42,8 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
   const [vacantRooms,setVacant]  = useState([]);
   const [booking,    setBooking] = useState({
     roomId:"", checkInDate:new Date().toISOString().split("T")[0],
-    checkOutDate:"", nights:1, ratePerNight:1500,
-    totalAmount:1500, paymentMode:"Cash",
+    checkOutDate:"", nights:1, ratePerNight:0,
+    totalAmount:0, paymentMode:"Cash",
   });
 
   const videoRef  = useRef(null);
@@ -51,9 +51,14 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
   const streamRef = useRef(null);
 
   useEffect(() => {
-    setVacant(getRooms(hotelId).filter(r => r.status === "vacant"));
+    const rooms = getRooms(hotelId).filter(r => r.status === "vacant");
+    setVacant(rooms);
+    // Load hotel config rates as default
+    const cfg = getHotelConfig(hotelId);
+    const defaultRate = cfg?.rates?.standard || 1500;
+    setBooking(b => ({ ...b, ratePerNight: defaultRate, totalAmount: defaultRate * b.nights }));
     return () => stopCam();
-  }, []);
+  }, [hotelId]);
 
   useEffect(() => {
     if (step === S.SCAN_FRONT || step === S.SCAN_BACK) startCam();
@@ -538,7 +543,7 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
           {vacantRooms.length===0
             ?<p className="text-gray-500 text-sm text-center py-2">Koi vacant room nahi</p>
             :<div className="grid grid-cols-5 gap-1.5">
-              {vacantRooms.slice(0,25).map(room=>(
+              {vacantRooms.map(room=>(
                 <button key={room.id} onClick={()=>updB("roomId",room.id)}
                   className="py-2.5 rounded-xl text-xs font-mono font-bold transition-all"
                   style={booking.roomId===room.id
@@ -603,15 +608,22 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
             )}
           </div>
           <div>
+            {/* Manual rate input + slider together */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-gray-600 text-xs">₹</span>
+              <input type="number" min="100" max="99999" step="100"
+                value={booking.ratePerNight} disabled={rateLocked}
+                onChange={e=>updB("ratePerNight",Math.max(100,Number(e.target.value)||100))}
+                className="flex-1 px-3 py-2 rounded-xl text-center font-black text-xl disabled:opacity-40"
+                style={{background:"rgba(212,175,55,0.1)",border:"1px solid rgba(212,175,55,0.3)",color:"#D4AF37",outline:"none",colorScheme:"dark"}}/>
+              <span className="text-gray-600 text-xs">/raat</span>
+            </div>
             <div className="flex justify-between text-xs text-gray-600 mb-1">
               <span>₹500</span>
-              <span className="font-black text-xl" style={{color:"#D4AF37"}}>
-                ₹{booking.ratePerNight.toLocaleString("en-IN")}
-              </span>
               <span>₹10,000</span>
             </div>
             <input type="range" min="500" max="10000" step="100"
-              value={booking.ratePerNight} disabled={rateLocked}
+              value={Math.min(10000,Math.max(500,booking.ratePerNight))} disabled={rateLocked}
               onChange={e=>updB("ratePerNight",Number(e.target.value))}
               className="w-full disabled:opacity-40" style={{accentColor:"#D4AF37"}}/>
           </div>
