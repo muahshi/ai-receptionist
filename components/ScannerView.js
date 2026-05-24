@@ -113,6 +113,14 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
         const d = data.data;
         console.log("[Scanner] Extracted fields:", d);
 
+        // Save ID image thumbnail (compressed) for records
+        const thumbCanvas = document.createElement("canvas");
+        thumbCanvas.width  = 320;
+        thumbCanvas.height = 180;
+        const ctx = thumbCanvas.getContext("2d");
+        ctx.drawImage(canvas, 0, 0, 320, 180);
+        const idImageThumb = thumbCanvas.toDataURL("image/jpeg", 0.6);
+
         // Only update fields that are non-empty strings
         updateGuest(curGuest, prev => ({
           ...prev,
@@ -124,6 +132,9 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
           dob       : (d.dob     && d.dob.trim())      ? d.dob.trim()     : prev.dob,
           frontScanned: step === S.SCAN_FRONT ? true : prev.frontScanned,
           backScanned : step === S.SCAN_BACK  ? true : prev.backScanned,
+          // Save ID image — front or back
+          idImageFront: step === S.SCAN_FRONT ? idImageThumb : prev.idImageFront,
+          idImageBack : step === S.SCAN_BACK  ? idImageThumb : prev.idImageBack,
         }));
         if (navigator.vibrate) navigator.vibrate([50,30,100]);
       } else {
@@ -169,10 +180,34 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
     setSub(true);
     if (navigator.vibrate) navigator.vibrate([50,30,50,30,200]);
     try {
-      const b = createBooking(hotelId, {
-        ...guests[0], ...booking, status:"active",
-        extraGuests: guests.length>1 ? guests.slice(1) : undefined,
-        roomType: vacantRooms.find(r=>r.id===booking.roomId)?.type||"standard",
+      // Build complete guest records with ID images
+      const primaryGuest = {
+        ...guests[0],
+        // ID images stored for compliance (India documentation rules)
+        idImageFront: guests[0].idImageFront || null,
+        idImageBack:  guests[0].idImageBack  || null,
+      };
+      const extraGuestsFull = guests.length > 1
+        ? guests.slice(1).map(g => ({
+            guestName:   g.guestName,
+            guestPhone:  g.guestPhone,
+            idType:      g.idType,
+            idNumber:    g.idNumber,
+            gender:      g.gender,
+            dob:         g.dob,
+            address:     g.address,
+            idImageFront:g.idImageFront || null,
+            idImageBack: g.idImageBack  || null,
+            frontScanned:g.frontScanned,
+            backScanned: g.backScanned,
+          }))
+        : undefined;
+
+      const b = await createBooking(hotelId, {
+        ...primaryGuest, ...booking, status:"active",
+        totalGuests:  guests.length,
+        extraGuests:  extraGuestsFull,
+        roomType:     vacantRooms.find(r=>r.id===booking.roomId)?.type||"standard",
       });
       sendBookingAlerts(b).catch(console.error);
       setStep(S.SUCCESS);
@@ -433,6 +468,33 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
             <FI icon={<Phone size={13}/>}  label="Mobile *" value={g.guestPhone} onChange={v=>updG("guestPhone",v)} ph="+91 9999999999" type="tel"/>
             <FI icon={<MapPin size={13}/>} label="Address" value={g.address}    onChange={v=>updG("address",v)}    ph="Ghar ka address"/>
           </Section>
+
+          {/* ID Image Preview */}
+          {(g.idImageFront || g.idImageBack) && (
+            <div className="card rounded-2xl p-3">
+              <p className="text-gray-600 text-xs uppercase tracking-widest font-semibold mb-2">
+                📸 ID Document Images
+              </p>
+              <div className="flex gap-2">
+                {g.idImageFront && (
+                  <div className="flex-1">
+                    <p className="text-gray-700 text-xs mb-1 text-center">Front</p>
+                    <img src={g.idImageFront} alt="ID Front"
+                      className="w-full rounded-xl object-cover"
+                      style={{height:80, border:"1px solid rgba(34,197,94,0.3)"}}/>
+                  </div>
+                )}
+                {g.idImageBack && (
+                  <div className="flex-1">
+                    <p className="text-gray-700 text-xs mb-1 text-center">Back</p>
+                    <img src={g.idImageBack} alt="ID Back"
+                      className="w-full rounded-xl object-cover"
+                      style={{height:80, border:"1px solid rgba(212,175,55,0.3)"}}/>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <Section title="🪪 ID Details">
             <div>
