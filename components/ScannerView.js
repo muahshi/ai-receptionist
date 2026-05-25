@@ -19,9 +19,20 @@ const S = {
 };
 
 const blankGuest = () => ({
-  guestName:"", guestPhone:"", address:"",
-  idType:"Aadhaar", idNumber:"", gender:"", dob:"",
+  // Basic
+  guestName:"", guestPhone:"", email:"", address:"",
+  gender:"", dob:"", nationality:"Indian",
+  // ID Document
+  idType:"Aadhaar", idNumber:"",
+  passportNo:"", passportIssueDate:"", passportExpiry:"",
+  passportPlaceOfIssue:"", visaNo:"", visaIssueDate:"", visaPlaceOfIssue:"",
+  // Stay details (per guest)
+  arrivalFrom:"", proceedingTo:"", purposeOfVisit:"",
+  // Company (for business guests)
+  companyName:"", gstNo:"",
+  // Scan status
   frontScanned:false, backScanned:false,
+  idImageFront:null, idImageBack:null,
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -464,9 +475,35 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
 
         <div className="flex-1 scroll-y space-y-3 pb-4">
           <Section title="👤 Guest Info">
-            <FI icon={<User size={13}/>}   label="Naam *"  value={g.guestName}  onChange={v=>updG("guestName",v)}  ph="Guest ka naam"/>
-            <FI icon={<Phone size={13}/>}  label="Mobile *" value={g.guestPhone} onChange={v=>updG("guestPhone",v)} ph="+91 9999999999" type="tel"/>
-            <FI icon={<MapPin size={13}/>} label="Address" value={g.address}    onChange={v=>updG("address",v)}    ph="Ghar ka address"/>
+            <FI icon={<User size={13}/>}    label="Naam *"       value={g.guestName}    onChange={v=>updG("guestName",v)}    ph="Guest ka poora naam"/>
+            <FI icon={<Phone size={13}/>}   label="Mobile *"     value={g.guestPhone}   onChange={v=>updG("guestPhone",v)}   ph="+91 9999999999" type="tel"/>
+            <FI                             label="Email"        value={g.email||""}    onChange={v=>updG("email",v)}        ph="email@example.com" type="email"/>
+            <FI icon={<MapPin size={13}/>}  label="Address *"    value={g.address}      onChange={v=>updG("address",v)}      ph="Ghar ka pura address"/>
+            <FI                             label="Nationality"  value={g.nationality||"Indian"} onChange={v=>updG("nationality",v)} ph="Indian"/>
+          </Section>
+
+          <Section title="🏢 Company Info (Optional)">
+            <FI label="Company Name" value={g.companyName||""} onChange={v=>updG("companyName",v)} ph="Company ka naam"/>
+            <FI label="GST No."      value={g.gstNo||""}       onChange={v=>updG("gstNo",v)}       ph="GST number"/>
+          </Section>
+
+          <Section title="✈️ Travel Details">
+            <FI label="Arrival From"      value={g.arrivalFrom||""}    onChange={v=>updG("arrivalFrom",v)}    ph="Kahan se aa rahe ho"/>
+            <FI label="Proceeding To"     value={g.proceedingTo||""}   onChange={v=>updG("proceedingTo",v)}   ph="Kahan jaoge aage"/>
+            <div>
+              <label className="text-gray-600 text-xs mb-1.5 block">Purpose of Visit</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {["Leisure","Business","Medical","Education","Other"].map(p=>(
+                  <button key={p} onClick={()=>updG("purposeOfVisit",p)}
+                    className="py-2 rounded-xl text-xs font-semibold"
+                    style={g.purposeOfVisit===p
+                      ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                      :{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#666"}}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
           </Section>
 
           {/* ID Image Preview */}
@@ -500,10 +537,10 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
             <div>
               <label className="text-gray-600 text-xs mb-1.5 block">ID Type</label>
               <div className="grid grid-cols-3 gap-1.5">
-                {["Aadhaar","Passport","DL"].map(t=>(
-                  <button key={t} onClick={()=>updG("idType",t==="DL"?"Driving License":t)}
+                {["Aadhaar","Passport","DL","Voter ID","PAN"].map(t=>(
+                  <button key={t} onClick={()=>updG("idType",t)}
                     className="py-2 rounded-xl text-xs font-semibold transition-all"
-                    style={g.idType===(t==="DL"?"Driving License":t)
+                    style={g.idType===t
                       ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
                       :{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#666"}}>
                     {t}
@@ -529,6 +566,25 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
               </div>
               <FI label="DOB" value={g.dob} onChange={v=>updG("dob",v)} ph="DD/MM/YYYY"/>
             </div>
+            {/* Passport extra fields */}
+            {g.idType==="Passport" && (
+              <div className="space-y-2 pt-2" style={{borderTop:"1px solid rgba(255,255,255,0.08)"}}>
+                <p className="text-gray-700 text-xs">🛂 Foreign Guest - Passport Details</p>
+                <FI label="Passport No."          value={g.passportNo||""}           onChange={v=>updG("passportNo",v)}           ph="A1234567"/>
+                <div className="grid grid-cols-2 gap-2">
+                  <FI label="Issue Date"          value={g.passportIssueDate||""}    onChange={v=>updG("passportIssueDate",v)}    ph="DD/MM/YYYY"/>
+                  <FI label="Expiry"              value={g.passportExpiry||""}       onChange={v=>updG("passportExpiry",v)}       ph="DD/MM/YYYY"/>
+                </div>
+                <FI label="Place of Issue"        value={g.passportPlaceOfIssue||""} onChange={v=>updG("passportPlaceOfIssue",v)} ph="Delhi"/>
+                <FI label="Visa No."              value={g.visaNo||""}               onChange={v=>updG("visaNo",v)}               ph="Visa number"/>
+                <div className="grid grid-cols-2 gap-2">
+                  <FI label="Visa Date"           value={g.visaIssueDate||""}        onChange={v=>updG("visaIssueDate",v)}        ph="DD/MM/YYYY"/>
+                  <FI label="Visa Place"          value={g.visaPlaceOfIssue||""}     onChange={v=>updG("visaPlaceOfIssue",v)}     ph="Embassy city"/>
+                </div>
+                <FI label="Arrival India Date"    value={g.dateOfArrivalIndia||""}   onChange={v=>updG("dateOfArrivalIndia",v)}   ph="DD/MM/YYYY"/>
+                <FI label="Proposed Stay"         value={g.proposedStayDuration||""} onChange={v=>updG("proposedStayDuration",v)} ph="e.g. 7 days"/>
+              </div>
+            )}
           </Section>
 
           <div className="flex gap-2">
