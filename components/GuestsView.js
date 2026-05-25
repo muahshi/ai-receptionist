@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Phone, User, CreditCard, BedDouble, Calendar, RefreshCw } from "lucide-react";
-import { getBookings, getBookingsSync, checkoutBooking } from "../lib/db";
+import { getBookings, getBookingsSync, checkoutBooking, generateGRCHTML, getHotelConfig, exportCSV, exportAllData } from "../lib/db";
 
 export default function GuestsView({ hotelId, hotel, user }) {
   const [guests,     setGuests]     = useState([]);
@@ -10,15 +10,73 @@ export default function GuestsView({ hotelId, hotel, user }) {
   const [refreshing, setRefreshing] = useState(false);
   const [selGuest,   setSelGuest]   = useState(null);
 
+  // Flatten bookings → each guest (primary + extra) as individual row
+  const flattenGuests = (bookings) => {
+    const rows = [];
+    for (const b of bookings) {
+      // Parse extraGuests — handle both string (from Supabase) and array
+      let extras = b.extraGuests || null;
+      if (typeof extras === "string") {
+        try { extras = JSON.parse(extras); } catch { extras = null; }
+      }
+      const totalG = (extras && Array.isArray(extras) ? extras.length : 0) + 1;
+
+      // Primary guest row
+      rows.push({
+        ...b,
+        _isPrimary:    true,
+        _bookingId:    b.id,
+        _guestNum:     1,
+        _totalGuests:  totalG,
+      });
+
+      // Extra guests — each gets own row with full details
+      if (extras && Array.isArray(extras) && extras.length > 0) {
+        extras.forEach((eg, idx) => {
+          rows.push({
+            // Guest fields
+            id:           `${b.id}_eg_${idx}`,
+            guestName:    eg.guestName  || eg.name  || "",
+            guestPhone:   eg.guestPhone || eg.phone || "",
+            idType:       eg.idType     || "Aadhaar",
+            idNumber:     eg.idNumber   || "",
+            gender:       eg.gender     || "",
+            dob:          eg.dob        || "",
+            address:      eg.address    || "",
+            idImageFront: eg.idImageFront || null,
+            idImageBack:  eg.idImageBack  || null,
+            // Booking context
+            roomId:       b.roomId,
+            roomType:     b.roomType,
+            checkInDate:  b.checkInDate,
+            checkOutDate: b.checkOutDate,
+            nights:       b.nights,
+            ratePerNight: b.ratePerNight,
+            totalAmount:  null,
+            paymentMode:  b.paymentMode,
+            status:       b.status,
+            createdAt:    b.createdAt,
+            // Meta
+            _isPrimary:   false,
+            _bookingId:   b.id,
+            _guestNum:    idx + 2,
+            _totalGuests: totalG,
+          });
+        });
+      }
+    }
+    return rows;
+  };
+
   const load = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     // 1. Show cached instantly
     const cached = getBookingsSync(hotelId);
-    if (cached.length > 0) setGuests(cached);
+    if (cached.length > 0) setGuests(flattenGuests(cached));
     // 2. Fetch fresh from Supabase
     try {
       const fresh = await getBookings(hotelId);
-      setGuests(fresh);
+      setGuests(flattenGuests(fresh));
     } catch {}
     setLoading(false);
     setRefreshing(false);
@@ -50,17 +108,31 @@ export default function GuestsView({ hotelId, hotel, user }) {
             textShadow:"0 0 20px rgba(212,175,55,0.3)", letterSpacing:"-0.02em" }}>
             Guests
           </h2>
-          <button onClick={() => load(true)} disabled={refreshing}
-            style={{ width:34, height:34, borderRadius:10, border:"none",
-              background:"rgba(255,255,255,0.05)", cursor:"pointer",
-              display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <RefreshCw size={15} style={{ color:"#D4AF37",
-              animation: refreshing ? "spin 1s linear infinite" : "none" }}/>
-          </button>
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={() => exportCSV(hotelId)}
+              style={{ padding:"6px 10px", borderRadius:10, border:"none",
+                background:"rgba(212,175,55,0.1)", cursor:"pointer", fontSize:11,
+                fontWeight:700, color:"#D4AF37", border:"1px solid rgba(212,175,55,0.2)" }}>
+              📊 CSV
+            </button>
+            <button onClick={() => exportAllData(hotelId)}
+              style={{ padding:"6px 10px", borderRadius:10, border:"none",
+                background:"rgba(59,130,246,0.1)", cursor:"pointer", fontSize:11,
+                fontWeight:700, color:"#60a5fa", border:"1px solid rgba(59,130,246,0.2)" }}>
+              📦 JSON
+            </button>
+            <button onClick={() => load(true)} disabled={refreshing}
+              style={{ width:34, height:34, borderRadius:10, border:"none",
+                background:"rgba(255,255,255,0.05)", cursor:"pointer",
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <RefreshCw size={15} style={{ color:"#D4AF37",
+                animation: refreshing ? "spin 1s linear infinite" : "none" }}/>
+            </button>
+          </div>
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display:"flex", gap:6 }}>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
           {[
             { id:"all",         label:`All (${guests.length})` },
             { id:"active",      label:`Active (${guests.filter(g=>g.status==="active").length})` },
@@ -109,7 +181,7 @@ export default function GuestsView({ hotelId, hotel, user }) {
               }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
                       <p style={{ fontWeight:800, fontSize:14, color:"#fff",
                         overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {g.guestName || "—"}
@@ -123,6 +195,18 @@ export default function GuestsView({ hotelId, hotel, user }) {
                         {g.status === "active" ? "ACTIVE" :
                          g.status === "checked_out" ? "OUT" : g.status?.toUpperCase()}
                       </span>
+                      {!g._isPrimary && (
+                        <span style={{ padding:"2px 8px", borderRadius:20, fontSize:9, fontWeight:700,
+                          background:"rgba(168,85,247,0.15)", color:"#c084fc" }}>
+                          +GUEST
+                        </span>
+                      )}
+                      {(g.idImageFront || g.idImageBack) && (
+                        <span style={{ padding:"2px 8px", borderRadius:20, fontSize:9, fontWeight:700,
+                          background:"rgba(59,130,246,0.15)", color:"#60a5fa" }}>
+                          📸 ID
+                        </span>
+                      )}
                     </div>
                     <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
                       {g.guestPhone && (
@@ -134,6 +218,11 @@ export default function GuestsView({ hotelId, hotel, user }) {
                       <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)",
                         display:"flex", alignItems:"center", gap:3 }}>
                         <BedDouble size={9}/> Room {g.roomId?.split("_R")?.[1] || g.roomId || "—"}
+                        {g._totalGuests > 1 && (
+                          <span style={{ marginLeft:4, fontSize:10, color:"#c084fc", fontWeight:700 }}>
+                            · Guest {g._guestNum}/{g._totalGuests}
+                          </span>
+                        )}
                       </span>
                       <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)",
                         display:"flex", alignItems:"center", gap:3 }}>
@@ -174,7 +263,15 @@ export default function GuestsView({ hotelId, hotel, user }) {
 
             {/* Guest name + status */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <h3 style={{ fontWeight:900, fontSize:20, color:"#fff" }}>{selGuest.guestName || "Guest"}</h3>
+              <div>
+                <h3 style={{ fontWeight:900, fontSize:20, color:"#fff" }}>{selGuest.guestName || "Guest"}</h3>
+                {selGuest._totalGuests > 1 && (
+                  <p style={{ fontSize:11, color:"#c084fc", fontWeight:700, marginTop:2 }}>
+                    {selGuest._isPrimary ? "👑 Primary Guest" : `👤 Guest ${selGuest._guestNum} of ${selGuest._totalGuests}`}
+                    {" · "}Room {selGuest.roomId?.split("_R")?.[1] || selGuest.roomId}
+                  </p>
+                )}
+              </div>
               <span style={{
                 padding:"4px 12px", borderRadius:20, fontSize:11, fontWeight:700,
                 background: selGuest.status === "active"
@@ -184,6 +281,44 @@ export default function GuestsView({ hotelId, hotel, user }) {
                 {selGuest.status === "active" ? "● Active" : "Checked Out"}
               </span>
             </div>
+
+            {/* ID Images — India compliance */}
+            {(selGuest.idImageFront || selGuest.idImageBack) && (
+              <div style={{ marginBottom:12 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.35)",
+                  letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
+                  📸 ID Document Photos
+                </p>
+                <div style={{ display:"flex", gap:8 }}>
+                  {selGuest.idImageFront && (
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginBottom:4, textAlign:"center" }}>
+                        Front Side
+                      </p>
+                      <img src={selGuest.idImageFront} alt="ID Front"
+                        style={{ width:"100%", height:90, objectFit:"cover",
+                          borderRadius:10, border:"1px solid rgba(34,197,94,0.3)" }}/>
+                    </div>
+                  )}
+                  {selGuest.idImageBack && (
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginBottom:4, textAlign:"center" }}>
+                        Back Side
+                      </p>
+                      <img src={selGuest.idImageBack} alt="ID Back"
+                        style={{ width:"100%", height:90, objectFit:"cover",
+                          borderRadius:10, border:"1px solid rgba(212,175,55,0.3)" }}/>
+                    </div>
+                  )}
+                </div>
+                {!selGuest.idImageFront && !selGuest.idImageBack && (
+                  <div style={{ padding:"10px", borderRadius:10, textAlign:"center",
+                    background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)" }}>
+                    <p style={{ fontSize:11, color:"rgba(255,255,255,0.2)" }}>📷 ID scan nahi kiya gaya</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Details grid */}
             <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)",
@@ -233,8 +368,8 @@ export default function GuestsView({ hotelId, hotel, user }) {
 
             {/* Actions */}
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {selGuest.status === "active" && (
-                <button onClick={() => handleCheckout(selGuest.id)} style={{
+              {selGuest.status === "active" && selGuest._isPrimary && (
+                <button onClick={() => handleCheckout(selGuest._bookingId || selGuest.id)} style={{
                   width:"100%", padding:14, borderRadius:14, border:"none",
                   fontWeight:800, fontSize:14, color:"#000", cursor:"pointer",
                   background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",
@@ -243,6 +378,26 @@ export default function GuestsView({ hotelId, hotel, user }) {
                   ✓ Check-out Karo
                 </button>
               )}
+              {/* Print GRC button */}
+              <button onClick={() => {
+                const bookings = getBookingsSync(hotelId);
+                const fullBooking = selGuest._isPrimary
+                  ? bookings.find(b => b.id === selGuest._bookingId)
+                  : bookings.find(b => b.id === selGuest._bookingId);
+                if (!fullBooking) { alert("Booking data nahi mila."); return; }
+                const cfg = getHotelConfig(hotelId);
+                const html = generateGRCHTML(fullBooking, cfg);
+                const win = window.open("", "_blank");
+                if (win) { win.document.write(html); win.document.close(); }
+              }} style={{
+                width:"100%", padding:12, borderRadius:14, border:"1px solid rgba(212,175,55,0.3)",
+                fontWeight:700, fontSize:13, color:"#D4AF37",
+                background:"rgba(212,175,55,0.08)", cursor:"pointer",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+              }}>
+                🖨️ Print GRC Form
+              </button>
+
               {selGuest.guestPhone && (
                 <a href={`tel:${selGuest.guestPhone}`} style={{
                   display:"block", textAlign:"center", padding:"12px",
