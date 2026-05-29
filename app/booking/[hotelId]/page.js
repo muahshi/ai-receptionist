@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Send, MessageCircle, X, MapPin, Star, Wifi, Car, Coffee, ShieldCheck, ChevronRight, Navigation, Phone } from "lucide-react";
 
@@ -677,27 +677,7 @@ export default function PublicBookingPage() {
         </div>
 
         {/* ── FAQ ── */}
-        {[
-          {q:"Check-in / Check-out time kya hai?",a:"Check-in: 12:00 PM | Check-out: 11:00 AM. Early check-in room availability pe depend karta hai."},
-          {q:"Direct booking mein kya benefit hai?",a:"Direct booking mein rate lock hota hai, OTA commission nahi lagta (18% savings), aur flexible checkout milta hai."},
-          {q:"Payment kab karna hoga?",a:"Payment check-in ke time hotel reception par karna hoga — Cash ya UPI accepted hai."},
-          {q:"Cancellation policy kya hai?",a:"24 ghante pehle cancellation free hai. Uske baad ek raat ka charge lagega."},
-        ].reduce((acc,faq,i)=>{
-          const [open,setOpen]=useState(false);
-          acc.push(
-            <div key={i} style={{borderBottom:i<3?"1px solid rgba(255,255,255,0.04)":"none"}}>
-              <button onClick={()=>setOpen(!open)} style={{width:"100%",padding:"13px 0",display:"flex",justifyContent:"space-between",alignItems:"center",background:"transparent",border:"none",cursor:"pointer",textAlign:"left"}}>
-                <span style={{fontSize:12,color:"rgba(255,255,255,0.6)",fontWeight:600,flex:1,paddingRight:12}}>{faq.q}</span>
-                <span style={{fontSize:16,color:"#D4AF37",transition:"transform 0.2s",transform:open?"rotate(45deg)":"none",flexShrink:0}}>+</span>
-              </button>
-              {open && <p style={{fontSize:11,color:"rgba(255,255,255,0.4)",lineHeight:1.6,paddingBottom:12,animation:"fadeUp 0.2s ease"}}>{faq.a}</p>}
-            </div>
-          );
-          return acc;
-        },[]).length && (() => {
-          // FAQ section with local state per item
-          return null; // handled below
-        })()}
+
 
       </div>
 
