@@ -66,3 +66,30 @@ VALUES
   ('saffron-ahmedabad', 'Saffron Stays',   'Ahmedabad, Gujarat',     25,  'free',       '🏪', '3456', '7890'),
   ('cherry-bhopal',     'Hotel Cherry',    'Bhopal, Madhya Pradesh', 20,  'pro',        '🍒', '4567', '8901')
 ON CONFLICT (id) DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════
+-- Push Notification Subscriptions table
+-- Run this in Supabase SQL Editor to enable push notifications
+-- ═══════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id           BIGSERIAL PRIMARY KEY,
+  hotel_id     TEXT NOT NULL,
+  role         TEXT DEFAULT 'staff',           -- 'owner' | 'manager' | 'staff'
+  endpoint     TEXT NOT NULL UNIQUE,           -- push service URL (unique per device)
+  p256dh       TEXT DEFAULT '',               -- encryption key
+  auth         TEXT DEFAULT '',               -- auth secret
+  subscription TEXT NOT NULL,                 -- full JSON subscription object
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "read_subs"   ON push_subscriptions;
+DROP POLICY IF EXISTS "insert_subs" ON push_subscriptions;
+DROP POLICY IF EXISTS "delete_subs" ON push_subscriptions;
+CREATE POLICY "read_subs"   ON push_subscriptions FOR SELECT USING (true);
+CREATE POLICY "insert_subs" ON push_subscriptions FOR INSERT WITH CHECK (true);
+CREATE POLICY "delete_subs" ON push_subscriptions FOR DELETE USING (true);
+CREATE POLICY "upsert_subs" ON push_subscriptions FOR UPDATE USING (true);
+
+-- Index for fast hotel lookup
+CREATE INDEX IF NOT EXISTS idx_push_hotel ON push_subscriptions(hotel_id);

@@ -175,6 +175,11 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxxx...
 MY_GROQ_KEY=gsk_xxxx...
 
+# Push Notifications (VAPID keys — generate once, never change)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=BD5bPQrz...   # Public — safe to expose
+VAPID_PRIVATE_KEY=5UwETRnu...              # SECRET — server only
+VAPID_SUBJECT=mailto:you@yourdomain.com    # Contact email
+
 # Optional
 RESEND_API_KEY=re_xxxx...          # Email alerts
 ```
