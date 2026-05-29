@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, ExternalLink, Check, Brain, Bell, BellOff } from "lucide-react";
-import { usePushNotifications } from "../lib/usePushNotifications";
+import { RefreshCw, ExternalLink, Check, Brain } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import {
   getTodayStats, getRooms, getBookingById, checkoutBooking,
@@ -220,10 +219,6 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   const [refreshing, setRefresh] = useState(false);
   const [copied,     setCopied]  = useState(false);
 
-  // ── Push Notifications ───────────────────────────────────────
-  const { supported: pushSupported, subscribed: pushOn, loading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } =
-    usePushNotifications(hotelId, user?.role);
-
   const load = useCallback(() => {
     if (!hotelId) return;
     initializeRooms(hotelId, hotel?.totalRooms || 20);
@@ -325,31 +320,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
               <p style={{fontSize:12,color:"rgba(255,255,255,0.55)",lineHeight:1.5}}>{greeting()}, {user?.role==="owner"?"Owner":"Manager"} 👋</p>
               <p style={{fontSize:11,color:"rgba(255,255,255,0.3)"}}>Here's your operational overview.</p>
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              {pushSupported && (
-                <button
-                  onClick={pushOn ? pushUnsubscribe : pushSubscribe}
-                  disabled={pushLoading}
-                  title={pushOn ? "Notifications band karo" : "Notifications on karo"}
-                  style={{
-                    width:33,height:33,borderRadius:10,flexShrink:0,
-                    background: pushOn ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.06)",
-                    border: pushOn ? "1px solid rgba(212,175,55,0.4)" : "1px solid rgba(255,255,255,0.1)",
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    position:"relative",
-                  }}>
-                  {pushOn
-                    ? <Bell size={14} style={{color:"#D4AF37"}}/>
-                    : <BellOff size={14} style={{color:"rgba(255,255,255,0.35)"}}/>}
-                  {pushOn && (
-                    <span style={{position:"absolute",top:4,right:4,width:6,height:6,borderRadius:"50%",background:"#22c55e",border:"1px solid #0A0A0A"}}/>
-                  )}
-                </button>
-              )}
-              <button onClick={handleRefresh} disabled={refreshing} style={{width:33,height:33,borderRadius:10,flexShrink:0,background:"rgba(0,140,255,0.08)",border:"1px solid rgba(0,140,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <RefreshCw size={13} style={{color:"#60b8ff"}} className={refreshing?"animate-spin":""}/>
-              </button>
-            </div>
+            <button onClick={handleRefresh} disabled={refreshing} style={{width:33,height:33,borderRadius:10,flexShrink:0,background:"rgba(0,140,255,0.08)",border:"1px solid rgba(0,140,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <RefreshCw size={13} style={{color:"#60b8ff"}} className={refreshing?"animate-spin":""}/>
+            </button>
           </div>
         </div>
 
