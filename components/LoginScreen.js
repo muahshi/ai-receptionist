@@ -160,9 +160,12 @@ export default function LoginScreen({ onLogin }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background:"rgba(212,175,55,0.12)", border:"1px solid rgba(212,175,55,0.2)" }}>
-            🏨
+          <div className="h-10 flex items-center">
+            <img
+              src="/branding/logo-main.png"
+              alt="The GuestInn"
+              style={{ height:"36px", width:"auto", objectFit:"contain" }}
+            />
           </div>
           <div>
             <h1 className="font-black text-lg text-white" style={{ letterSpacing:"-0.02em" }}>The GuestInn</h1>
