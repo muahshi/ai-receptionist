@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { LayoutDashboard, CalendarDays, Users, Cpu, BarChart3, Bell, Menu, X, LogOut } from "lucide-react";
 import { getHotelConfig, getActiveHotelId, initializeRooms } from "../lib/db";
+import { usePushNotifications } from "../lib/usePushNotifications";
 
 const DashboardView = dynamic(() => import("../components/DashboardView"), { ssr: false });
 const ScannerView   = dynamic(() => import("../components/ScannerView"),   { ssr: false });
@@ -25,6 +26,12 @@ export default function App() {
   const [hotel,    setHotel]   = useState(null);
   const [loading,  setLoading] = useState(true);
   const [alerts,   setAlerts]  = useState(0);
+
+  // Push notifications — uses current hotel + user role
+  const activeHotel = getActiveHotelId ? getActiveHotelId() : null;
+  const { supported: pushSupported, subscribed: pushOn, loading: pushLoading,
+          subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } =
+    usePushNotifications(activeHotel, user?.role);
   const [menuOpen, setMenu]    = useState(false);
 
   useEffect(() => {
@@ -124,20 +131,34 @@ export default function App() {
             </span>
           </div>
 
-          {/* Bell */}
-          <button style={{
-            width: 40, height: 40, borderRadius: 12,
-            background: "rgba(212,175,55,0.06)",
-            border: "1px solid rgba(212,175,55,0.18)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative",
-            boxShadow: "0 2px 12px rgba(212,175,55,0.08)"
-          }}>
-            <Bell size={18} style={{ color: "#D4AF37" }}/>
-            {alerts > 0 && (
+          {/* Bell — Push Notification Subscribe */}
+          <button
+            onClick={() => pushSupported ? (pushOn ? pushUnsubscribe() : pushSubscribe()) : alert("Yeh browser push notifications support nahi karta.")}
+            disabled={pushLoading}
+            title={!pushSupported ? "Browser supported nahi" : pushOn ? "Notifications band karo" : "Notifications on karo"}
+            style={{
+              width: 40, height: 40, borderRadius: 12,
+              background: pushOn ? "rgba(212,175,55,0.15)" : "rgba(212,175,55,0.06)",
+              border: pushOn ? "1px solid rgba(212,175,55,0.45)" : "1px solid rgba(212,175,55,0.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              position: "relative",
+              boxShadow: pushOn ? "0 0 14px rgba(212,175,55,0.2)" : "0 2px 12px rgba(212,175,55,0.08)",
+              opacity: pushLoading ? 0.6 : 1,
+              transition: "all 0.2s",
+            }}>
+            <Bell size={18} style={{ color: pushOn ? "#D4AF37" : "rgba(212,175,55,0.45)" }}/>
+            {pushOn && (
               <div style={{
-                position: "absolute", top: 6, right: 6,
-                width: 10, height: 10, borderRadius: "50%",
+                position: "absolute", top: 7, right: 7,
+                width: 8, height: 8, borderRadius: "50%",
+                background: "#22c55e", border: "2px solid #07090E",
+                boxShadow: "0 0 6px #22c55e",
+              }}/>
+            )}
+            {!pushOn && alerts > 0 && (
+              <div style={{
+                position: "absolute", top: 7, right: 7,
+                width: 8, height: 8, borderRadius: "50%",
                 background: "#008cff", border: "2px solid #07090E",
                 boxShadow: "0 0 8px #008cff",
                 animation: "livePulse 2s infinite"
