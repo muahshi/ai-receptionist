@@ -34,7 +34,7 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className="h-full bg-charcoal-800 font-body antialiased overflow-hidden">
+      <body className="bg-charcoal-800 font-body antialiased" style={{overflowX:"hidden"}}>
         <div
           className="fixed inset-0 pointer-events-none z-0"
           style={{
@@ -45,7 +45,7 @@ export default function RootLayout({ children }) {
             `,
           }}
         />
-        <div className="relative z-10 h-full">
+        <div className="relative z-10 min-h-screen">
           {children}
         </div>
       </body>
