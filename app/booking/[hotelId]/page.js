@@ -161,7 +161,7 @@ function RoomKeycap({ room, selected, onClick }) {
       title={isVacant ? `Room ${room.number} — Book Karo` : `Room ${room.number} — ${cfg.label}`}
       style={{
         width:"100%", aspectRatio:"1/1.05",
-        position:"relative", background:"transparent",
+        position:"relative", background:"transparent", WebkitTapHighlightColor:"transparent",
         border:"none", padding:0,
         cursor: isVacant ? "pointer" : "not-allowed",
         transform: selected ? "perspective(400px) rotateX(20deg) scale(1.06)" : "perspective(400px) rotateX(20deg)",
@@ -346,10 +346,13 @@ export default function PublicBookingPage() {
   );
 
   return (
-    <div style={{minHeight:"100vh",background:"#07090E",color:"#fff",fontFamily:"system-ui,-apple-system,sans-serif",overflowY:"auto",paddingBottom:80}}>
+    <div style={{minHeight:"100vh",background:"#07090E",color:"#fff",fontFamily:"system-ui,-apple-system,sans-serif",paddingBottom:100}}>
 
       {/* ── GLOBAL STYLES ── */}
       <style>{`
+        *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        html{height:-webkit-fill-available;overflow-x:hidden}
+        body{min-height:100vh;min-height:-webkit-fill-available;overflow-x:hidden;overflow-y:auto !important;-webkit-overflow-scrolling:touch;background:#07090E}
         @keyframes spinRingCW  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @keyframes laserPulse  { 0%,100%{opacity:0.4;transform:translateX(-50%) scaleY(0.5)} 50%{opacity:1;transform:translateX(-50%) scaleY(1)} }
         @keyframes holoPulse   { 0%,100%{filter:drop-shadow(0 0 12px #008cff) drop-shadow(0 0 28px rgba(0,140,255,0.4))} 50%{filter:drop-shadow(0 0 22px #00aaff) drop-shadow(0 0 55px rgba(0,160,255,0.65))} }
@@ -703,11 +706,14 @@ export default function PublicBookingPage() {
       {/* ── CHAT PANEL ── */}
       {chatOpen && (
         <div style={{
-          position:"fixed", inset:"0 0 0 0", zIndex:50,
+          position:"fixed", top:0, left:0, right:0, bottom:0,
+          zIndex:50,
           display:"flex", flexDirection:"column",
           background:"linear-gradient(180deg,#0d111e,#060810)",
           borderLeft:"1px solid rgba(255,255,255,0.08)",
           animation:"slideUp 0.35s cubic-bezier(0.16,1,0.3,1) forwards",
+          height:"100%", maxHeight:"100dvh",
+          WebkitOverflowScrolling:"touch",
         }}>
           {/* Chat header */}
           <div style={{padding:"14px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(0,0,0,0.3)",flexShrink:0}}>
