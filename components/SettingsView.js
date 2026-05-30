@@ -186,31 +186,78 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
           <p className="text-xs" style={{color:"rgba(255,255,255,0.3)"}}>
             Yeh rates booking page, Scanner, aur GRC form — sab jagah apply honge
           </p>
+          <style>{`
+            .rate-slider{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:5px;background:rgba(255,255,255,0.08);outline:none;cursor:pointer}
+            .rate-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#b8960c,#D4AF37);cursor:pointer;box-shadow:0 0 8px rgba(212,175,55,0.5)}
+            .rate-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#b8960c,#D4AF37);cursor:pointer;border:none;box-shadow:0 0 8px rgba(212,175,55,0.5)}
+          `}</style>
           {[
-            {label:"Standard",key:"standard",desc:"Basic room",  presets:[600,800,1000,1200,1500,2000]},
-            {label:"Deluxe",  key:"deluxe",  desc:"Premium room",presets:[1500,2000,2500,3000,3500,4000]},
-            {label:"Suite",   key:"suite",   desc:"Luxury suite", presets:[3000,3500,4000,4500,5000,6000]},
-          ].map(({label,key,desc,presets})=>(
-            <div key={key}>
-              <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>
-                {label} (₹/night) — <span style={{color:"rgba(255,255,255,0.2)"}}>{desc}</span>
-              </label>
-              <div className="flex gap-2 mb-1.5">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                  <input type="number" min="100" max="99999" step="50"
-                    value={cfg.rates?.[key]||""}
-                    onChange={e=>setCfg({...cfg,rates:{...cfg.rates,[key]:parseInt(e.target.value)||0}})}
-                    className="inp w-full pl-7 pr-3 py-2.5 text-sm"/>
-                </div>
+            {label:"Standard",key:"standard",desc:"Basic room",  min:300, max:5000, presets:[600,800,1000,1200,1500,2000]},
+            {label:"Deluxe",  key:"deluxe",  desc:"Premium room",min:500, max:8000, presets:[1500,2000,2500,3000,3500,4000]},
+            {label:"Suite",   key:"suite",   desc:"Luxury suite", min:1000,max:15000,presets:[3000,3500,4000,4500,5000,6000]},
+          ].map(({label,key,desc,presets,min,max})=>(
+            <div key={key} style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:"12px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <label className="text-xs" style={{color:"rgba(255,255,255,0.5)",fontWeight:600}}>
+                  {label} <span style={{color:"rgba(255,255,255,0.2)",fontWeight:400}}>— {desc}</span>
+                </label>
+                <span style={{fontSize:18,fontWeight:900,color:"#D4AF37",textShadow:"0 0 12px rgba(212,175,55,0.4)"}}>
+                  ₹{(cfg.rates?.[key]||0).toLocaleString("en-IN")}
+                </span>
               </div>
-              <div className="flex gap-1.5 flex-wrap">
+
+              {/* Slider */}
+              <input
+                type="range" min={min} max={max} step={50}
+                className="rate-slider"
+                value={cfg.rates?.[key]||min}
+                onChange={e=>{
+                  const v=parseInt(e.target.value)||min;
+                  setCfg({...cfg,rates:{...cfg.rates,[key]:v},
+                    standardRate:key==="standard"?v:cfg.standardRate,
+                    deluxeRate:  key==="deluxe"  ?v:cfg.deluxeRate,
+                    suiteRate:   key==="suite"   ?v:cfg.suiteRate,
+                  });
+                }}
+                style={{marginBottom:10,
+                  background:`linear-gradient(to right,#D4AF37 ${Math.round(((cfg.rates?.[key]||min)-min)/(max-min)*100)}%,rgba(255,255,255,0.08) ${Math.round(((cfg.rates?.[key]||min)-min)/(max-min)*100)}%)`
+                }}
+              />
+
+              {/* Manual number input */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{position:"relative",flex:1}}>
+                  <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"rgba(255,255,255,0.3)",fontSize:13,fontWeight:700}}>₹</span>
+                  <input type="number" min={min} max={max} step={50}
+                    value={cfg.rates?.[key]||""}
+                    onChange={e=>{
+                      const v=parseInt(e.target.value)||min;
+                      setCfg({...cfg,rates:{...cfg.rates,[key]:v},
+                        standardRate:key==="standard"?v:cfg.standardRate,
+                        deluxeRate:  key==="deluxe"  ?v:cfg.deluxeRate,
+                        suiteRate:   key==="suite"   ?v:cfg.suiteRate,
+                      });
+                    }}
+                    className="inp w-full text-sm"
+                    style={{paddingLeft:28}}
+                    placeholder={`Min ₹${min}`}
+                  />
+                </div>
+                <span style={{fontSize:10,color:"rgba(255,255,255,0.2)",whiteSpace:"nowrap"}}>/raat</span>
+              </div>
+
+              {/* Preset quick buttons */}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {presets.map(p=>(
-                  <button key={p} onClick={()=>setCfg({...cfg,rates:{...cfg.rates,[key]:p}})}
-                    className="px-2 py-1 rounded-lg text-xs font-semibold"
-                    style={cfg.rates?.[key]===p
-                      ?{background:"rgba(212,175,55,0.25)",color:"#D4AF37",border:"1px solid rgba(212,175,55,0.5)"}
-                      :{background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.3)",border:"1px solid rgba(255,255,255,0.08)"}}>
+                  <button key={p} onClick={()=>setCfg({...cfg,rates:{...cfg.rates,[key]:p},
+                    standardRate:key==="standard"?p:cfg.standardRate,
+                    deluxeRate:  key==="deluxe"  ?p:cfg.deluxeRate,
+                    suiteRate:   key==="suite"   ?p:cfg.suiteRate,
+                  })}
+                    style={{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",
+                      background:cfg.rates?.[key]===p?"rgba(212,175,55,0.2)":"rgba(255,255,255,0.04)",
+                      color:cfg.rates?.[key]===p?"#D4AF37":"rgba(255,255,255,0.3)",
+                      border:cfg.rates?.[key]===p?"1px solid rgba(212,175,55,0.4)":"1px solid rgba(255,255,255,0.06)"}}>
                     {p>=1000?`${p/1000}K`:p}
                   </button>
                 ))}
