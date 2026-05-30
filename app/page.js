@@ -35,6 +35,8 @@ export default function App() {
   const [menuOpen, setMenu]    = useState(false);
 
   useEffect(() => {
+    // Lock body scroll for staff fixed layout
+    document.body.classList.add("app-locked");
     try {
       const stored = localStorage.getItem("air_current_user");
       if (stored) {
@@ -46,6 +48,7 @@ export default function App() {
       }
     } catch {}
     setLoading(false);
+    return () => document.body.classList.remove("app-locked");
   }, []);
 
   const onLogin = (u) => {
