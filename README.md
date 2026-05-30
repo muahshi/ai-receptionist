@@ -1,291 +1,334 @@
-# 🏨 The GuestInn — AI-Powered Hotel Management SaaS
+<div align="center">
 
-> **Smart automation. Happier guests. Higher revenue.**  
-> Built for Indian hoteliers. Powered by Groq AI.
+# 🏨 The GuestInn — AI Hotel Management System
 
-![Version](https://img.shields.io/badge/version-2.0.0-gold)
-![Stack](https://img.shields.io/badge/stack-Next.js%2014-black)
-![AI](https://img.shields.io/badge/AI-Groq%20Llama%204-blue)
-![Database](https://img.shields.io/badge/database-Supabase-green)
+**India ka sabse smart hotel operations platform**  
+Anti-theft · AI ID Scanner · Push Notifications · Direct Booking Engine
 
----
+[![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=nextdotjs)](https://nextjs.org)
+[![Groq AI](https://img.shields.io/badge/Groq-Llama_4_Vision-orange)](https://groq.com)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green?logo=supabase)](https://supabase.com)
+[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
+[![PWA](https://img.shields.io/badge/PWA-Installable-blue)](https://web.dev/progressive-web-apps)
 
-## 📱 Live Demo
+[Live Demo](https://ai-receptionist-sandy-six.vercel.app) · [Booking Page](https://ai-receptionist-sandy-six.vercel.app/booking/cherry-bhopal) · [Staff Login](https://ai-receptionist-sandy-six.vercel.app)
 
-```
-App:          https://ai-receptionist-sandy-six.vercel.app
-Demo Hotels:  /booking/hotel-cherry
-              /booking/hotel-sunrise
-              /booking/sunrise-jaipur
-```
+</div>
 
 ---
 
-## 🚀 Features
+## ✨ Kya Hai Yeh?
 
-### 🤖 AI Receptionist
-- Groq AI powered (Llama 4 Scout + Llama 3.3 70B)
-- 24/7 guest query handling
-- Hinglish (Hindi + English) responses
-- Real-time operational insights
-- Dynamic revenue suggestions
+The GuestInn ek **offline-first PWA** hai jo chote aur mid-size Indian hotels ke liye banaya gaya hai. Ek hi app mein:
 
-### 🏨 Multi-Hotel SaaS
-- Unlimited hotels on single deployment
-- Each hotel gets unique URL: `/booking/[hotelId]`
-- Per-hotel dashboard, rooms, bookings, settings
-- Supabase database — all devices synced
-- localStorage cache for offline use
-
-### 📋 Guest Registration (India Compliance)
-- Full GRC (Guest Registration Card) form
-- Fields matching Indian hotel regulations:
-  - Name, DOB, Gender, Nationality
-  - Address, Mobile, Email
-  - ID Type (Aadhaar/Passport/DL/Voter ID/PAN)
-  - Company Name, GST No.
-  - Arrival From, Proceeding To
-  - Purpose of Visit
-  - Passport/Visa details (foreign guests)
-- Up to 8 guests per booking
-- Each guest's ID stored separately
-
-### 📸 AI ID Scanner
-- Camera-based ID scanning (front + back)
-- Groq Vision AI extracts all fields automatically
-- Supports: Aadhaar, Passport, PAN, DL, Voter ID
-- ID image thumbnail saved with record
-- 99% accuracy, ~3 second scan time
-- Foreign passport + visa support
-
-### 🛏 Room Management
-- Visual room grid with 3D key-cap design
-- Color codes:
-  - 🟢 Green = Occupied
-  - 🔴 Red = Vacant  
-  - 🟡 Gold = Reserved
-  - ⚫ Gray = Out of Order
-- Click any room → details + actions
-- Actions: Check-in, Check-out, AI Scan, Out of Order, Mark Vacant
-
-### 💰 Rate Lock System
-- Rate set at check-in is permanently locked
-- Cannot be changed after lock
-- WhatsApp proof sent to guest
-- Anti-theft protection for hotel owners
-- Rate slider + manual input (₹100 to ₹99,999)
-
-### 🌐 Public Booking Page
-- Each hotel gets: `yourapp.vercel.app/booking/[hotelId]`
-- Share on Google My Business, WhatsApp, Instagram
-- No commission (replaces Booking.com/Agoda)
-- AI chatbot for guest queries + room booking
-- Visual calendar date picker
-- Room type cards with photos
-- Direct call button
-- FAQ section
-- Guest lead capture → Supabase
-
-### 📱 WhatsApp Alerts (Triple System)
-1. **Owner** — Booking details + locked rate
-2. **Manager** — Quick check-in confirmation  
-3. **Guest** — Booking confirmation with rate proof
-
-### 📧 Email Notifications
-- Powered by Resend (free tier: 100/day)
-- HTML email with hotel branding
-- Same data as WhatsApp alert
-- Owner + Manager both receive
-
-### 🖨️ GRC Print
-- One-click printable Guest Registration Card
-- Hotel branding in header
-- All guest details + ID images
-- Foreign guest passport/visa section
-- Terms & conditions
-- Signature lines
-- Auto-print on open
-
-### 📊 Reports & Export
-- 7-day revenue chart
-- Today's stats: revenue, occupancy, check-ins
-- CSV export — GRC-format with all fields
-- JSON export — complete backup with ID images
-- Extra guests expanded as separate rows
-
-### 👥 Guests Tab
-- All guests listed (primary + extra guests)
-- Filter: All / Active / Checked Out
-- Guest 2/3 badge for multi-guest bookings
-- ID photo preview (front + back)
-- One-tap call
-- Print GRC from guest record
-- CSV + JSON export buttons
-
-### ⚙️ Settings (All Working)
-- Hotel name, location, address, phone
-- Total rooms (auto-reinitializes grid)
-- GST percentage
-- Room rates: Standard / Deluxe / Suite
-  - Quick presets: 600, 800, 1K, 1.2K, 1.5K, 2K...
-  - Manual type + slider
-- Checkout time: 10:00 / 11:00 / 12:00 / 13:00
-- Owner + Manager phone (WhatsApp alerts)
-- Owner + Manager email
-- Test WhatsApp + Test Email buttons
-- Login PINs change
-- Booking page link + copy
-- Data export (CSV + JSON)
-- Danger zone: clear booking data
+- 📱 **Staff Dashboard** — real-time room grid, revenue tracking
+- 🤖 **AI ID Scanner** — Aadhaar/PAN/Passport camera se scan, auto form-fill
+- 🌐 **Public Booking Page** — guest seedha book kare, OTA commission bachao
+- 🔔 **Push Notifications** — room book hote hi sound ke saath alert
+- 📊 **GRC Compliance** — Indian police records ke liye complete forms
 
 ---
 
-## 🛠 Tech Stack
+## 🚀 Quick Start
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 14 App Router |
-| Styling | Tailwind CSS |
-| AI | Groq (Llama 4 Scout Vision + Llama 3.3 70B) |
-| Database | Supabase (PostgreSQL) |
-| Cache | localStorage (offline-first) |
-| Email | Resend API |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Deployment | Vercel |
-| PWA | next-pwa |
-
----
-
-## 📦 Installation
+### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-username/guestinn.git
-cd guestinn
+git clone https://github.com/YOUR_USERNAME/ai-receptionist.git
+cd ai-receptionist
 npm install
 ```
 
-### Environment Variables
+### 2. Environment Variables
 
-Create `.env.local`:
+`.env.local` file banao project root mein:
 
 ```env
-# Required
+# ── Required ────────────────────────────────────────────────────
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxxx...
 MY_GROQ_KEY=gsk_xxxx...
 
-# Push Notifications (VAPID keys — generate once, never change)
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=BD5bPQrz...   # Public — safe to expose
-VAPID_PRIVATE_KEY=5UwETRnu...              # SECRET — server only
-VAPID_SUBJECT=mailto:you@yourdomain.com    # Contact email
+# ── Push Notifications (VAPID) ──────────────────────────────────
+# Generate once: node -e "const c=require('crypto');const e=c.createECDH('prime256v1');e.generateKeys();console.log('PUBLIC='+e.getPublicKey('base64url'));console.log('PRIVATE='+e.getPrivateKey('base64url'))"
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=BD5bPQrz...
+VAPID_PRIVATE_KEY=5UwETRnu...
+VAPID_SUBJECT=mailto:admin@yourhotel.com
 
-# Optional
-RESEND_API_KEY=re_xxxx...          # Email alerts
+# ── Optional ────────────────────────────────────────────────────
+RESEND_API_KEY=re_xxxx...       # Email alerts (free: 100/day)
 ```
 
-### Supabase Setup
+### 3. Supabase Setup
 
-Run `supabase_schema.sql` in Supabase SQL Editor:
+Supabase dashboard → SQL Editor → `supabase_schema.sql` ka poora content paste karo → Run.
 
-```sql
--- Creates: hotels, bookings, leads tables
--- With full RLS policies
--- Includes demo hotel data
-```
+Yeh tables banengi:
+- `hotels` — hotel registry
+- `bookings` — GRC records
+- `push_subscriptions` — PWA notification subscribers
+
+### 4. Local Run
 
 ```bash
 npm run dev
+# http://localhost:3000
+```
+
+### 5. Vercel Deploy
+
+```bash
+# Vercel CLI se
+npm i -g vercel
+vercel --prod
+
+# Ya GitHub se auto-deploy:
+# Vercel Dashboard → New Project → Import GitHub repo
+# Environment variables Vercel dashboard mein add karo
 ```
 
 ---
 
-## 🗄️ Database Schema
+## 📁 Project Structure
 
-### hotels
 ```
-id, name, location, total_rooms, plan, emoji,
-owner_pin, manager_pin, owner_phone, created_at
-```
-
-### bookings
-```
-id, hotel_id, guest_name, guest_phone, address,
-id_type, id_number, gender, dob, room_id, room_type,
-check_in_date, check_out_date, nights,
-rate_per_night, total_amount, payment_mode,
-status, rate_locked, total_guests,
-extra_guests (JSON), id_image_front, id_image_back,
-created_at
-```
-
-### leads (from public booking page)
-```
-id, hotel_id, guest_name, guest_phone,
-check_in_date, check_out_date, room_type,
-message, status, created_at
+ai-receptionist/
+├── app/
+│   ├── page.js                      # Staff app shell + tab navigation
+│   ├── layout.js                    # Root layout — fonts, PWA meta, apple-touch-icon
+│   ├── globals.css                  # Global styles — scroll behavior, animations
+│   ├── booking/[hotelId]/page.js    # 🌐 Public guest booking page
+│   ├── h/[hotelId]/page.js          # Staff direct login shortcut
+│   └── api/
+│       ├── groq/route.js            # AI: id_scan | ai_insight | chat
+│       ├── alerts/route.js          # Email via Resend
+│       └── push/route.js            # Push notification: subscribe | send
+│
+├── components/
+│   ├── DashboardView.js             # Main dashboard — room grid, revenue, AI insight
+│   ├── ScannerView.js               # AI ID scanner + booking form (staff)
+│   ├── GuestsView.js                # Guest list + GRC print
+│   ├── ReportsView.js               # Revenue charts + booking history
+│   ├── SettingsView.js              # All hotel settings + rates slider
+│   └── LoginScreen.js               # Hotel selector + PIN login
+│
+├── lib/
+│   ├── db.js                        # Data layer: Supabase + localStorage hybrid
+│   ├── alerts.js                    # WhatsApp + Email + Push alert system
+│   └── usePushNotifications.js      # React hook — push subscribe/unsubscribe
+│
+├── public/
+│   ├── branding/logo-main.png       # 1200×400 — brand logo
+│   ├── icons/
+│   │   ├── apple-touch-icon.png     # 180×180 — iOS home screen
+│   │   ├── icon-192.png             # 192×192 — Android PWA
+│   │   └── icon-512.png             # 512×512 — PWA splash
+│   ├── sw-push.js                   # Service Worker — push handler + sound
+│   ├── manifest.json                # PWA manifest
+│   └── landing.html                 # Public marketing page
+│
+├── supabase_schema.sql              # Database setup — run in SQL Editor
+├── vercel.json                      # Vercel config — Mumbai region (bom1)
+├── next.config.js                   # Next.js + PWA config
+└── tailwind.config.js               # Tailwind CSS config
 ```
 
 ---
 
-## 🔗 URL Structure
+## 🎯 Features — Complete List
 
-```
-/                           → Hotel selector / Login
-/booking/[hotelId]          → Public guest booking page
-/h/[hotelId]                → Staff direct login
-```
+### 🤖 AI Features
+
+| Feature | Tech | Details |
+|---|---|---|
+| **ID Scanner** | Groq Llama 4 Vision | Camera → auto-fill Name, DOB, Address, ID Number, Gender |
+| **AI Receptionist** | Groq llama-3.3-70b | Dashboard pe Hinglish revenue tips |
+| **Guest Chatbot** | Groq llama-3.3-70b | Booking page pe Hinglish conversation |
+
+**Supported IDs:** Aadhaar · PAN · Passport · Driving License · Voter ID · Foreign Passports
 
 ---
 
-## 👤 User Roles
+### 🏗️ Staff Dashboard
 
-| Role | Access |
+- **3D Isometric Room Grid** — floor-by-floor, color-coded status (Occupied/Reserved/Vacant/Cleaning/OOO)
+- **Live Revenue Widget** — today's total + 7-day sparkline chart
+- **AI Insight Card** — personalized revenue tip daily
+- **Room Click Modal** — guest details, checkout, approve check-in
+- **Hologram Building** — animated SVG visual
+- **Push Bell Button** — header mein — gold glow jab subscribed
+
+---
+
+### 📱 Public Booking Page (`/booking/[hotelId]`)
+
+- **Room Grid** — same 3D keycap design, sirf green (available) rooms clickable
+- **AI ID Scanner** — real camera, Groq Vision scan, form auto-fill
+- **Complete GRC Form** — Name, Phone, Check-in/out, ID Type/Number, Gender, DOB, Address, Nationality
+- **Live Bill Calculator** — nights × rate = real-time total
+- **Booking Save** → localStorage + Supabase → room **Reserved** ho jaata hai dashboard pe
+- **WhatsApp Alert** → owner ko booking details automatically
+- **Hinglish Chatbot** → floating button
+- **Google Maps link** → hotel location
+
+---
+
+### 🔔 Push Notifications
+
+- **Service Worker** (`sw-push.js`) — background push handle karta hai
+- **Hotel Bell Sound** — Web Audio API se 3-note D-G-B chime (no external file)
+- **Vibration Pattern** — `[200, 100, 200, 100, 400]`
+- **Action Buttons** — "Details Dekho" · "Dismiss"
+- **Auto cleanup** — expired subscriptions (410/404) automatic remove
+
+**Setup:** Header bell tap → "Allow" → Gold + Green dot = active ✅
+
+---
+
+### ⚙️ Settings — Sab Kuch Configurable
+
+| Setting | Effect |
 |---|---|
-| **Owner** | All features + settings + danger zone |
-| **Manager** | Dashboard, bookings, scanner, guests, reports |
+| Hotel Name, Location | Dashboard, booking page, alerts, GRC |
+| Total Rooms | Room grid reinitialize |
+| GST % | Billing calculations |
+| Standard / Deluxe / Suite Rates | **Slider + manual input + presets** — booking page, scanner, dashboard |
+| Checkout Time | Policy display |
+| Owner / Manager Phone | WhatsApp alert destination |
+| Owner / Manager Email | Email alert destination |
+| Owner / Manager PIN | Login authentication |
 
-PIN-based login — 4 digits, set in Settings.
-
----
-
-## 📱 Mobile First
-
-- PWA installable (Add to Home Screen)
-- Optimized for phone screens
-- Touch-friendly UI
-- Vibration feedback
-- Camera access for ID scanning
+**Rate sync:** Settings mein save karo → `standardRate`, `deluxeRate`, `suiteRate` dono formats mein save hota hai → poori app consistent rahati hai.
 
 ---
 
-## 🔒 Security
+### 💾 Data Layer — Offline First
 
-- Rate lock — prevents staff fraud
-- Triple WhatsApp alerts as proof
-- Per-hotel data isolation
-- Supabase RLS policies
-- PIN-based authentication
+```
+Write: localStorage (instant) → Supabase (background sync)
+Read:  Supabase (fresh) → localStorage cache (fallback)
+```
 
----
-
-## 🗺️ Roadmap
-
-- [ ] UPI payment integration
-- [ ] Digital signature on GRC
-- [ ] Bulk WhatsApp messaging
-- [ ] Revenue forecasting AI
-- [ ] Multi-property dashboard
-- [ ] Mobile app (React Native)
-- [ ] Police C-Form auto-generation
-- [ ] OTA channel manager integration
+**localStorage keys:**
+```
+air_[hotelId]_config     — hotel settings
+air_[hotelId]_rooms      — room statuses + current guest
+air_[hotelId]_bookings   — all booking records
+gi_hotel_registry        — all hotels list
+air_current_user         — logged in user session
+```
 
 ---
 
-## 📄 License
+### 📋 GRC Compliance & Export
 
-MIT © 2025 The GuestInn
+**GRC Form fields:** Guest Name · Phone · Company/GST · ID Type · ID Number · Address · Nationality · Check-in/out · Room · Rate · Payment Mode · Arrival From · Proceeding To · Purpose · Signature
+
+**Export options:**
+- **CSV** — Excel compatible, 36 columns, extra guests as separate rows
+- **JSON** — Full data dump: hotel config + all bookings + rooms (with ID images base64)
 
 ---
 
-*Powered by Groq AI • Built with ❤️ for Indian Hospitality*
+### 🔐 Security
+
+- PIN-based login (4 digit, Owner + Manager separate)
+- Rate Lock — locked rate checkout tak change nahi hota
+- Triple WhatsApp alerts — owner notified every check-in
+- AI scan at check-in — ID document verified
+- Supabase RLS (Row Level Security) enabled on all tables
+
+---
+
+## 🗂️ API Routes
+
+| Route | Method | Body | Purpose |
+|---|---|---|---|
+| `/api/groq` | POST | `{type:"id_scan", imageBase64}` | ID document scan |
+| `/api/groq` | POST | `{type:"ai_insight", stats}` | Revenue insight |
+| `/api/groq` | POST | `{type:"chat", messages, hotelConfig}` | Guest chatbot |
+| `/api/alerts` | POST | `{emails[], subject, html}` | Send email via Resend |
+| `/api/push` | POST | `{action:"subscribe", hotelId, subscription}` | Save push subscription |
+| `/api/push` | POST | `{action:"send", hotelId, payload}` | Send push to all subscribers |
+| `/api/push` | POST | `{action:"unsubscribe", hotelId, endpoint}` | Remove subscription |
+
+---
+
+## 🗃️ Supabase Schema Summary
+
+```sql
+hotels (id, name, location, total_rooms, plan, emoji, owner_pin, manager_pin, owner_phone, ...)
+bookings (id, hotel_id, guest_name, guest_phone, id_type, id_number, room_id, check_in_date, ...)
+push_subscriptions (id, hotel_id, role, endpoint, p256dh, auth, subscription, created_at)
+```
+
+All tables have **Row Level Security** enabled with open policies (hotel handles auth via PIN).
+
+---
+
+## 📱 PWA Installation
+
+**Android (Chrome):**
+1. Site kholo
+2. Browser menu → "Add to Home Screen"
+3. "Install" tap karo
+
+**iOS (Safari):**
+1. Site kholo
+2. Share button → "Add to Home Screen"
+3. "Add" tap karo
+
+**Icon files:**
+```
+/public/icons/apple-touch-icon.png   → 180×180 (iOS)
+/public/icons/icon-192.png           → 192×192 (Android)
+/public/icons/icon-512.png           → 512×512 (Splash)
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 14 (App Router) |
+| UI | React 18 + Tailwind CSS + Inline styles |
+| AI | Groq SDK — Llama 4 Scout Vision + llama-3.3-70b |
+| Database | Supabase (PostgreSQL + REST API) |
+| Offline | localStorage hybrid cache |
+| Charts | Recharts (AreaChart) |
+| Icons | Lucide React |
+| Push | web-push (VAPID) + Service Worker |
+| Email | Resend API |
+| PWA | next-pwa |
+| Deploy | Vercel (bom1 — Mumbai region) |
+
+---
+
+## 🐛 Common Issues & Fixes
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Module not found: web-push` | package.json mein add nahi tha | `npm install` dobara run karo |
+| `VAPID keys missing` | Env vars set nahi | Vercel dashboard mein add karo |
+| Push notification nahi aayi | `web-push` encryption | Route.js ka latest version use karo |
+| Booking page scroll nahi hoti | `globals.css` mein `overflow:hidden` tha | Latest `globals.css` use karo |
+| Dashboard mein rates Settings se match nahi | `standardRate` vs `rates.standard` mismatch | Latest `db.js` use karo |
+| JSON export nahi hoti | `exportAllData` missing tha | Latest `db.js` use karo |
+| `Application error` booking page | `useState` inside `.reduce()` | Latest `booking/page.js` use karo |
+| PWA icon nahi dikh raha | manifest.json mein wrong filenames | `icon-192.png` (not `icon-192x192.png`) |
+
+---
+
+## 📞 Support
+
+**Hotel:** Hotel Amardeep Palace, Bhopal MP  
+**Stack:** The GuestInn v2.0  
+**Powered by:** Groq AI · Supabase · Vercel · Next.js
+
+---
+
+<div align="center">
+<strong>Made with ❤️ for Independent Indian Hotels</strong><br/>
+<em>No OTA commission. No monthly fees. Your hotel, your data.</em>
+</div>
