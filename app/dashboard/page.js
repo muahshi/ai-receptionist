@@ -6,11 +6,11 @@ import { LayoutDashboard, CalendarDays, Users, Cpu, BarChart3, Bell, Menu, X, Lo
 import { getHotelConfig, getActiveHotelId, initializeRooms } from "../../lib/db";
 import { usePushNotifications } from "../../lib/usePushNotifications";
 
-const DashboardView = dynamic(() => import('../../components/DashboardView"), { ssr: false });
-const ScannerView   = dynamic(() => import('../../components/ScannerView"),   { ssr: false });
-const ReportsView   = dynamic(() => import('../../components/ReportsView"),   { ssr: false });
-const SettingsView  = dynamic(() => import('../../components/SettingsView"),  { ssr: false });
-const LoginScreen   = dynamic(() => import('../../components/LoginScreen"),   { ssr: false });
+const DashboardView = dynamic(() => import("../../components/DashboardView"), { ssr: false });
+const ScannerView   = dynamic(() => import("../../components/ScannerView"),   { ssr: false });
+const ReportsView   = dynamic(() => import("../../components/ReportsView"),   { ssr: false });
+const SettingsView  = dynamic(() => import("../../components/SettingsView"),  { ssr: false });
+const LoginScreen   = dynamic(() => import("../../components/LoginScreen"),   { ssr: false });
 
 const NAV = [
   { id: "home",     Icon: LayoutDashboard, label: "Dashboard"  },
