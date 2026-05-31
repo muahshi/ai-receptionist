@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Crown, LayoutDashboard, Menu, X } from "lucide-react";
 
@@ -24,7 +24,6 @@ function NeuralCanvas() {
     resize();
     window.addEventListener("resize", resize);
 
-    // Particle system
     const PARTICLE_COUNT = 70;
     const particles = Array.from({ length: PARTICLE_COUNT }, () => ({
       x:   Math.random() * canvas.width,
@@ -41,16 +40,12 @@ function NeuralCanvas() {
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Move particles
       particles.forEach(p => {
         p.x += p.vx;
         p.y += p.vy;
         if (p.x < 0 || p.x > canvas.width)  p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
       });
-
-      // Draw connections
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x;
@@ -67,8 +62,6 @@ function NeuralCanvas() {
           }
         }
       }
-
-      // Draw particles
       particles.forEach(p => {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
@@ -79,7 +72,6 @@ function NeuralCanvas() {
           : `rgba(255,255,255,${p.alpha * 0.3})`;
         ctx.fill();
       });
-
       animId = requestAnimationFrame(draw);
     };
     draw();
@@ -125,7 +117,6 @@ function TopNav() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "12px 20px",
       }}>
-        {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Crown size={20} style={{ color: "#D4AF37", filter: "drop-shadow(0 0 8px rgba(212,175,55,0.6))" }}/>
           <div>
@@ -146,10 +137,7 @@ function TopNav() {
           </div>
         </div>
 
-        {/* Desktop nav */}
-        <nav style={{
-          display: "flex", alignItems: "center", gap: 4,
-        }} className="desktop-nav">
+        <nav style={{ display: "flex", alignItems: "center", gap: 4 }} className="desktop-nav">
           {NAV_LINKS.map(link => (
             <a key={link.label} href={link.href} style={{
               fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.55)",
@@ -165,9 +153,7 @@ function TopNav() {
           ))}
         </nav>
 
-        {/* Right actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Dashboard link */}
           <a href="/dashboard" style={{
             display: "flex", alignItems: "center", gap: 6,
             background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.25)",
@@ -182,7 +168,6 @@ function TopNav() {
             <span className="nav-dash-label">Hotel Login</span>
           </a>
 
-          {/* Mobile hamburger */}
           <button
             className="mobile-menu-btn"
             onClick={() => setMenuOpen(true)}
@@ -197,7 +182,6 @@ function TopNav() {
         </div>
       </div>
 
-      {/* Mobile menu overlay */}
       {menuOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200 }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} onClick={() => setMenuOpen(false)}/>
@@ -276,6 +260,26 @@ function Footer() {
 
 // ── Root Page ──────────────────────────────────────────────────────────────
 export default function MarketplacePage() {
+  // ── SHARED SEARCH STATE ──────────────────────────────────────
+  // This is the bridge between HeroSearchSection and NegotiatorOrb.
+  // When a user submits a search query from the Hero, it gets stored here,
+  // NegotiatorOrb reads it on open and fires immediately without asking
+  // generic questions.
+  const [pendingSearchQuery, setPendingSearchQuery] = useState(null);
+  const [orbForceOpen, setOrbForceOpen] = useState(false);
+
+  // Called by HeroSearchSection when user submits a real query
+  const handleHeroSearch = useCallback((queryText) => {
+    setPendingSearchQuery(queryText);
+    setOrbForceOpen(true);
+  }, []);
+
+  // Called by NegotiatorOrb once it has consumed the pending query
+  const clearPendingQuery = useCallback(() => {
+    setPendingSearchQuery(null);
+    setOrbForceOpen(false);
+  }, []);
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -284,7 +288,7 @@ export default function MarketplacePage() {
       position: "relative",
       overflowX: "hidden",
     }}>
-      {/* Layer 0: Neural particle canvas — fixed background */}
+      {/* Layer 0: Neural particle canvas */}
       <NeuralCanvas />
 
       {/* Layer 1: Radial gradient overlays */}
@@ -299,19 +303,21 @@ export default function MarketplacePage() {
       {/* Layer 2: Content */}
       <div style={{ position: "relative", zIndex: 2 }}>
         <TopNav />
-
-        {/* Main content shifted below fixed nav */}
         <div style={{ paddingTop: 64 }}>
-          <HeroSearchSection />
+          {/* Pass the search handler down so HeroSearchSection can trigger the orb */}
+          <HeroSearchSection onSearch={handleHeroSearch} />
           <AdvantageGrid />
           <MarketplaceHotels />
         </div>
-
         <Footer />
       </div>
 
-      {/* Layer 3: Floating AI Negotiator orb */}
-      <NegotiatorOrb />
+      {/* Layer 3: Floating AI Negotiator orb — receives pending query */}
+      <NegotiatorOrb
+        pendingQuery={pendingSearchQuery}
+        forceOpen={orbForceOpen}
+        onQueryConsumed={clearPendingQuery}
+      />
     </div>
   );
 }
