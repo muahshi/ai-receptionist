@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Apna Hotel List Karo — The GuestInn Network</title>
+<meta name="description" content="GuestInn Network mein apna hotel free mein list karo. Zero OTA commission, AI Receptionist, direct bookings. 1,256+ cities mein India ka smart hotel network."/>
+<link rel="canonical" href="https://theguestinn.network/contact.html"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,300;0,9..40,400;0,9..40,500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-2:#E8C76B;--gold-3:#F5D688;--gold-4:#A88932;
+  --gold-dim:rgba(201,168,76,0.08);--gold-border:rgba(201,168,76,0.18);
+  --obsidian:#0A0A09;--obsidian-2:#0D0D0B;--obsidian-3:#111110;
+  --frost:rgba(255,255,255,0.02);--frost-2:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.06);
+  --white:#FAFAF8;--muted:rgba(250,250,248,0.42);--sub:rgba(250,250,248,0.68);
+  --green:#22c55e;--blue:#3b82f6;--r:cubic-bezier(0.16,1,0.3,1)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--obsidian);color:var(--white);font-family:'DM Sans',sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:var(--obsidian)}
+::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.25);border-radius:3px}
+a{text-decoration:none;color:inherit}
+img{max-width:100%;display:block}
+
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin-slow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes float-y{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes step-active{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.3)}50%{box-shadow:0 0 0 8px rgba(201,168,76,0)}}
+
+.wrap{max-width:1200px;margin:0 auto;padding:0 clamp(1.5rem,5vw,4rem)}
+
+/* NAV */
+nav{
+  position:sticky;top:0;z-index:100;height:66px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 clamp(1.5rem,5vw,4rem);
+  background:rgba(10,10,9,0.95);border-bottom:1px solid var(--gold-border);
+  backdrop-filter:blur(30px)
+}
+.nav-logo{display:flex;flex-direction:column;align-items:center}
+.nav-logo-main{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:600;color:var(--gold-2);line-height:1}
+.nav-logo-sub{font-family:'Syne',sans-serif;font-size:0.5rem;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase}
+.nav-back{display:flex;align-items:center;gap:6px;font-family:'Syne',sans-serif;font-size:0.65rem;font-weight:600;color:var(--muted);letter-spacing:0.06em;transition:color 0.2s}
+.nav-back:hover{color:var(--gold-2)}
+.network-badge{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:100px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);font-family:'Syne',sans-serif;font-size:0.6rem;font-weight:700;color:#4ade80;letter-spacing:0.08em}
+.net-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse-dot 1.5s ease-in-out infinite}
+
+/* HERO */
+.contact-hero{
+  padding:5rem 0 4rem;position:relative;overflow:hidden;
+  border-bottom:1px solid var(--border)
+}
+.hero-bg-radial{position:absolute;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,0.05),transparent 70%);top:-150px;right:-100px;pointer-events:none}
+.hero-bg-radial-2{position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(34,197,94,0.04),transparent 70%);bottom:-100px;left:0;pointer-events:none}
+.hero-inner{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:100px;background:var(--gold-dim);border:1px solid var(--gold-border);font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold-2);margin-bottom:1.5rem;animation:fadeInUp 0.8s ease both}
+.hero-h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2.5rem,4.5vw,3.8rem);font-weight:300;line-height:1.1;margin-bottom:1rem;animation:fadeInUp 0.8s ease 0.1s both}
+.hero-h1 em{font-style:italic;background:linear-gradient(135deg,#A88932,#C9A84C 50%,#F5D688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-family:'DM Sans',sans-serif;font-size:0.9rem;color:var(--sub);font-weight:300;line-height:1.75;margin-bottom:2rem;max-width:460px;animation:fadeInUp 0.8s ease 0.15s both}
+
+/* STEPS */
+.how-steps{display:flex;flex-direction:column;gap:16px;animation:fadeInUp 0.8s ease 0.2s both}
+.how-step{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);transition:all 0.3s}
+.how-step:hover{border-color:var(--gold-border);background:rgba(201,168,76,0.02)}
+.step-num{
+  width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:800;
+  background:linear-gradient(135deg,rgba(201,168,76,0.15),rgba(201,168,76,0.05));
+  border:1.5px solid rgba(201,168,76,0.3);color:var(--gold-2)
+}
+.step-content-title{font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:700;color:var(--white);margin-bottom:3px}
+.step-content-desc{font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--muted);font-weight:300;line-height:1.5}
+
+/* CONTACT CARDS COLUMN */
+.contact-right{display:flex;flex-direction:column;gap:14px;animation:fadeInUp 0.8s ease 0.25s both}
+
+/* WHATSAPP PRIMARY CARD */
+.wa-card{
+  border-radius:16px;padding:1.8rem;position:relative;overflow:hidden;cursor:pointer;
+  background:linear-gradient(135deg,rgba(37,211,102,0.08),rgba(37,211,102,0.03));
+  border:1.5px solid rgba(37,211,102,0.3);
+  transition:all 0.4s var(--r)
+}
+.wa-card:hover{transform:translateY(-3px);border-color:rgba(37,211,102,0.55);box-shadow:0 20px 50px rgba(0,0,0,0.5),0 0 40px rgba(37,211,102,0.1)}
+.wa-card-glow{position:absolute;bottom:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(37,211,102,0.06);filter:blur(30px);pointer-events:none}
+.wa-card-header{display:flex;align-items:center;gap:12px;margin-bottom:1rem}
+.wa-icon{width:48px;height:48px;border-radius:14px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.25);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
+.wa-card-title{font-family:'Syne',sans-serif;font-size:0.82rem;font-weight:700;color:var(--white);letter-spacing:0.02em}
+.wa-card-sub{font-family:'DM Sans',sans-serif;font-size:0.68rem;color:#4ade80;font-weight:400}
+.wa-card-desc{font-family:'DM Sans',sans-serif;font-size:0.78rem;color:var(--sub);font-weight:300;line-height:1.65;margin-bottom:1.2rem}
+.wa-badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.2rem}
+.wa-badge{padding:4px 10px;border-radius:100px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);font-family:'Syne',sans-serif;font-size:0.56rem;font-weight:600;color:#4ade80;letter-spacing:0.08em}
+.wa-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  padding:13px;border-radius:10px;
+  background:linear-gradient(135deg,#1a8a3c,#25d366);color:#fff;
+  font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;letter-spacing:0.04em;
+  border:none;cursor:pointer;transition:all 0.3s
+}
+.wa-btn:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(37,211,102,0.3)}
+
+/* PHONE CARD */
+.phone-card{
+  border-radius:14px;padding:1.4rem;
+  background:rgba(59,130,246,0.04);border:1px solid rgba(59,130,246,0.2);
+  cursor:pointer;transition:all 0.3s
+}
+.phone-card:hover{border-color:rgba(59,130,246,0.4);transform:translateY(-2px)}
+.phone-card-header{display:flex;align-items:center;gap:10px;margin-bottom:0.8rem}
+.phone-icon{width:40px;height:40px;border-radius:11px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);display:flex;align-items:center;justify-content:center;font-size:1.1rem}
+.phone-card-title{font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;color:var(--white)}
+.phone-card-num{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:600;color:#60a5fa;margin-bottom:3px}
+.phone-card-time{font-family:'DM Sans',sans-serif;font-size:0.65rem;color:var(--muted);font-weight:300}
+.phone-call-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:10px;margin-top:0.8rem;border-radius:9px;
+  background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);
+  color:#60a5fa;font-family:'Syne',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.06em;cursor:pointer;transition:all 0.3s
+}
+.phone-call-btn:hover{background:rgba(59,130,246,0.18);border-color:rgba(59,130,246,0.5)}
+
+/* EMAIL CARD */
+.email-card{
+  border-radius:14px;padding:1.4rem;
+  background:rgba(255,255,255,0.02);border:1px solid var(--border);
+  cursor:pointer;transition:all 0.3s
+}
+.email-card:hover{border-color:var(--gold-border);transform:translateY(-2px)}
+.email-card-header{display:flex;align-items:center;gap:10px;margin-bottom:0.6rem}
+.email-icon{width:40px;height:40px;border-radius:11px;background:rgba(201,168,76,0.08);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;font-size:1.1rem}
+.email-card-title{font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;color:var(--white)}
+.email-addr{font-family:'DM Sans',sans-serif;font-size:0.8rem;color:var(--gold-2);margin-bottom:3px}
+.email-resp{font-family:'DM Sans',sans-serif;font-size:0.65rem;color:var(--muted);font-weight:300}
+
+/* FORM SECTION */
+#form-section{padding:5rem 0;border-bottom:1px solid var(--border)}
+.form-section-inner{display:grid;grid-template-columns:1fr 1.2fr;gap:5rem;align-items:start}
+
+/* LEFT INFO */
+.form-left h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.8rem,3vw,2.8rem);font-weight:300;line-height:1.2;margin-bottom:1rem}
+.form-left h2 em{font-style:italic;background:linear-gradient(135deg,#A88932,#C9A84C 50%,#F5D688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.form-left p{font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--sub);font-weight:300;line-height:1.75;margin-bottom:2rem}
+
+/* WHAT YOU GET */
+.what-you-get{display:flex;flex-direction:column;gap:12px}
+.wyg-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border)}
+.wyg-icon{font-size:1.2rem;flex-shrink:0;margin-top:1px}
+.wyg-title{font-family:'Syne',sans-serif;font-size:0.7rem;font-weight:700;color:var(--white);margin-bottom:2px}
+.wyg-desc{font-family:'DM Sans',sans-serif;font-size:0.68rem;color:var(--muted);font-weight:300;line-height:1.5}
+
+/* FORM BOX */
+.form-box{
+  background:rgba(10,10,9,0.8);border:1px solid var(--gold-border);
+  border-radius:20px;padding:2.2rem;position:relative;overflow:hidden;
+  box-shadow:0 0 60px rgba(201,168,76,0.04),0 30px 80px rgba(0,0,0,0.4)
+}
+.form-box::before{
+  content:'';position:absolute;inset:0;border-radius:20px;
+  background:radial-gradient(ellipse at 50% 0%,rgba(201,168,76,0.05),transparent 60%);
+  pointer-events:none
+}
+.form-box-title{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:600;color:var(--white);margin-bottom:0.4rem;position:relative}
+.form-box-sub{font-family:'DM Sans',sans-serif;font-size:0.75rem;color:var(--muted);font-weight:300;margin-bottom:1.8rem;position:relative}
+.form-group{margin-bottom:1.1rem;position:relative}
+.form-label{display:block;font-family:'Syne',sans-serif;font-size:0.6rem;font-weight:700;color:var(--gold-2);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px}
+.form-input,.form-select,.form-textarea{
+  width:100%;padding:11px 14px;border-radius:10px;
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);
+  color:var(--white);font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:300;
+  outline:none;transition:all 0.25s
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{
+  border-color:rgba(201,168,76,0.35);background:rgba(255,255,255,0.04);
+  box-shadow:0 0 0 3px rgba(201,168,76,0.06)
+}
+.form-input::placeholder,.form-textarea::placeholder{color:var(--muted)}
+.form-select{appearance:none;cursor:pointer}
+.form-select option{background:#111;color:var(--white)}
+.form-textarea{resize:vertical;min-height:90px;line-height:1.6}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-hint{font-family:'DM Sans',sans-serif;font-size:0.62rem;color:var(--muted);font-weight:300;margin-top:5px}
+.form-required{color:rgba(239,68,68,0.7);margin-left:2px}
+
+/* RATE PREVIEW */
+.rate-preview{
+  background:rgba(201,168,76,0.04);border:1px solid var(--gold-border);
+  border-radius:10px;padding:12px 14px;margin-bottom:1rem;
+  display:none
+}
+.rate-preview.visible{display:block}
+.rate-preview-title{font-family:'Syne',sans-serif;font-size:0.58rem;font-weight:700;color:var(--gold-2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px}
+.rate-preview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rate-preview-item{text-align:center;padding:8px;border-radius:7px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05)}
+.rate-preview-val{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:700;color:var(--gold-2)}
+.rate-preview-lbl{font-family:'Syne',sans-serif;font-size:0.5rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-top:2px}
+
+/* SUBMIT */
+.form-submit{
+  width:100%;padding:14px;border-radius:11px;margin-top:0.8rem;cursor:pointer;
+  background:linear-gradient(135deg,#7A5C17,#C9A84C 50%,#E8C76B);
+  color:#0A0809;font-family:'Syne',sans-serif;font-size:0.82rem;font-weight:800;
+  letter-spacing:0.04em;border:none;transition:all 0.35s;position:relative;overflow:hidden
+}
+.form-submit::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);transform:translateX(-100%);transition:transform 0.6s}
+.form-submit:hover::before{transform:translateX(100%)}
+.form-submit:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(201,168,76,0.35)}
+.form-submit:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.form-privacy{font-family:'DM Sans',sans-serif;font-size:0.62rem;color:var(--muted);font-weight:300;text-align:center;margin-top:10px;line-height:1.5}
+
+/* TRUST BADGES */
+.trust-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:1rem}
+.trust-badge{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;background:rgba(255,255,255,0.02);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:0.55rem;font-weight:600;color:var(--muted);letter-spacing:0.06em}
+.trust-badge-icon{font-size:0.8rem}
+
+/* FAQ */
+#faq{padding:5rem 0}
+.faq-header{text-align:center;margin-bottom:3rem}
+.faq-header h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.8rem,3vw,2.5rem);font-weight:300;margin-bottom:0.5rem}
+.faq-header p{font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--sub);font-weight:300}
+.faq-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px;margin:0 auto}
+.faq-item{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;cursor:pointer;overflow:hidden;transition:border-color 0.3s}
+.faq-item.open{border-color:var(--gold-border)}
+.faq-q{padding:1.1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.faq-q-text{font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:700;color:var(--white);line-height:1.4}
+.faq-toggle{width:24px;height:24px;border-radius:50%;background:rgba(201,168,76,0.08);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;color:var(--gold-2);transition:transform 0.3s}
+.faq-item.open .faq-toggle{transform:rotate(45deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height 0.4s var(--r)}
+.faq-item.open .faq-a{max-height:200px}
+.faq-a-inner{padding:0 1.2rem 1.2rem;font-family:'DM Sans',sans-serif;font-size:0.75rem;color:var(--muted);font-weight:300;line-height:1.7}
+
+/* SUCCESS STATE */
+.success-overlay{
+  position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.9);backdrop-filter:blur(15px);
+  opacity:0;pointer-events:none;transition:opacity 0.4s
+}
+.success-overlay.show{opacity:1;pointer-events:all}
+.success-box{
+  text-align:center;padding:3rem;border-radius:24px;
+  background:rgba(10,10,9,0.98);border:1px solid rgba(34,197,94,0.3);
+  max-width:420px;width:90%;
+  box-shadow:0 0 60px rgba(34,197,94,0.1),0 40px 100px rgba(0,0,0,0.8)
+}
+.success-icon{font-size:3rem;margin-bottom:1rem;animation:float-y 3s ease-in-out infinite}
+.success-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:600;color:#4ade80;margin-bottom:0.6rem}
+.success-sub{font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--sub);font-weight:300;line-height:1.65;margin-bottom:1.5rem}
+.success-wa-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  padding:13px;border-radius:11px;
+  background:linear-gradient(135deg,#1a8a3c,#25d366);color:#fff;
+  font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;letter-spacing:0.04em;
+  border:none;cursor:pointer;transition:all 0.3s;margin-bottom:10px
+}
+.success-wa-btn:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(37,211,102,0.3)}
+.success-home-btn{display:block;font-family:'Syne',sans-serif;font-size:0.68rem;color:var(--muted);letter-spacing:0.06em;cursor:pointer;padding:8px;transition:color 0.2s}
+.success-home-btn:hover{color:var(--white)}
+
+/* FOOTER */
+.page-footer{padding:2.5rem 0;border-top:1px solid var(--border)}
+.footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.footer-inner p{font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--muted);font-weight:300}
+.footer-links{display:flex;gap:1.5rem}
+.footer-links a{font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--muted);transition:color 0.2s}
+.footer-links a:hover{color:var(--white)}
+
+@media(max-width:900px){
+  .hero-inner{grid-template-columns:1fr}
+  .form-section-inner{grid-template-columns:1fr}
+  .faq-grid{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .rate-preview-grid{grid-template-columns:1fr 1fr}
+  .trust-row{gap:6px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-back">← GuestInn Network</a>
+  <div class="nav-logo">
+    <div class="nav-logo-main">♛ The GuestInn</div>
+    <div class="nav-logo-sub">Network</div>
+  </div>
+  <div class="network-badge">
+    <span class="net-dot"></span>
+    Network Online
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="contact-hero">
+  <div class="hero-bg-radial"></div>
+  <div class="hero-bg-radial-2"></div>
+  <div class="wrap">
+    <div class="hero-inner">
+
+      <!-- LEFT -->
+      <div>
+        <div class="hero-eyebrow">🏨 Hotelier Onboarding</div>
+        <h1 class="hero-h1">Apna Hotel<br/><em>GuestInn Network</em><br/>mein List Karo</h1>
+        <p class="hero-sub">Zero commission. Direct bookings. AI Receptionist. 93,748+ rooms pehle se live hain — aapki baari hai.</p>
+
+        <!-- HOW IT WORKS -->
+        <div class="how-steps">
+          <div class="how-step">
+            <div class="step-num">01</div>
+            <div>
+              <div class="step-content-title">Form Fill Karo ya WhatsApp Karo</div>
+              <div class="step-content-desc">Neeche form fill karo ya directly WhatsApp pe message karo. Dono equally fast hain.</div>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="step-num">02</div>
+            <div>
+              <div class="step-content-title">24 Hours mein Team Contact Karegi</div>
+              <div class="step-content-desc">Hamaari team aapko call karti hai, hotel verify karti hai, aur onboarding start karti hai.</div>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="step-num">03</div>
+            <div>
+              <div class="step-content-title">Live Ho Jao — Same Day</div>
+              <div class="step-content-desc">Aapka hotel GuestInn Network pe live ho jaata hai. Direct bookings aur AI Receptionist activate ho jaati hai.</div>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="step-num">04</div>
+            <div>
+              <div class="step-content-title">Dashboard se Sab Control Karo</div>
+              <div class="step-content-desc">Rates, rooms, availability, bookings — sab aapke dashboard se real-time control hoga.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT — CONTACT OPTIONS -->
+      <div class="contact-right">
+
+        <!-- WHATSAPP — PRIMARY -->
+        <div class="wa-card" onclick="openWhatsApp()">
+          <div class="wa-card-glow"></div>
+          <div class="wa-card-header">
+            <div class="wa-icon">📱</div>
+            <div>
+              <div class="wa-card-title">Fastest: WhatsApp pe Message Karo</div>
+              <div class="wa-card-sub">⚡ Usually replies in under 10 minutes</div>
+            </div>
+          </div>
+          <div class="wa-card-desc">Seedha WhatsApp pe apna hotel naam, city, aur contact number bhejo. Baaki hamaari team sambhal legi.</div>
+          <div class="wa-badge-row">
+            <div class="wa-badge">✓ Zero Paperwork</div>
+            <div class="wa-badge">✓ Instant Response</div>
+            <div class="wa-badge">✓ Hinglish OK</div>
+          </div>
+          <button class="wa-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            WhatsApp pe Abhi Message Karo →
+          </button>
+        </div>
+
+        <!-- PHONE -->
+        <div class="phone-card" onclick="callUs()">
+          <div class="phone-card-header">
+            <div class="phone-icon">📞</div>
+            <div>
+              <div class="phone-card-title">Direct Call Karo</div>
+              <div class="phone-card-num" id="display-phone">+91 95758 77759</div>
+              <div class="phone-card-time">Mon–Sat · 9 AM – 8 PM IST</div>
+            </div>
+          </div>
+          <button class="phone-call-btn">
+            📞 Tap to Call — Seedha Baat Karo
+          </button>
+        </div>
+
+        <!-- EMAIL -->
+        <div class="email-card" onclick="openEmail()">
+          <div class="email-card-header">
+            <div class="email-icon">✉️</div>
+            <div>
+              <div class="email-card-title">Email Karo</div>
+              <div class="email-addr">ops@theguestinn.ai</div>
+              <div class="email-resp">Response within 4 hours on business days</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FORM SECTION -->
+<section id="form-section">
+  <div class="wrap">
+    <div class="form-section-inner">
+
+      <!-- LEFT — WHAT YOU GET -->
+      <div>
+        <div class="eyebrow-tag" style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:100px;background:var(--gold-dim);border:1px solid var(--gold-border);font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold-2);margin-bottom:1.5rem">
+          <span style="width:5px;height:5px;border-radius:50%;background:var(--gold);display:block"></span>
+          Free Mein Milega
+        </div>
+        <h2 style="font-family:'Cormorant Garamond',serif;font-size:clamp(1.8rem,3vw,2.5rem);font-weight:300;line-height:1.2;margin-bottom:1rem">Join karte hi ye sab<br/><em style="font-style:italic;background:linear-gradient(135deg,#A88932,#C9A84C 50%,#F5D688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">activate ho jaata hai</em></h2>
+        <p style="font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--sub);font-weight:300;line-height:1.7;margin-bottom:2rem">Koi hidden charges nahi. Koi contract nahi. Koi hardware nahi. Sirf results.</p>
+        <div class="what-you-get">
+          <div class="wyg-item">
+            <div class="wyg-icon">🏨</div>
+            <div>
+              <div class="wyg-title">Branded Hotel Listing Page</div>
+              <div class="wyg-desc">Aapka hotel GuestInn Network pe live ho jaata hai — photos, rooms, rates, amenities ke saath. Direct booking link milta hai.</div>
+            </div>
+          </div>
+          <div class="wyg-item">
+            <div class="wyg-icon">🤖</div>
+            <div>
+              <div class="wyg-title">AI Receptionist — 24/7</div>
+              <div class="wyg-desc">WhatsApp, calls, aur online queries automatically handle hoti hain. Raat 3 baje bhi guest ka jawab milta hai.</div>
+            </div>
+          </div>
+          <div class="wyg-item">
+            <div class="wyg-icon">📊</div>
+            <div>
+              <div class="wyg-title">Owner Dashboard with Rate Control</div>
+              <div class="wyg-desc">Room rates, availability, aur bookings — sab aap real-time mein apne dashboard se control karte ho. Koi bhi rate change sirf aap kar sakte ho.</div>
+            </div>
+          </div>
+          <div class="wyg-item">
+            <div class="wyg-icon">🔒</div>
+            <div>
+              <div class="wyg-title">Revenue Protection Shield</div>
+              <div class="wyg-desc">Anti-theft rate locking, encrypted audit logs, aur har transaction pe WhatsApp alert — owner, manager, aur guest teeno ko.</div>
+            </div>
+          </div>
+          <div class="wyg-item">
+            <div class="wyg-icon">🚫</div>
+            <div>
+              <div class="wyg-title">Zero OTA Commission Forever</div>
+              <div class="wyg-desc">Jo bookings GuestInn Network ke through aayengi, unpe koi commission nahi. 100% revenue aapka.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT — FORM -->
+      <div>
+        <div class="form-box" id="listing-form-box">
+          <div class="form-box-title">Hotel Listing Form</div>
+          <div class="form-box-sub">Sab fields fill karo — 2 minutes mein complete ho jaayega</div>
+
+          <!-- HOTEL INFO -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Hotel Name <span class="form-required">*</span></label>
+              <input class="form-input" id="f-name" type="text" placeholder="e.g. Hotel Cherry Bhopal" oninput="updateRatePreview()"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">City <span class="form-required">*</span></label>
+              <input class="form-input" id="f-city" type="text" placeholder="e.g. Bhopal, Indore"/>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Full Address</label>
+            <input class="form-input" id="f-address" type="text" placeholder="Street, Area, Landmark"/>
+          </div>
+
+          <!-- OWNER INFO -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Owner Name <span class="form-required">*</span></label>
+              <input class="form-input" id="f-owner" type="text" placeholder="Aapka poora naam"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">WhatsApp Number <span class="form-required">*</span></label>
+              <input class="form-input" id="f-phone" type="tel" placeholder="+91 98765 43210" oninput="formatPhone(this)"/>
+            </div>
+          </div>
+
+          <!-- HOTEL DETAILS -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Total Rooms <span class="form-required">*</span></label>
+              <select class="form-select" id="f-rooms">
+                <option value="">Select capacity</option>
+                <option value="1-10">1 – 10 Rooms</option>
+                <option value="11-20">11 – 20 Rooms</option>
+                <option value="21-50">21 – 50 Rooms</option>
+                <option value="51-100">51 – 100 Rooms</option>
+                <option value="100+">100+ Rooms</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hotel Category</label>
+              <select class="form-select" id="f-category">
+                <option value="budget">Budget / 1 Star</option>
+                <option value="2star">2 Star</option>
+                <option value="3star" selected>3 Star</option>
+                <option value="4star">4 Star</option>
+                <option value="5star">5 Star / Luxury</option>
+                <option value="boutique">Boutique</option>
+                <option value="heritage">Heritage</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- RATES -->
+          <div class="form-group">
+            <label class="form-label">Room Rates (₹ per night)</label>
+            <div class="form-row" style="gap:8px">
+              <div>
+                <input class="form-input" id="f-rate-std" type="number" placeholder="Standard" oninput="updateRatePreview()" style="font-size:0.78rem"/>
+                <div class="form-hint">Standard</div>
+              </div>
+              <div>
+                <input class="form-input" id="f-rate-dlx" type="number" placeholder="Deluxe" oninput="updateRatePreview()" style="font-size:0.78rem"/>
+                <div class="form-hint">Deluxe</div>
+              </div>
+              <div>
+                <input class="form-input" id="f-rate-ste" type="number" placeholder="Suite (opt.)" oninput="updateRatePreview()" style="font-size:0.78rem"/>
+                <div class="form-hint">Suite</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RATE PREVIEW -->
+          <div class="rate-preview" id="rate-preview">
+            <div class="rate-preview-title">📊 Rate Preview — Live on GuestInn</div>
+            <div class="rate-preview-grid">
+              <div class="rate-preview-item">
+                <div class="rate-preview-val" id="rp-std">—</div>
+                <div class="rate-preview-lbl">Standard</div>
+              </div>
+              <div class="rate-preview-item">
+                <div class="rate-preview-val" id="rp-dlx">—</div>
+                <div class="rate-preview-lbl">Deluxe</div>
+              </div>
+              <div class="rate-preview-item">
+                <div class="rate-preview-val" id="rp-ste">—</div>
+                <div class="rate-preview-lbl">Suite</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AMENITIES -->
+          <div class="form-group">
+            <label class="form-label">Key Amenities</label>
+            <div style="display:flex;flex-wrap:wrap;gap:7px" id="amenities-container">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <!-- MESSAGE -->
+          <div class="form-group">
+            <label class="form-label">Additional Info (Optional)</label>
+            <textarea class="form-textarea" id="f-message" placeholder="Kuch special batana chahte hain? Nearby landmark, special services, ya koi specific requirement?"></textarea>
+          </div>
+
+          <!-- SUBMIT -->
+          <button class="form-submit" id="form-submit-btn" onclick="submitForm()">
+            🚀 Free Listing Submit Karo →
+          </button>
+
+          <div class="form-privacy">🔒 Aapki information safe hai. Kabhi kisi third party ko share nahi ki jaayegi.</div>
+
+          <div class="trust-row">
+            <div class="trust-badge"><span class="trust-badge-icon">✓</span> Zero Commission</div>
+            <div class="trust-badge"><span class="trust-badge-icon">⚡</span> 24hr Onboarding</div>
+            <div class="trust-badge"><span class="trust-badge-icon">🔒</span> No Contract</div>
+            <div class="trust-badge"><span class="trust-badge-icon">🆓</span> Free Forever</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="faq-header">
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:100px;background:var(--gold-dim);border:1px solid var(--gold-border);font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold-2);margin-bottom:1rem">
+        <span style="width:5px;height:5px;border-radius:50%;background:var(--gold);display:block"></span>
+        Common Questions
+      </div>
+      <h2>Aapke Sawaal,<br/><em style="font-style:italic;background:linear-gradient(135deg,#A88932,#C9A84C 50%,#F5D688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Hamare Jawab</em></h2>
+      <p>Koi confusion ho toh WhatsApp karo — seedha jawab milega.</p>
+    </div>
+    <div class="faq-grid" id="faq-grid">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- SUCCESS OVERLAY -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-box">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">Submission Successful!</div>
+    <div class="success-sub" id="success-msg">Aapki request receive ho gayi hai. Hamaari team 24 hours mein contact karegi. WhatsApp pe bhi confirm message aayega.</div>
+    <button class="success-wa-btn" id="success-wa-btn" onclick="openSuccessWhatsApp()">
+      📱 WhatsApp pe bhi Confirm Karo
+    </button>
+    <a href="/" class="success-home-btn">← GuestInn Network Home</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="page-footer">
+      <div class="footer-inner">
+        <p>© 2026 The GuestInn Network · ops@theguestinn.ai</p>
+        <div class="footer-links">
+          <a href="/">Home</a>
+          <a href="/blogs/index.html">Blog</a>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ═══════════════════════════════
+   CONFIG — Update karo yahan
+═══════════════════════════════ */
+const OWNER_WHATSAPP = '919575877759';
+const OWNER_EMAIL    = 'ops@theguestinn.ai';
+const OWNER_PHONE    = '+919575877759';
+
+/* ═══════════════════════════════
+   AMENITIES SELECTOR
+═══════════════════════════════ */
+const AMENITIES_LIST = [
+  { label: 'Free Wi-Fi', icon: '📶' },
+  { label: 'AC Rooms', icon: '❄️' },
+  { label: 'Parking', icon: '🚗' },
+  { label: 'Restaurant', icon: '🍽️' },
+  { label: 'Room Service', icon: '🛎️' },
+  { label: 'Hot Water', icon: '🚿' },
+  { label: 'Complimentary Breakfast', icon: '☕' },
+  { label: 'Pool', icon: '🏊' },
+  { label: 'CCTV Security', icon: '📹' },
+  { label: 'Generator Backup', icon: '⚡' },
+  { label: 'Laundry', icon: '👕' },
+  { label: 'Airport Transfer', icon: '✈️' },
+];
+
+let selectedAmenities = new Set(['Free Wi-Fi', 'AC Rooms']);
+
+function buildAmenities() {
+  const container = document.getElementById('amenities-container');
+  if (!container) return;
+  container.innerHTML = AMENITIES_LIST.map(a => `
+    <div onclick="toggleAmenity('${a.label}', this)" style="
+      padding:6px 12px;border-radius:100px;cursor:pointer;transition:all 0.25s;
+      font-family:'Syne',sans-serif;font-size:0.58rem;font-weight:600;letter-spacing:0.04em;
+      display:flex;align-items:center;gap:5px;user-select:none;
+      background:${selectedAmenities.has(a.label) ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.02)'};
+      border:1px solid ${selectedAmenities.has(a.label) ? 'rgba(201,168,76,0.35)' : 'rgba(255,255,255,0.07)'};
+      color:${selectedAmenities.has(a.label) ? 'var(--gold-2)' : 'var(--muted)'}
+    " data-amenity="${a.label}">
+      <span>${a.icon}</span> ${a.label}
+    </div>
+  `).join('');
+}
+
+function toggleAmenity(label, el) {
+  if (selectedAmenities.has(label)) {
+    selectedAmenities.delete(label);
+    el.style.background = 'rgba(255,255,255,0.02)';
+    el.style.borderColor = 'rgba(255,255,255,0.07)';
+    el.style.color = 'var(--muted)';
+  } else {
+    selectedAmenities.add(label);
+    el.style.background = 'rgba(201,168,76,0.12)';
+    el.style.borderColor = 'rgba(201,168,76,0.35)';
+    el.style.color = 'var(--gold-2)';
+  }
+}
+
+/* ═══════════════════════════════
+   RATE PREVIEW
+═══════════════════════════════ */
+function updateRatePreview() {
+  const std = document.getElementById('f-rate-std').value;
+  const dlx = document.getElementById('f-rate-dlx').value;
+  const ste = document.getElementById('f-rate-ste').value;
+  const preview = document.getElementById('rate-preview');
+  if (std || dlx || ste) {
+    preview.classList.add('visible');
+    document.getElementById('rp-std').textContent = std ? '₹' + parseInt(std).toLocaleString('en-IN') : '—';
+    document.getElementById('rp-dlx').textContent = dlx ? '₹' + parseInt(dlx).toLocaleString('en-IN') : '—';
+    document.getElementById('rp-ste').textContent = ste ? '₹' + parseInt(ste).toLocaleString('en-IN') : '—';
+  } else {
+    preview.classList.remove('visible');
+  }
+}
+
+/* ═══════════════════════════════
+   PHONE FORMAT
+═══════════════════════════════ */
+function formatPhone(input) {
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 10 && !v.startsWith('91')) v = v.slice(-10);
+  input.value = v.length === 10 ? '+91 ' + v.slice(0,5) + ' ' + v.slice(5) : input.value;
+}
+
+/* ═══════════════════════════════
+   FORM SUBMIT
+═══════════════════════════════ */
+function submitForm() {
+  const name    = document.getElementById('f-name').value.trim();
+  const city    = document.getElementById('f-city').value.trim();
+  const owner   = document.getElementById('f-owner').value.trim();
+  const phone   = document.getElementById('f-phone').value.trim();
+  const rooms   = document.getElementById('f-rooms').value;
+  const cat     = document.getElementById('f-category').value;
+  const stdRate = document.getElementById('f-rate-std').value;
+  const dlxRate = document.getElementById('f-rate-dlx').value;
+  const steRate = document.getElementById('f-rate-ste').value;
+  const address = document.getElementById('f-address').value.trim();
+  const message = document.getElementById('f-message').value.trim();
+
+  if (!name) { highlight('f-name', 'Hotel name required'); return; }
+  if (!city) { highlight('f-city', 'City required'); return; }
+  if (!owner) { highlight('f-owner', 'Owner name required'); return; }
+  if (!phone) { highlight('f-phone', 'WhatsApp number required'); return; }
+  if (!rooms) { document.getElementById('f-rooms').focus(); alert('Total rooms select karo'); return; }
+
+  const btn = document.getElementById('form-submit-btn');
+  btn.textContent = '⏳ Submitting...';
+  btn.disabled = true;
+
+  // Save to localStorage (mirrors hotelConfig.js)
+  try {
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').slice(0,20) + '-' + Date.now().toString(36);
+    const registry = JSON.parse(localStorage.getItem('air_hotel_registry') || '[]');
+    const hotelEntry = {
+      id, name, location: city, address,
+      ownerName: owner, ownerPhone: phone,
+      totalRooms: rooms, category: cat,
+      amenities: [...selectedAmenities],
+      rates: {
+        standard: parseInt(stdRate) || 1500,
+        deluxe: parseInt(dlxRate) || 2500,
+        suite: parseInt(steRate) || 4500
+      },
+      plan: 'free',
+      status: 'pending_review',
+      createdAt: new Date().toISOString()
+    };
+    registry.push({ id, name, createdAt: hotelEntry.createdAt });
+    localStorage.setItem('air_hotel_registry', JSON.stringify(registry));
+    localStorage.setItem('air_hotel_' + id, JSON.stringify(hotelEntry));
+  } catch(e) { console.error(e); }
+
+  // Prepare WhatsApp message
+  const amenitiesList = [...selectedAmenities].join(', ');
+  window._pendingWaMsg = `New Hotel Listing — GuestInn Network%0A%0A` +
+    `🏨 Hotel: ${encodeURIComponent(name)}%0A` +
+    `📍 City: ${encodeURIComponent(city)}%0A` +
+    `📮 Address: ${encodeURIComponent(address || 'Not provided')}%0A` +
+    `👤 Owner: ${encodeURIComponent(owner)}%0A` +
+    `📱 Phone: ${encodeURIComponent(phone)}%0A` +
+    `🛏️ Rooms: ${encodeURIComponent(rooms)}%0A` +
+    `⭐ Category: ${encodeURIComponent(cat)}%0A` +
+    `💰 Rates: Std ₹${stdRate||'?'}, Dlx ₹${dlxRate||'?'}, Suite ₹${steRate||'?'}%0A` +
+    `✅ Amenities: ${encodeURIComponent(amenitiesList)}%0A` +
+    (message ? `📝 Notes: ${encodeURIComponent(message)}` : '');
+
+  setTimeout(() => {
+    // Update success message
+    document.getElementById('success-msg').textContent =
+      `${name} ki listing request receive ho gayi, ${owner} ji! Hamaari team 24 hours mein +91 number se contact karegi. WhatsApp pe bhi confirm bheja ja raha hai.`;
+    document.getElementById('success-overlay').classList.add('show');
+    btn.textContent = '🚀 Free Listing Submit Karo →';
+    btn.disabled = false;
+  }, 1400);
+}
+
+function openSuccessWhatsApp() {
+  if (window._pendingWaMsg) {
+    window.open(`https://wa.me/${OWNER_WHATSAPP}?text=${window._pendingWaMsg}`, '_blank');
+  }
+}
+
+function highlight(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.focus();
+  el.style.borderColor = 'rgba(239,68,68,0.5)';
+  el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.1)';
+  setTimeout(() => { el.style.borderColor = ''; el.style.boxShadow = ''; }, 2500);
+  alert(msg);
+}
+
+/* ═══════════════════════════════
+   CONTACT ACTIONS
+═══════════════════════════════ */
+function openWhatsApp() {
+  const preMsg = 'Namaste! Main apna hotel GuestInn Network mein list karna chahta hoon. Kya aap mujhe onboarding process batayenge?';
+  window.open(`https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(preMsg)}`, '_blank');
+}
+function callUs() {
+  window.location.href = 'tel:' + OWNER_PHONE;
+}
+function openEmail() {
+  window.location.href = 'mailto:' + OWNER_EMAIL + '?subject=Hotel%20Listing%20Request%20—%20GuestInn%20Network&body=Namaste!%20Main%20apna%20hotel%20list%20karna%20chahta%20hoon.%0A%0AHotel%20Name:%20%0ACity:%20%0AOwner%20Name:%20%0APhone:%20';
+}
+
+/* ═══════════════════════════════
+   FAQ
+═══════════════════════════════ */
+const FAQ_DATA = [
+  {
+    q: "Kya listing bilkul free hai? Koi hidden charge toh nahi?",
+    a: "Haan, GuestInn Network pe listing 100% free hai. Koi setup charge, monthly fee, ya hidden cost nahi hai. Sirf direct bookings pe koi commission nahi liya jaata."
+  },
+  {
+    q: "OTA pe already listed hoon — kya problem aayegi?",
+    a: "Bilkul nahi. Aap OTA pe listed rehte huye bhi GuestInn Network mein join kar sakte ho. Dono parallel chal sakte hain. Hum aapko gradually direct bookings badhane mein help karte hain."
+  },
+  {
+    q: "Mujhe apne rates kaise control karne honge?",
+    a: "Aapko ek dedicated owner dashboard milega jahan se aap standard, deluxe, aur suite ke rates real-time mein update kar sakte ho. Ye changes instantly live ho jaate hain GuestInn Network pe."
+  },
+  {
+    q: "AI Receptionist kya karta hai exactly?",
+    a: "AI Receptionist aapke hotel ke liye 24/7 WhatsApp aur calls handle karta hai. Room availability, pricing, booking confirmation — sab automate ho jaata hai bina aapko kuch kiye."
+  },
+  {
+    q: "Kya mujhe koi hardware ya software install karna padega?",
+    a: "Nahi. GuestInn Network cloud-based hai. Sirf ek smartphone aur internet chahiye. Koi app download, koi hardware purchase, koi technical setup nahi."
+  },
+  {
+    q: "Listing approve hone mein kitna time lagta hai?",
+    a: "Usually 24 hours. Hamaari team aapko call karegi, basic verification karegi, aur same day listing live kar degi. WhatsApp se fast hota hai — 2-4 ghante mein bhi ho sakta hai."
+  },
+  {
+    q: "Kya main baad mein apna hotel remove kar sakta hoon?",
+    a: "Haan, bilkul. Koi lock-in nahi hai. Aap kabhi bhi apni listing pause ya remove kar sakte ho — koi notice period ya penalty nahi."
+  },
+  {
+    q: "Guest payment seedha hotel ko milega ya GuestInn ke through?",
+    a: "Payment seedha aapko milegi — UPI, cash, ya card se. GuestInn Network payment ke beech mein nahi aata. Aapka pura revenue, aapka control."
+  }
+];
+
+function buildFAQ() {
+  const grid = document.getElementById('faq-grid');
+  if (!grid) return;
+  grid.innerHTML = FAQ_DATA.map((item, i) => `
+    <div class="faq-item" id="faq-${i}" onclick="toggleFAQ(${i})">
+      <div class="faq-q">
+        <div class="faq-q-text">${item.q}</div>
+        <div class="faq-toggle">+</div>
+      </div>
+      <div class="faq-a">
+        <div class="faq-a-inner">${item.a}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleFAQ(idx) {
+  const item = document.getElementById('faq-' + idx);
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+
+/* ═══════════════════════════════
+   INIT
+═══════════════════════════════ */
+buildAmenities();
+buildFAQ();
+</script>
+</body>
+</html>
