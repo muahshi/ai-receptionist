@@ -86,7 +86,8 @@ Rules: name=full name, dob=DD/MM/YYYY, idNumber=exact number on card, idType=one
 
     // ── GUEST CHATBOT ────────────────────────────────────────────
     if (type === "chat") {
-      const systemPrompt = `You are a friendly AI receptionist for "${hotelConfig?.name || "The GuestInn"}" hotel located in ${hotelConfig?.location || "India"}.
+      // systemOverride allows marketplace/negotiator to pass custom prompt
+      const systemPrompt = body.systemOverride || `You are a friendly AI receptionist for "${hotelConfig?.name || "The GuestInn"}" hotel located in ${hotelConfig?.location || "India"}.
 
 Your job: Help guests book rooms, answer questions, collect their details.
 
