@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Blog — The GuestInn Network | Hotel Intelligence</title>
+<meta name="description" content="GuestInn Network ke hotel intelligence blogs — revenue strategy, AI technology, pricing, aur operations ke baare mein real knowledge."/>
+<link rel="canonical" href="https://theguestinn.network/blogs/"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,300;0,9..40,400;0,9..40,500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-2:#E8C76B;--gold-3:#F5D688;--gold-4:#A88932;
+  --gold-glow:rgba(201,168,76,0.35);--gold-dim:rgba(201,168,76,0.08);
+  --gold-border:rgba(201,168,76,0.18);
+  --obsidian:#0A0A09;--obsidian-2:#0D0D0B;
+  --frost:rgba(255,255,255,0.02);--frost-2:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.06);
+  --white:#FAFAF8;--muted:rgba(250,250,248,0.42);--sub:rgba(250,250,248,0.68);
+  --green:#22c55e;--r:cubic-bezier(0.16,1,0.3,1)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--obsidian);color:var(--white);font-family:'DM Sans',sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:var(--obsidian)}
+::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.25);border-radius:3px}
+a{text-decoration:none;color:inherit}
+img{max-width:100%;display:block}
+
+.wrap{max-width:1200px;margin:0 auto;padding:0 clamp(1.5rem,5vw,4rem)}
+
+/* NAV */
+nav{
+  position:sticky;top:0;z-index:100;height:66px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 clamp(1.5rem,5vw,4rem);
+  background:rgba(10,10,9,0.92);border-bottom:1px solid var(--gold-border);
+  backdrop-filter:blur(30px)
+}
+.nav-logo-text{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:600;color:var(--gold-2)}
+.nav-logo-sub{font-family:'Syne',sans-serif;font-size:0.5rem;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase}
+.nav-back{display:flex;align-items:center;gap:6px;font-family:'Syne',sans-serif;font-size:0.68rem;font-weight:500;color:var(--muted);letter-spacing:0.06em;transition:color 0.2s}
+.nav-back:hover{color:var(--gold-2)}
+
+/* HERO */
+.blog-hero{
+  padding:5rem 0 3rem;border-bottom:1px solid var(--border);
+  background:radial-gradient(ellipse at 50% 0%,rgba(201,168,76,0.05),transparent 60%)
+}
+.blog-hero .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:100px;background:var(--gold-dim);border:1px solid var(--gold-border);font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold-2);margin-bottom:1.5rem}
+.blog-hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2.5rem,5vw,4rem);font-weight:300;line-height:1.1;margin-bottom:1rem}
+.blog-hero h1 em{font-style:italic;background:linear-gradient(135deg,#A88932,#C9A84C 50%,#F5D688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.blog-hero p{font-family:'DM Sans',sans-serif;font-size:0.9rem;color:var(--sub);font-weight:300;max-width:500px;line-height:1.7}
+
+/* FILTERS */
+.filters{padding:2rem 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.filter-btn{padding:7px 16px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:all 0.25s}
+.filter-btn:hover,.filter-btn.active{background:var(--gold-dim);border-color:var(--gold-border);color:var(--gold-2)}
+
+/* FEATURED */
+.featured-post{
+  display:grid;grid-template-columns:1.2fr 1fr;gap:3rem;align-items:center;
+  padding:3rem 0;border-bottom:1px solid var(--border)
+}
+.featured-img{
+  height:320px;border-radius:16px;overflow:hidden;
+  background:linear-gradient(135deg,#0D1A20,#0A1520,#101820);
+  position:relative;display:flex;align-items:flex-end
+}
+.featured-img-pattern{position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,rgba(201,168,76,0.12),transparent 60%),radial-gradient(circle at 80% 60%,rgba(59,130,246,0.08),transparent 50%)}
+.featured-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(10,10,9,0.7))}
+.featured-cat{position:absolute;top:16px;left:16px;padding:5px 12px;border-radius:100px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);font-family:'Syne',sans-serif;font-size:0.58rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold-2);backdrop-filter:blur(8px)}
+.featured-badge{position:absolute;bottom:16px;right:16px;padding:5px 12px;border-radius:100px;background:rgba(10,10,9,0.9);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:0.58rem;color:var(--muted)}
+.featured-content .eyebrow-tag{display:inline-flex;align-items:center;gap:6px;font-family:'Syne',sans-serif;font-size:0.6rem;font-weight:700;color:var(--gold-2);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:1rem;background:var(--gold-dim);border:1px solid var(--gold-border);padding:4px 12px;border-radius:100px}
+.featured-content h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.5rem,2.5vw,2rem);font-weight:600;line-height:1.3;margin-bottom:1rem;color:var(--white)}
+.featured-content p{font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--sub);font-weight:300;line-height:1.75;margin-bottom:1.5rem}
+.featured-meta{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.featured-meta span{font-family:'Syne',sans-serif;font-size:0.6rem;color:var(--muted);letter-spacing:0.06em}
+.read-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border-radius:9px;background:linear-gradient(135deg,rgba(201,168,76,0.1),rgba(201,168,76,0.05));border:1px solid var(--gold-border);font-family:'Syne',sans-serif;font-size:0.7rem;font-weight:700;color:var(--gold-2);letter-spacing:0.06em;transition:all 0.3s;cursor:pointer}
+.read-btn:hover{background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.4);gap:12px}
+
+/* GRID */
+.section-title-row{display:flex;align-items:center;justify-content:space-between;padding:2.5rem 0 1.5rem;flex-wrap:wrap;gap:1rem}
+.section-title-row h3{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:300;color:var(--white)}
+.count-badge{font-family:'Syne',sans-serif;font-size:0.62rem;color:var(--muted);letter-spacing:0.08em}
+.posts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding-bottom:4rem}
+.post-card{border-radius:14px;overflow:hidden;background:rgba(12,12,10,0.8);border:1px solid var(--border);cursor:pointer;transition:all 0.4s var(--r)}
+.post-card:hover{transform:translateY(-5px);border-color:var(--gold-border);box-shadow:0 20px 50px rgba(0,0,0,0.6),0 0 30px rgba(201,168,76,0.04)}
+.post-img{height:170px;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.post-img-bg{width:100%;height:100%;position:absolute;inset:0}
+.post-img-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,rgba(10,10,9,0.8))}
+.post-cat{position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:100px;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.25);font-family:'Syne',sans-serif;font-size:0.52rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold-2);backdrop-filter:blur(8px)}
+.post-body{padding:1.1rem}
+.post-title{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:600;line-height:1.4;color:var(--white);margin-bottom:0.5rem}
+.post-excerpt{font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--muted);font-weight:300;line-height:1.6;margin-bottom:0.9rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.post-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px}
+.post-date{font-family:'Syne',sans-serif;font-size:0.55rem;color:var(--muted);letter-spacing:0.06em}
+.post-read{font-family:'Syne',sans-serif;font-size:0.58rem;font-weight:600;color:var(--gold-2);transition:letter-spacing 0.2s}
+.post-card:hover .post-read{letter-spacing:0.1em}
+
+/* CTA */
+.blog-cta{
+  padding:4rem 2.5rem;border-radius:20px;margin:0 0 4rem;text-align:center;
+  background:radial-gradient(ellipse at 50% 50%,rgba(201,168,76,0.06),transparent 70%);
+  border:1px solid var(--gold-border)
+}
+.blog-cta h3{font-family:'Cormorant Garamond',serif;font-size:clamp(1.8rem,3vw,2.5rem);font-weight:300;margin-bottom:0.8rem}
+.blog-cta p{font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--sub);font-weight:300;margin-bottom:1.5rem;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.7}
+.btn-gold{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:linear-gradient(135deg,#7A5C17,#C9A84C 50%,#E8C76B);color:#0A0809;font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;letter-spacing:0.04em;border:none;cursor:pointer;transition:all 0.3s}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(201,168,76,0.3)}
+
+/* FOOTER */
+.blog-footer{padding:2rem 0;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.blog-footer p{font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--muted);font-weight:300}
+.blog-footer a{font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--muted);transition:color 0.2s}
+.blog-footer a:hover{color:var(--white)}
+
+@media(max-width:900px){
+  .featured-post{grid-template-columns:1fr}
+  .posts-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+  .posts-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-back">
+    ← Back to GuestInn Network
+  </a>
+  <div style="text-align:center">
+    <div class="nav-logo-text">♛ GuestInn Insights</div>
+    <div class="nav-logo-sub">Hotel Intelligence</div>
+  </div>
+  <div style="font-family:'Syne',sans-serif;font-size:0.62rem;color:var(--muted)">
+    <span style="color:var(--green)">●</span> Network Online
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="blog-hero">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span style="width:5px;height:5px;border-radius:50%;background:var(--gold);display:inline-block"></span>
+      GuestInn Insights
+    </div>
+    <h1>Hotel Intelligence.<br/><em>Straight from the Field.</em></h1>
+    <p>India ke hoteliers ke liye real knowledge — revenue strategy, AI tools, smart pricing, aur OTA se azaadi.</p>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="wrap">
+  <div class="filters" id="filters">
+    <button class="filter-btn active" data-cat="All" onclick="filterPosts('All', this)">All Posts</button>
+    <button class="filter-btn" data-cat="Revenue Strategy" onclick="filterPosts('Revenue Strategy', this)">Revenue Strategy</button>
+    <button class="filter-btn" data-cat="AI Technology" onclick="filterPosts('AI Technology', this)">AI Technology</button>
+    <button class="filter-btn" data-cat="Pricing" onclick="filterPosts('Pricing', this)">Pricing</button>
+    <button class="filter-btn" data-cat="Operations" onclick="filterPosts('Operations', this)">Operations</button>
+    <button class="filter-btn" data-cat="Case Studies" onclick="filterPosts('Case Studies', this)">Case Studies</button>
+  </div>
+</div>
+
+<!-- FEATURED -->
+<div class="wrap" id="featured-section">
+  <!-- Rendered by JS -->
+</div>
+
+<!-- GRID -->
+<div class="wrap">
+  <div class="section-title-row">
+    <h3>All Articles</h3>
+    <div class="count-badge" id="post-count"></div>
+  </div>
+  <div class="posts-grid" id="posts-grid">
+    <!-- Rendered by JS -->
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="wrap">
+  <div class="blog-cta">
+    <h3>Apna Hotel List Karo.<br/><em style="font-style:italic;background:linear-gradient(135deg,#A88932,#C9A84C 50%,#F5D688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Zero Commission.</em></h3>
+    <p>93,748+ rooms already live hain. Aapka hotel bhi GuestInn Network mein join karo aur direct bookings lo — bilkul free.</p>
+    <a href="/" class="btn-gold">← Back to GuestInn Network</a>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="wrap">
+  <div class="blog-footer">
+    <p>© 2026 The GuestInn Network. All rights reserved.</p>
+    <div style="display:flex;gap:1.5rem">
+      <a href="/">Home</a>
+      <a href="#">Privacy</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════
+   ALL BLOG POSTS DATA
+   Naye posts yahan add karo
+═══════════════════════════════ */
+const ALL_POSTS = [
+  {
+    slug: "zero-ota-commission-strategy",
+    title: "OTA Commission se Kaise Bachein: India ke Hoteliers ke liye Complete Guide",
+    excerpt: "Booking.com aur MakeMyTrip ko 25-30% commission dena band karo. Ye step-by-step guide aapko direct booking engine setup karne mein help karegi aur revenue leakage permanently rokegi.",
+    category: "Revenue Strategy",
+    date: "May 28, 2026",
+    readTime: "8 min read",
+    featured: true,
+    gradient: "linear-gradient(135deg,#0D1A10,#0A1520,#101820)"
+  },
+  {
+    slug: "ai-checkin-bhopal-hotels",
+    title: "3-Second AI Check-In: Bhopal Hotels mein Guest Experience kaise Transform hua",
+    excerpt: "Aadhaar-based AI scan se manual entry ki zaroorat khatam. Real case study with numbers.",
+    category: "AI Technology",
+    date: "May 22, 2026",
+    readTime: "5 min read",
+    featured: false,
+    gradient: "linear-gradient(135deg,#0D1020,#101520,#0A1218)"
+  },
+  {
+    slug: "smart-pricing-engine-guide",
+    title: "Dynamic Pricing Engine: Season aur Demand ke Hisaab se Rate Automatically Set Karo",
+    excerpt: "AI pricing se average ADR 18% tak badhta hai. Ye guide aapko Smart Pricing Engine samajhne mein madad karegi.",
+    category: "Pricing",
+    date: "May 15, 2026",
+    readTime: "6 min read",
+    featured: false,
+    gradient: "linear-gradient(135deg,#1A0D10,#201010,#1A1020)"
+  },
+  {
+    slug: "whatsapp-hotel-automation",
+    title: "WhatsApp Se Hotel Automate Karo: Guest Queries, Check-in, Payment — Sab Automatic",
+    excerpt: "WhatsApp Business API + AI = ek perfect automated front desk. Poora setup guide aur real examples yahan hain.",
+    category: "Operations",
+    date: "May 8, 2026",
+    readTime: "7 min read",
+    featured: false,
+    gradient: "linear-gradient(135deg,#0A1510,#0D1A10,#101510)"
+  },
+  {
+    slug: "jaipur-boutique-hotel-case-study",
+    title: "Case Study: Jaipur ke Boutique Hotel ne 60 Days mein 40% Direct Bookings Badhaya",
+    excerpt: "Ek real story — GuestInn Network join karne ke baad kaise ek boutique hotel ne OTA dependency se azaadi payi.",
+    category: "Case Studies",
+    date: "May 1, 2026",
+    readTime: "9 min read",
+    featured: false,
+    gradient: "linear-gradient(135deg,#1A1005,#201508,#181005)"
+  },
+  {
+    slug: "revenue-protection-anti-theft",
+    title: "Revenue Protection System: Hotel Staff ke Unauthorized Rate Changes Kaise Rokein",
+    excerpt: "Anti-theft rate locking, encrypted audit logs, aur real-time owner alerts — poora security system explained.",
+    category: "Revenue Strategy",
+    date: "Apr 24, 2026",
+    readTime: "6 min read",
+    featured: false,
+    gradient: "linear-gradient(135deg,#1A0508,#200810,#180510)"
+  }
+];
+
+let currentFilter = 'All';
+
+function filterPosts(cat, btn) {
+  currentFilter = cat;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPosts();
+}
+
+function getFilteredPosts(excludeFeatured) {
+  let posts = currentFilter === 'All' ? ALL_POSTS : ALL_POSTS.filter(p => p.category === currentFilter);
+  if (excludeFeatured) posts = posts.filter(p => !p.featured);
+  return posts;
+}
+
+function renderFeatured() {
+  const section = document.getElementById('featured-section');
+  const featured = ALL_POSTS.find(p => p.featured);
+  if (!featured || currentFilter !== 'All') { section.innerHTML = ''; return; }
+  section.innerHTML = `
+    <div class="featured-post">
+      <div class="featured-img">
+        <div class="blog-img-pattern"></div>
+        <div style="position:absolute;inset:0;background:${featured.gradient};z-index:-1"></div>
+        <div class="featured-img-pattern" style="position:absolute;inset:0"></div>
+        <div class="featured-overlay"></div>
+        <div class="featured-cat">${featured.category}</div>
+        <div class="featured-badge">⭐ Featured Post</div>
+      </div>
+      <div class="featured-content">
+        <div class="eyebrow-tag">📌 Featured Article</div>
+        <h2>${featured.title}</h2>
+        <p>${featured.excerpt}</p>
+        <div class="featured-meta">
+          <span>📅 ${featured.date}</span>
+          <span>·</span>
+          <span>⏱ ${featured.readTime}</span>
+        </div>
+        <a href="/blogs/${featured.slug}.html" class="read-btn">Read Full Article →</a>
+      </div>
+    </div>
+  `;
+}
+
+function renderPosts() {
+  renderFeatured();
+  const grid = document.getElementById('posts-grid');
+  const countEl = document.getElementById('post-count');
+  const posts = getFilteredPosts(currentFilter === 'All');
+  countEl.textContent = posts.length + ' articles';
+  if (!posts.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;font-family:\'DM Sans\',sans-serif;font-size:0.85rem;color:var(--muted)">Is category mein abhi koi post nahi hai. Jald aayenge! 🚀</div>';
+    return;
+  }
+  const gradients = [
+    "linear-gradient(135deg,#0D1A10,#0A1520)",
+    "linear-gradient(135deg,#1A0D10,#201010)",
+    "linear-gradient(135deg,#0D1020,#101520)",
+    "linear-gradient(135deg,#1A1005,#201508)",
+    "linear-gradient(135deg,#0A1510,#0D1A10)",
+    "linear-gradient(135deg,#1A0508,#200810)",
+  ];
+  grid.innerHTML = posts.map((post, i) => `
+    <div class="post-card">
+      <div class="post-img">
+        <div class="post-img-bg" style="background:${post.gradient || gradients[i%gradients.length]}"></div>
+        <div class="post-img-overlay"></div>
+        <div class="post-cat">${post.category}</div>
+      </div>
+      <div class="post-body">
+        <div class="post-title">${post.title}</div>
+        <div class="post-excerpt">${post.excerpt}</div>
+        <div class="post-meta">
+          <div class="post-date">${post.date} · ${post.readTime}</div>
+          <a href="/blogs/${post.slug}.html" class="post-read">Read →</a>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+renderPosts();
+</script>
+</body>
+</html>
