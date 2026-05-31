@@ -1,317 +1,986 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import { Crown, LayoutDashboard, Menu, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "next/navigation";
+import { Send, MessageCircle, X, MapPin, Star, ShieldCheck, Navigation, Camera, RefreshCw, CheckCircle, Zap } from "lucide-react";
 
-const HeroSearchSection = dynamic(() => import("../components/HeroSearchSection"), { ssr: false });
-const AdvantageGrid     = dynamic(() => import("../components/AdvantageGrid"),     { ssr: false });
-const MarketplaceHotels = dynamic(() => import("../components/MarketplaceHotels"), { ssr: false });
-const NegotiatorOrb     = dynamic(() => import("../components/NegotiatorOrb"),     { ssr: false });
-
-// ── Neural Particle Canvas ─────────────────────────────────────────────────
-function NeuralCanvas() {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-
-    const resize = () => {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    // Particle system
-    const PARTICLE_COUNT = 70;
-    const particles = Array.from({ length: PARTICLE_COUNT }, () => ({
-      x:   Math.random() * canvas.width,
-      y:   Math.random() * canvas.height,
-      vx:  (Math.random() - 0.5) * 0.4,
-      vy:  (Math.random() - 0.5) * 0.4,
-      r:   Math.random() * 1.8 + 0.4,
-      alpha: Math.random() * 0.5 + 0.1,
-      color: Math.random() > 0.7 ? "#D4AF37" : Math.random() > 0.5 ? "#008cff" : "#ffffff",
-    }));
-
-    let animId;
-    const CONNECT_DIST = 120;
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Move particles
-      particles.forEach(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width)  p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-      });
-
-      // Draw connections
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < CONNECT_DIST) {
-            const opacity = (1 - dist / CONNECT_DIST) * 0.15;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(212,175,55,${opacity})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-          }
+/* ═══════════════════════════════════════════
+   HOTEL FETCH
+═══════════════════════════════════════════ */
+async function fetchHotel(hotelId) {
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (sbUrl && sbKey && sbUrl !== "undefined") {
+    try {
+      const res = await fetch(
+        `${sbUrl}/rest/v1/hotels?id=eq.${encodeURIComponent(hotelId)}&select=*`,
+        { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.length > 0) {
+          const h = data[0];
+          return {
+            id:            h.id,
+            name:          h.name,
+            location:      h.location       || "",
+            addressLine:   h.address_line   || "",
+            distanceTag:   h.distance_tag   || "",
+            totalRooms:    h.total_rooms     || 20,
+            ownerPhone:    h.owner_phone     || "",
+            managerPhone:  h.manager_phone   || "",
+            ownerEmail:    h.owner_email     || "",
+            emoji:         h.emoji           || "🏨",
+            standardRate:  h.standard_rate   || 1200,
+            deluxeRate:    h.deluxe_rate     || 2000,
+            suiteRate:     h.suite_rate      || 3800,
+            minFloorPrice: h.min_floor_price || 800,
+            amenities:     h.amenities       || [],
+            avgRating:     h.avg_rating      || 4.0,
+            totalReviews:  h.total_reviews   || 0,
+          };
         }
       }
+    } catch {}
+  }
+  try {
+    const cfg = JSON.parse(localStorage.getItem(`air_${hotelId}_config`) || "{}");
+    if (cfg.name) return {
+      id: hotelId, name: cfg.name, location: cfg.location || "", addressLine: "", distanceTag: "",
+      totalRooms: cfg.totalRooms || 20, ownerPhone: cfg.ownerPhone || "", emoji: cfg.emoji || "🏨",
+      standardRate: cfg.standardRate || 1200, deluxeRate: cfg.deluxeRate || 2000, suiteRate: cfg.suiteRate || 3800,
+      minFloorPrice: cfg.minFloorPrice || 800, amenities: [], avgRating: 4.0, totalReviews: 0,
+      managerPhone: cfg.managerPhone || "",
+    };
+  } catch {}
+  const DEMOS = [
+    { id: "cherry-bhopal",   name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128 },
+    { id: "hotel-cherry",    name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128 },
+    { id: "sunrise-jaipur",  name: "Hotel Sunrise Palace",   location: "Jaipur, Rajasthan",       totalRooms: 40, ownerPhone: "919876543210", emoji: "🌅", standardRate: 1500, deluxeRate: 2500, suiteRate: 5000, minFloorPrice: 1100, addressLine: "Civil Lines, Jaipur - 302006",           distanceTag: "2.1 km from City Center", amenities: ["Free Wi-Fi","Pool Access","AC Rooms"], avgRating: 4.7, totalReviews: 312 },
+    { id: "midtown-indore",  name: "Hotel Midtown",          location: "Indore, Madhya Pradesh",  totalRooms: 35, ownerPhone: "919977665544", emoji: "🏙️", standardRate: 1100, deluxeRate: 1800, suiteRate: 3500, minFloorPrice: 850,  addressLine: "MG Road, Indore - 452001",              distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","Early Check-in","AC Rooms"], avgRating: 4.5, totalReviews: 89 },
+    { id: "comforts-nagpur", name: "City Comforts Nagpur",   location: "Nagpur, Maharashtra",     totalRooms: 30, ownerPhone: "919988776655", emoji: "🏨", standardRate: 1000, deluxeRate: 1600, suiteRate: 3200, minFloorPrice: 800,  addressLine: "Sitabuldi, Nagpur - 440012",            distanceTag: "1.5 km from Bus Stand",  amenities: ["Free Wi-Fi","Parking","AC Rooms"], avgRating: 4.4, totalReviews: 56 },
+    { id: "grand-mumbai",    name: "The Grand Inn Mumbai",   location: "Mumbai, Maharashtra",     totalRooms: 120, ownerPhone: "919900001111", emoji: "🏩", standardRate: 2500, deluxeRate: 4500, suiteRate: 9000, minFloorPrice: 2000, addressLine: "Andheri West, Mumbai - 400053",         distanceTag: "1.8 km from Metro Station", amenities: ["Free Wi-Fi","Restaurant","Gym","AC Rooms"], avgRating: 4.8, totalReviews: 920 },
+    { id: "amardeep-palace", name: "Hotel Amardeep Palace",  location: "Bhopal, Madhya Pradesh",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🏨", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Hamidia Road, Bhopal - 462001",         distanceTag: "500m from Railway Station", amenities: ["Free Wi-Fi","AC Rooms"], avgRating: 4.3, totalReviews: 44 },
+  ];
+  return DEMOS.find(h => h.id === hotelId) || DEMOS.find(h => hotelId.includes(h.id.split("-")[0])) || null;
+}
 
-      // Draw particles
-      particles.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = p.color === "#D4AF37"
-          ? `rgba(212,175,55,${p.alpha})`
-          : p.color === "#008cff"
-          ? `rgba(0,140,255,${p.alpha * 0.6})`
-          : `rgba(255,255,255,${p.alpha * 0.3})`;
-        ctx.fill();
+/* ═══════════════════════════════════════════
+   ROOMS from localStorage
+═══════════════════════════════════════════ */
+function getRooms(hotelId, total) {
+  try {
+    const s = JSON.parse(localStorage.getItem(`air_${hotelId}_rooms`) || "[]");
+    if (s.length > 0) return s;
+  } catch {}
+  return Array.from({ length: total }, (_, i) => ({
+    id: `${hotelId}_R${String(i + 1).padStart(3, "0")}`, number: i + 1,
+    floor: Math.ceil((i + 1) / 5), type: i % 10 === 0 ? "suite" : i % 3 === 0 ? "deluxe" : "standard",
+    status: "vacant", currentBookingId: null, baseRate: i % 10 === 0 ? 3800 : i % 3 === 0 ? 2000 : 1200,
+  }));
+}
+
+/* ═══════════════════════════════════════════
+   SAVE BOOKING
+═══════════════════════════════════════════ */
+async function saveBooking(booking, hotelId) {
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (sbUrl && sbKey && sbUrl !== "undefined") {
+    try {
+      const row = {
+        id:             booking.id,
+        hotel_id:       hotelId,
+        guest_name:     booking.guestName     || "",
+        guest_phone:    booking.guestPhone    || "",
+        address:        booking.address       || "",
+        id_type:        booking.idType        || "Aadhaar",
+        id_number:      booking.idNumber      || "[Aadhaar Redacted]",
+        gender:         booking.gender        || "",
+        dob:            booking.dob           || "",
+        room_id:        booking.roomId        || "",
+        room_type:      booking.roomType      || "standard",
+        check_in_date:  booking.checkInDate   || "",
+        check_out_date: booking.checkOutDate  || "",
+        nights:         booking.nights        || 1,
+        rate_per_night: booking.ratePerNight  || 0,
+        total_amount:   booking.totalAmount   || 0,
+        payment_mode:   booking.paymentMode   || "Cash",
+        status:         "active",
+        rate_locked:    true,
+        negotiated:     booking.negotiated    || false,
+        negotiated_from: booking.negotiatedFrom || 0,
+        source:         "marketplace",
+      };
+      const res = await fetch(`${sbUrl}/rest/v1/bookings`, {
+        method: "POST",
+        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify(row),
       });
+      if (res.ok || res.status === 201) return { success: true };
+    } catch {}
+  }
+  // Fallback localStorage
+  try {
+    const key  = `air_${hotelId}_bookings`;
+    const list = JSON.parse(localStorage.getItem(key) || "[]");
+    list.push(booking);
+    localStorage.setItem(key, JSON.stringify(list));
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
 
-      animId = requestAnimationFrame(draw);
-    };
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
+/* ═══════════════════════════════════════════
+   ROOM KEYCAP
+═══════════════════════════════════════════ */
+function RoomKeycap({ room, selected, onClick }) {
+  const colorMap = { vacant: "#22c55e", reserved: "#D4AF37", occupied: "#ef4444", cleaning: "#818cf8" };
+  const c = colorMap[room.status] || "#22c55e";
   return (
-    <canvas
-      ref={canvasRef}
+    <button
+      onClick={() => onClick(room)}
       style={{
-        position: "fixed", inset: 0, zIndex: 0,
-        pointerEvents: "none", opacity: 0.7,
+        aspectRatio: "1/1.05", borderRadius: 6,
+        background: selected ? `rgba(${c === "#22c55e" ? "34,197,94" : c === "#D4AF37" ? "212,175,55" : c === "#ef4444" ? "239,68,68" : "129,140,248"},0.2)` : "rgba(255,255,255,0.04)",
+        border: `1px solid ${selected ? c : "rgba(255,255,255,0.07)"}`,
+        cursor: room.status === "occupied" ? "not-allowed" : "pointer",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+        transition: "all 0.15s ease", outline: "none", padding: 2,
+        boxShadow: selected ? `0 0 8px ${c}55` : "none",
       }}
-    />
+    >
+      <div style={{ width: 5, height: 5, borderRadius: "50%", background: c, boxShadow: `0 0 4px ${c}` }} />
+      <span style={{ fontSize: 7, color: "rgba(255,255,255,0.5)", fontFamily: "monospace", fontWeight: 700 }}>
+        {String(room.number).padStart(2, "0")}
+      </span>
+    </button>
   );
 }
 
-// ── Top Navigation Bar ─────────────────────────────────────────────────────
-function TopNav() {
-  const [menuOpen, setMenuOpen] = useState(false);
+/* ═══════════════════════════════════════════
+   AI REACTOR
+═══════════════════════════════════════════ */
+function AiReactor({ scanning, progress }) {
+  return (
+    <div style={{ width: 54, height: 54, borderRadius: "50%", background: "linear-gradient(135deg,#0d1a2e,#0a1020)", border: `2px solid ${scanning ? "rgba(0,140,255,0.7)" : "rgba(0,140,255,0.25)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative", transition: "border-color 0.4s", boxShadow: scanning ? "0 0 20px rgba(0,140,255,0.4)" : "none" }}>
+      {scanning
+        ? <div style={{ width: 28, height: 28, borderRadius: "50%", border: "2px solid transparent", borderTop: "2px solid #008cff", animation: "spinRingCW 0.8s linear infinite" }} />
+        : <span style={{ fontSize: 22 }}>🤖</span>
+      }
+      {scanning && (
+        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} viewBox="0 0 54 54">
+          <circle cx="27" cy="27" r="24" fill="none" stroke="rgba(0,140,255,0.12)" strokeWidth="2" />
+          <circle cx="27" cy="27" r="24" fill="none" stroke="#008cff" strokeWidth="2" strokeDasharray={`${(progress / 100) * 150.8} 150.8`} strokeLinecap="round" transform="rotate(-90 27 27)" style={{ transition: "stroke-dasharray 0.3s" }} />
+        </svg>
+      )}
+    </div>
+  );
+}
 
-  const NAV_LINKS = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Bookings",  href: "#bookings"  },
-    { label: "Hotels",    href: "#hotels"    },
-    { label: "AI Concierge", href: "#ai"     },
-    { label: "More",      href: "#more"      },
+/* ═══════════════════════════════════════════
+   NEGOTIATE DETECT
+   Detects discount requests in chat messages
+═══════════════════════════════════════════ */
+function detectNegotiationIntent(text) {
+  const lower = text.toLowerCase();
+  // Patterns: "1000 mein milega", "800 kar do", "discount do", "less karo", "₹900"
+  const patterns = [
+    /(\d{3,5})\s*(mein|me|pe|par|kar\s*do|chahiye|milega|dedo|de\s*do)/i,
+    /discount|kam\s*karo|less\s*karo|reduce|negotiate|sasta|cheap|concession/i,
+    /₹\s*(\d{3,5})/,
+    /(\d{3,5})\s*(rupee|rs|inr)/i,
   ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      // Try to extract a number
+      const numMatch = text.match(/(\d{3,5})/);
+      return { isNegotiation: true, requestedRate: numMatch ? parseInt(numMatch[1]) : null };
+    }
+  }
+  return { isNegotiation: false, requestedRate: null };
+}
+
+/* ═══════════════════════════════════════════
+   MAIN PAGE
+═══════════════════════════════════════════ */
+export default function BookingPage() {
+  const params     = useParams();
+  const hotelId    = params?.hotelId;
+
+  // ── Core state ───────────────────────────────────────────────
+  const [hotel,        setHotel]        = useState(null);
+  const [rooms,        setRooms]        = useState([]);
+  const [pageLoading,  setPageLoading]  = useState(true);
+
+  // ── Room selection ───────────────────────────────────────────
+  const [selectedRoom,  setSelectedRoom]  = useState(null);
+
+  // ── Form state ───────────────────────────────────────────────
+  const [guestName,    setGuestName]    = useState("");
+  const [guestPhone,   setGuestPhone]   = useState("");
+  const [checkIn,      setCheckIn]      = useState("");
+  const [checkOut,     setCheckOut]     = useState("");
+  const [address,      setAddress]      = useState("");
+  const [idType,       setIdType]       = useState("Aadhaar");
+  const [idNumber,     setIdNumber]     = useState("");
+  const [gender,       setGender]       = useState("");
+  const [dob,          setDob]          = useState("");
+  const [nationality,  setNationality]  = useState("Indian");
+  const [roomType,     setRoomType]     = useState("Deluxe Room");
+  const [paymentMode,  setPaymentMode]  = useState("Cash");
+
+  // ── ID Scanner state ─────────────────────────────────────────
+  const [scanStep,     setScanStep]     = useState("idle");
+  const [scanSide,     setScanSide]     = useState("front");
+  const [scanProgress, setScanProgress] = useState(0);
+  const [frontImage,   setFrontImage]   = useState("");
+  const [backImage,    setBackImage]    = useState("");
+  const [scanError,    setScanError]    = useState("");
+  const videoRef   = useRef(null);
+  const canvasRef  = useRef(null);
+  const streamRef  = useRef(null);
+
+  // ── Booking submission ───────────────────────────────────────
+  const [submitting,   setSubmitting]   = useState(false);
+  const [submitted,    setSubmitted]    = useState(false);
+  const [bookingResult,setBookingResult]= useState(null);
+  const [formError,    setFormError]    = useState("");
+
+  // ── Negotiator state ─────────────────────────────────────────
+  const [negotiatedRate,    setNegotiatedRate]    = useState(null);
+  const [rateLockToken,     setRateLockToken]     = useState(null);
+  const [negotiating,       setNegotiating]       = useState(false);
+
+  // ── Chat state ───────────────────────────────────────────────
+  const [chatOpen,     setChatOpen]     = useState(false);
+  const [messages,     setMessages]     = useState([]);
+  const [chatInput,    setChatInput]    = useState("");
+  const [chatLoading,  setChatLoading]  = useState(false);
+  const chatEndRef = useRef(null);
+
+  // ── FAQ ──────────────────────────────────────────────────────
+  const [faqOpen, setFaqOpen] = useState(null);
+
+  // ── Derived values ───────────────────────────────────────────
+  const nights = (() => {
+    if (!checkIn || !checkOut) return 0;
+    const diff = (new Date(checkOut) - new Date(checkIn)) / 86400000;
+    return diff > 0 ? diff : 0;
+  })();
+
+  const roomRate = (() => {
+    // If AI negotiator locked a rate, use it
+    if (negotiatedRate) return negotiatedRate;
+    if (selectedRoom) return selectedRoom.baseRate || hotel?.standardRate || 1200;
+    if (!hotel) return 0;
+    if (roomType.toLowerCase().includes("suite"))  return hotel.suiteRate   || 3800;
+    if (roomType.toLowerCase().includes("deluxe")) return hotel.deluxeRate  || 2000;
+    return hotel.standardRate || 1200;
+  })();
+
+  const total = roomRate * nights;
+
+  // ── Detect active room type label ────────────────────────────
+  const activeRoomTypeKey = (() => {
+    if (selectedRoom) return selectedRoom.type || "standard";
+    if (roomType.toLowerCase().includes("suite"))  return "suite";
+    if (roomType.toLowerCase().includes("deluxe")) return "deluxe";
+    return "standard";
+  })();
+
+  /* ─── Load hotel + rooms ─────────────────────────────────── */
+  useEffect(() => {
+    if (!hotelId) { setPageLoading(false); return; }
+    fetchHotel(hotelId).then(h => {
+      setHotel(h);
+      if (h) setRooms(getRooms(hotelId, h.totalRooms));
+      setPageLoading(false);
+    });
+  }, [hotelId]);
+
+  /* ─── Welcome message in chat ────────────────────────────── */
+  useEffect(() => {
+    if (hotel && messages.length === 0) {
+      setMessages([{
+        role: "assistant",
+        content: `Namaste! 🙏 Main ${hotel.name} ka AI Receptionist hoon.\n\nMujhse puchho:\n• Room rates & availability\n• Booking mein help\n• Discount negotiate karna\n\nKya main aapki help kar sakta hoon? 😊`,
+      }]);
+    }
+  }, [hotel]);
+
+  /* ─── Scroll chat to bottom ─────────────────────────────── */
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  /* ─── Camera utils ──────────────────────────────────────── */
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setScanStep("camera");
+    } catch (e) {
+      setScanError("Camera access nahi mila: " + e.message);
+      setScanStep("error");
+    }
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+  };
+
+  const captureAndScan = async () => {
+    const video  = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+    stopCamera();
+    setScanStep("scanning");
+    setScanProgress(0);
+    if (scanSide === "front") setFrontImage(base64); else setBackImage(base64);
+
+    const prog = setInterval(() => setScanProgress(p => p >= 90 ? 90 : p + 12), 250);
+    try {
+      const res  = await fetch("/api/groq", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "id_scan", imageBase64: base64 }) });
+      const data = await res.json();
+      clearInterval(prog);
+      setScanProgress(100);
+      if (data.success && data.data) {
+        const d = data.data;
+        if (d.name)      setGuestName(d.name);
+        if (d.dob)       setDob(d.dob.replace(/(\d{2})\/(\d{2})\/(\d{4})/, "$3-$2-$1"));
+        if (d.address)   setAddress(d.address);
+        if (d.idNumber)  setIdNumber(d.idNumber);
+        if (d.idType)    setIdType(d.idType);
+        if (d.gender)    setGender(d.gender === "M" ? "Male" : d.gender === "F" ? "Female" : d.gender);
+        setTimeout(() => setScanStep("done"), 400);
+      } else {
+        setScanError(data.error || "ID data extract nahi hua.");
+        setScanStep("error");
+      }
+    } catch (e) {
+      clearInterval(prog);
+      setScanError("Network error: " + e.message);
+      setScanStep("error");
+    }
+  };
+
+  const resetScan = () => {
+    setScanStep("idle"); setScanProgress(0); setScanError("");
+    setFrontImage(""); setBackImage(""); stopCamera();
+  };
+
+  /* ─── Booking submit ─────────────────────────────────────── */
+  const handleBook = async () => {
+    setFormError("");
+    if (!guestName.trim())  return setFormError("Guest ka naam likhna zaroori hai.");
+    if (!guestPhone.trim()) return setFormError("Phone number likhna zaroori hai.");
+    if (!checkIn)           return setFormError("Check-in date select karo.");
+    if (!checkOut)          return setFormError("Check-out date select karo.");
+    if (nights <= 0)        return setFormError("Check-out, check-in ke baad honi chahiye.");
+
+    setSubmitting(true);
+    const bid = `BK${Date.now().toString(36).toUpperCase()}`;
+    const roomId = selectedRoom?.id || `${hotelId}_AUTO`;
+    const roomNumber = selectedRoom?.number || "—";
+
+    const booking = {
+      id:              bid,
+      hotelId,
+      guestName:       guestName.trim(),
+      guestPhone:      guestPhone.trim(),
+      address:         address.trim(),
+      idType,
+      idNumber:        idNumber.trim() || "[Aadhaar Redacted]",
+      gender,
+      dob,
+      nationality,
+      roomId,
+      roomNumber,
+      roomType:        activeRoomTypeKey,
+      checkInDate:     checkIn,
+      checkOutDate:    checkOut,
+      nights,
+      ratePerNight:    roomRate,
+      totalAmount:     total,
+      paymentMode,
+      rateLocked:      true,
+      negotiated:      !!negotiatedRate,
+      negotiatedFrom:  negotiatedRate ? (selectedRoom?.baseRate || hotel?.standardRate || 0) : 0,
+      rateLockToken:   rateLockToken || null,
+      source:          "marketplace",
+      createdAt:       new Date().toISOString(),
+    };
+
+    const result = await saveBooking(booking, hotelId);
+
+    // Update room status locally
+    if (selectedRoom) {
+      setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, status: "reserved", currentBookingId: bid } : r));
+    }
+
+    // Fire WhatsApp alerts
+    try {
+      const { sendBookingAlerts } = await import("../../../lib/alerts");
+      await sendBookingAlerts(booking);
+    } catch {}
+
+    setBookingResult({ ...booking, roomNumber });
+    setSubmitted(true);
+    setSubmitting(false);
+  };
+
+  /* ─── Chat + Negotiator ──────────────────────────────────── */
+  const sendChat = async (override) => {
+    const text = (override || chatInput).trim();
+    if (!text || chatLoading) return;
+    if (!override) setChatInput("");
+
+    const newMsgs = [...messages, { role: "user", content: text }];
+    setMessages(newMsgs);
+    setChatLoading(true);
+
+    // ── Detect negotiation intent before sending to AI ────────
+    const { isNegotiation, requestedRate } = detectNegotiationIntent(text);
+
+    if (isNegotiation && requestedRate && hotel) {
+      setNegotiating(true);
+      try {
+        const res = await fetch("/api/groq", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type:          "negotiate",
+            hotelId,
+            requestedRate,
+            roomType:      activeRoomTypeKey,
+            hotelConfig: {
+              name:          hotel.name,
+              location:      hotel.location,
+              standardRate:  hotel.standardRate,
+              deluxeRate:    hotel.deluxeRate,
+              suiteRate:     hotel.suiteRate,
+              minFloorPrice: hotel.minFloorPrice,
+            },
+            // Pass current booking context so AI can confirm specifics
+            bookingContext: {
+              checkIn,
+              checkOut,
+              nights,
+              roomType: activeRoomTypeKey,
+              selectedRoom: selectedRoom ? { id: selectedRoom.id, number: selectedRoom.number } : null,
+            },
+          }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          if (data.approved) {
+            setNegotiatedRate(data.finalRate);
+            setRateLockToken(data.rateLockToken);
+          }
+          setMessages(p => [...p, {
+            role:      "assistant",
+            content:   data.message,
+            isNegotiationResult: true,
+            approved:  data.approved,
+            finalRate: data.finalRate,
+            token:     data.rateLockToken,
+          }]);
+        } else {
+          throw new Error(data.error || "Negotiate failed");
+        }
+      } catch (e) {
+        setMessages(p => [...p, { role: "assistant", content: "Rate negotiation mein problem aayi. Dobara try karo 🙏" }]);
+      }
+      setNegotiating(false);
+      setChatLoading(false);
+      return;
+    }
+
+    // ── Regular chat — inject current booking context ──────────
+    const bookingContextBlock = (checkIn || checkOut || selectedRoom)
+      ? `\n\n[CURRENT BOOKING CONTEXT: Check-in: ${checkIn || "not set"}, Check-out: ${checkOut || "not set"}, Nights: ${nights || 0}, Room: ${selectedRoom ? `Room ${selectedRoom.number} (${activeRoomTypeKey})` : roomType}, Rate: ₹${roomRate}/night${negotiatedRate ? `, NEGOTIATED RATE LOCKED: ₹${negotiatedRate} (Token: ${rateLockToken})` : ""}]`
+      : "";
+
+    try {
+      const res = await fetch("/api/groq", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "chat",
+          hotelConfig: {
+            name:         hotel?.name,
+            location:     hotel?.location,
+            standardRate: hotel?.standardRate,
+            deluxeRate:   hotel?.deluxeRate,
+            suiteRate:    hotel?.suiteRate,
+            minFloorPrice: hotel?.minFloorPrice,
+            rates: { standard: hotel?.standardRate, deluxe: hotel?.deluxeRate, suite: hotel?.suiteRate },
+          },
+          messages: [
+            ...newMsgs.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+            { role: "user", content: text + bookingContextBlock },
+          ],
+        }),
+      });
+      const data = await res.json();
+      setMessages(p => [...p, { role: "assistant", content: data.message || "Thodi der baad try karo 🙏" }]);
+    } catch {
+      setMessages(p => [...p, { role: "assistant", content: "Connection issue. Dobara try karo 🙏" }]);
+    }
+    setChatLoading(false);
+  };
+
+  /* ─── Render guards ─────────────────────────────────────── */
+  if (pageLoading) return (
+    <div style={{ minHeight: "100vh", background: "#07090E", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 50, height: 50, borderRadius: "50%", border: "2px solid rgba(0,140,255,0.3)", borderTop: "2px solid #008cff", animation: "spinRingCW 1s linear infinite" }} />
+      <style>{`@keyframes spinRingCW{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+  if (!hotel) return (
+    <div style={{ minHeight: "100vh", background: "#07090E", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <p style={{ color: "rgba(255,255,255,0.3)" }}>Hotel not found</p>
+    </div>
+  );
+
+  const inpStyle   = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "11px 13px", fontSize: 13, color: "#fff", outline: "none", boxSizing: "border-box", colorScheme: "dark" };
+  const labelStyle = { fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 5 };
+
+  // ── Room floor map data ───────────────────────────────────────
+  const vacantN  = rooms.filter(r => r.status === "vacant").length;
+  const byFloor  = rooms.reduce((acc, r) => { (acc[r.floor] = acc[r.floor] || []).push(r); return acc; }, {});
+  const floors   = Object.keys(byFloor).map(Number).sort((a, b) => a - b);
 
   return (
-    <header style={{
-      position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-      background: "rgba(5,7,14,0.92)", backdropFilter: "blur(20px)",
-      borderBottom: "1px solid rgba(212,175,55,0.1)",
-      boxShadow: "0 4px 30px rgba(0,0,0,0.5)",
-    }}>
-      <div style={{
-        maxWidth: 1280, margin: "0 auto",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 20px",
-      }}>
-        {/* Logo */}
+    <div style={{ minHeight: "100vh", background: "#07090E", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", paddingBottom: 90 }}>
+      <style>{`
+        @keyframes spinRingCW  {from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        @keyframes holoPulse   {0%,100%{filter:drop-shadow(0 0 12px #008cff) drop-shadow(0 0 28px rgba(0,140,255,0.4))}50%{filter:drop-shadow(0 0 22px #00aaff) drop-shadow(0 0 55px rgba(0,160,255,0.65))}}
+        @keyframes audioBar    {0%,100%{height:4px}50%{height:16px}}
+        @keyframes fadeUp      {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes slideUp     {from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes dotBounce   {0%,80%,100%{transform:scale(0.4);opacity:0.3}40%{transform:scale(1);opacity:1}}
+        @keyframes greenPulse  {0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4)}50%{box-shadow:0 0 0 6px rgba(34,197,94,0)}}
+        @keyframes goldPulse   {0%,100%{box-shadow:0 0 0 0 rgba(212,175,55,0.5)}50%{box-shadow:0 0 0 8px rgba(212,175,55,0)}}
+        input:focus,select:focus,textarea:focus{border-color:rgba(212,175,55,0.5)!important;background:rgba(212,175,55,0.04)!important}
+        input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.2)}
+        ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.15);border-radius:3px}
+      `}</style>
+
+      {/* ── NAV ── */}
+      <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(7,9,14,0.94)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Crown size={20} style={{ color: "#D4AF37", filter: "drop-shadow(0 0 8px rgba(212,175,55,0.6))" }}/>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#1a1400,#2d2200)", border: "1px solid rgba(212,175,55,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{hotel.emoji}</div>
           <div>
-            <span style={{
-              fontSize: 22, fontWeight: 900, color: "#D4AF37",
-              letterSpacing: "-0.02em",
-              textShadow: "0 0 20px rgba(212,175,55,0.4)",
-              fontFamily: "serif",
-            }}>
-              The GuestInn
-            </span>
-            <div style={{
-              fontSize: 8, letterSpacing: "0.3em", color: "rgba(212,175,55,0.5)",
-              textTransform: "uppercase", fontWeight: 700, textAlign: "center",
-            }}>
-              NETWORK
+            <p style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>{hotel.name}</p>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{hotel.location}</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {hotel.avgRating > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)" }}>
+              <Star size={11} fill="#D4AF37" color="#D4AF37" />
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#D4AF37" }}>{hotel.avgRating}</span>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* ── MAIN CONTENT ── */}
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 16px 0" }}>
+
+        {/* ── HOTEL HERO CARD ── */}
+        <div style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.07),rgba(0,0,0,0.3))", border: "1px solid rgba(212,175,55,0.18)", borderRadius: 20, padding: "18px", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div>
+              <h1 style={{ fontSize: 18, fontWeight: 900, color: "#fff", marginBottom: 4 }}>{hotel.name}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <MapPin size={11} style={{ color: "#D4AF37" }} />
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{hotel.addressLine || hotel.location}</span>
+              </div>
+              {hotel.distanceTag && <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 3 }}>📍 {hotel.distanceTag}</p>}
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Starts from</p>
+              <p style={{ fontSize: 20, fontWeight: 900, color: "#D4AF37" }}>₹{(hotel.standardRate || 1200).toLocaleString("en-IN")}</p>
+              <p style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>per night</p>
+            </div>
+          </div>
+
+          {/* Rate lock banner */}
+          {negotiatedRate && (
+            <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)", display: "flex", alignItems: "center", gap: 8, animation: "fadeUp 0.3s ease", marginTop: 8 }}>
+              <Zap size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 800, color: "#22c55e" }}>AI Rate Lock Active ✓</p>
+                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>₹{negotiatedRate.toLocaleString("en-IN")}/night · Token: {rateLockToken?.slice(-8)}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Amenities */}
+          {hotel.amenities?.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 10 }}>
+              {hotel.amenities.map(a => (
+                <span key={a} style={{ fontSize: 10, padding: "4px 9px", borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>{a}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── ROOM ALLOCATOR ── */}
+        <div style={{ background: "linear-gradient(135deg,rgba(5,15,8,0.9),rgba(2,10,4,0.95))", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 20, padding: "16px", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Visual Room Allocator</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e" }} />
+              <span style={{ fontSize: 9, color: "#22c55e", fontWeight: 700 }}>{vacantN} Available</span>
+            </div>
+          </div>
+
+          {floors.map(floor => {
+            const fr   = byFloor[floor]; const cols = 5;
+            const padded = [...fr]; while (padded.length % cols !== 0) padded.push(null);
+            const rowArr = []; for (let i = 0; i < padded.length; i += cols) rowArr.push(padded.slice(i, i + cols));
+            return (
+              <div key={floor} style={{ marginBottom: 4 }}>
+                {rowArr.map((row, ri) => (
+                  <div key={ri} style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 7, color: "rgba(255,255,255,0.18)", width: 14, textAlign: "right", flexShrink: 0, fontWeight: 700, paddingBottom: 4, fontFamily: "monospace" }}>{ri === 0 ? String(floor).padStart(2, "0") : ""}</span>
+                    <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${cols},1fr)`, gap: 4 }}>
+                      {row.map((room, ci) => room
+                        ? <RoomKeycap key={room.id} room={room} selected={selectedRoom?.id === room.id} onClick={r => setSelectedRoom(prev => prev?.id === r.id ? null : r)} />
+                        : <div key={`ph${ci}`} style={{ aspectRatio: "1/1.05", borderRadius: 6, background: "rgba(255,255,255,0.008)", border: "1px dashed rgba(255,255,255,0.03)" }} />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+            {[{ c: "#22c55e", l: "Available" }, { c: "#D4AF37", l: "Reserved" }, { c: "#ef4444", l: "Occupied" }, { c: "#818cf8", l: "Cleaning" }].map(x => (
+              <div key={x.l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: x.c, boxShadow: `0 0 4px ${x.c}` }} />
+                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>{x.l}</span>
+              </div>
+            ))}
+          </div>
+
+          {selectedRoom && (
+            <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 12, background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", animation: "fadeUp 0.3s ease" }}>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 800, color: "#D4AF37" }}>Room {selectedRoom.number} selected ✓</p>
+                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Floor {selectedRoom.floor} · {selectedRoom.type} · ₹{(negotiatedRate || selectedRoom.baseRate)?.toLocaleString("en-IN")}/raat</p>
+              </div>
+              <button onClick={() => setSelectedRoom(null)} style={{ width: 24, height: 24, borderRadius: 6, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer" }}>✕</button>
+            </div>
+          )}
+        </div>
+
+        {/* ── AI ID SCANNER ── */}
+        <div style={{ background: "linear-gradient(135deg,rgba(0,18,45,0.55),rgba(0,8,22,0.65))", border: "1px solid rgba(0,140,255,0.18)", borderRadius: 20, padding: "16px", marginBottom: 12, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 0.025, backgroundImage: "linear-gradient(rgba(0,140,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(0,140,255,0.8) 1px,transparent 1px)", backgroundSize: "22px 22px", pointerEvents: "none" }} />
+          <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>📷 AI ID Scanner</p>
+
+          {scanStep === "camera" && (
+            <div style={{ borderRadius: 16, overflow: "hidden", background: "#000", position: "relative", marginBottom: 12, border: "1px solid rgba(0,140,255,0.3)" }}>
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
+              <canvas ref={canvasRef} style={{ display: "none" }} />
+              <div style={{ position: "absolute", inset: 0, border: "2px solid rgba(0,140,255,0.5)", borderRadius: 16, pointerEvents: "none" }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px", background: "linear-gradient(transparent,rgba(0,0,0,0.8))", display: "flex", gap: 8, justifyContent: "center" }}>
+                <button onClick={captureAndScan} style={{ flex: 1, padding: "11px", borderRadius: 12, background: "linear-gradient(135deg,#0050c8,#008cff)", border: "none", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <Camera size={15} /> Scan Karo
+                </button>
+                <button onClick={() => { stopCamera(); setScanStep("idle"); }} style={{ padding: "11px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ position: "absolute", top: 10, left: 0, right: 0, textAlign: "center" }}>
+                <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 10, background: "rgba(0,0,0,0.7)", color: "#60b8ff", fontWeight: 600 }}>
+                  {scanSide === "front" ? "ID ka Front Side" : "ID ka Back Side"} frame mein rakho
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: scanStep === "camera" ? 0 : 14 }}>
+            <AiReactor scanning={scanStep === "scanning"} progress={scanProgress} />
+            <div style={{ flex: 1 }}>
+              {scanStep === "idle" && (<>
+                <p style={{ fontSize: 13, fontWeight: 800, color: "#60b8ff", marginBottom: 4 }}>Aadhaar / PAN / Passport</p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.5, marginBottom: 8 }}>Camera se scan karo — form auto-fill ho jayega</p>
+                <button onClick={() => { setScanSide("front"); startCamera(); }} style={{ padding: "9px 14px", borderRadius: 10, background: "rgba(0,140,255,0.12)", border: "1px solid rgba(0,140,255,0.3)", color: "#60b8ff", fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Camera size={13} /> Camera Kholo
+                </button>
+              </>)}
+              {scanStep === "scanning" && (
+                <div style={{ animation: "fadeUp 0.3s ease" }}>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: "#60b8ff", marginBottom: 4 }}>AI Scan ho raha hai...</p>
+                  <div style={{ height: 4, background: "rgba(0,140,255,0.15)", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${scanProgress}%`, background: "linear-gradient(90deg,#008cff,#60b8ff)", borderRadius: 4, transition: "width 0.3s ease" }} />
+                  </div>
+                  <p style={{ fontSize: 10, color: "rgba(0,140,255,0.6)", marginTop: 4 }}>Llama 4 Vision processing...</p>
+                </div>
+              )}
+              {scanStep === "done" && (
+                <div style={{ animation: "fadeUp 0.3s ease" }}>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: "#22c55e", marginBottom: 3 }}>✓ ID Scan Successful!</p>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>{guestName} · {idType}</p>
+                  {!backImage && (
+                    <button onClick={() => { setScanSide("back"); startCamera(); setScanStep("camera"); }} style={{ padding: "7px 12px", borderRadius: 8, background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", color: "#D4AF37", fontSize: 10, fontWeight: 700, cursor: "pointer", marginRight: 6 }}>
+                      📷 Back Side Bhi Scan Karo
+                    </button>
+                  )}
+                  <button onClick={resetScan} style={{ padding: "7px 12px", borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", fontSize: 10, cursor: "pointer" }}>
+                    <RefreshCw size={10} style={{ display: "inline", marginRight: 4 }} />Reset
+                  </button>
+                </div>
+              )}
+              {scanStep === "error" && (
+                <div style={{ animation: "fadeUp 0.3s ease" }}>
+                  <p style={{ fontSize: 12, color: "#ef4444", marginBottom: 6 }}>{scanError || "Scan nahi hua."}</p>
+                  <button onClick={() => { setScanStep("camera"); startCamera(); }} style={{ padding: "7px 12px", borderRadius: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", fontSize: 10, cursor: "pointer", marginRight: 6 }}>
+                    Dobara Try Karo
+                  </button>
+                  <button onClick={resetScan} style={{ padding: "7px 12px", borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", fontSize: 10, cursor: "pointer" }}>Skip Karo</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* GRC Form Fields */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Guest Name *</label><input value={guestName} onChange={e => setGuestName(e.target.value)} placeholder="Suresh Kumar" style={inpStyle} /></div>
+              <div><label style={labelStyle}>Phone *</label><input value={guestPhone} onChange={e => setGuestPhone(e.target.value)} placeholder="9876543210" type="tel" style={inpStyle} /></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Check-In *</label><input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} min={new Date().toISOString().split("T")[0]} style={inpStyle} /></div>
+              <div><label style={labelStyle}>Check-Out *</label><input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} min={checkIn || new Date().toISOString().split("T")[0]} style={inpStyle} /></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>ID Type</label>
+                <select value={idType} onChange={e => setIdType(e.target.value)} style={inpStyle}>
+                  {["Aadhaar", "PAN", "Passport", "Driving License", "Voter ID"].map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div><label style={labelStyle}>ID Number</label><input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="XXXX XXXX XXXX" style={inpStyle} /></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Gender</label>
+                <select value={gender} onChange={e => setGender(e.target.value)} style={inpStyle}>
+                  <option value="">Select</option><option>Male</option><option>Female</option><option>Other</option>
+                </select>
+              </div>
+              <div><label style={labelStyle}>Date of Birth</label><input type="date" value={dob} onChange={e => setDob(e.target.value)} style={inpStyle} /></div>
+            </div>
+            <div><label style={labelStyle}>Address</label><textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="Full address..." rows={2} style={{ ...inpStyle, resize: "none", lineHeight: 1.5 }} /></div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {!selectedRoom && (
+                <div><label style={labelStyle}>Room Type</label>
+                  <select value={roomType} onChange={e => setRoomType(e.target.value)} style={inpStyle}>
+                    <option value="Standard Room">Standard — ₹{(hotel.standardRate || 1200).toLocaleString("en-IN")}/raat</option>
+                    <option value="Deluxe Room">Deluxe — ₹{(hotel.deluxeRate || 2000).toLocaleString("en-IN")}/raat</option>
+                    <option value="Suite Room">Suite — ₹{(hotel.suiteRate || 3800).toLocaleString("en-IN")}/raat</option>
+                  </select>
+                </div>
+              )}
+              <div><label style={labelStyle}>Payment Mode</label>
+                <select value={paymentMode} onChange={e => setPaymentMode(e.target.value)} style={inpStyle}>
+                  <option>Cash</option><option>UPI</option><option>Card</option><option>Online</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Bill summary */}
+            {nights > 0 && (
+              <div style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.2)", borderRadius: 12, padding: "12px 14px", animation: "fadeUp 0.3s ease" }}>
+                {negotiatedRate && (
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 10, color: "#22c55e" }}>🔒 AI Negotiated Rate</span>
+                    <span style={{ fontSize: 10, color: "#22c55e" }}>₹{negotiatedRate.toLocaleString("en-IN")}/night</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{selectedRoom ? `Room ${selectedRoom.number}` : roomType} × {nights} raat</span>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>₹{roomRate.toLocaleString("en-IN")} × {nights}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#D4AF37" }}>Total</span>
+                  <span style={{ fontSize: 20, fontWeight: 900, color: "#D4AF37", textShadow: "0 0 16px rgba(212,175,55,0.4)" }}>₹{total.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            )}
+
+            {formError && (
+              <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 12, animation: "fadeUp 0.2s ease" }}>⚠️ {formError}</div>
+            )}
+
+            {submitted ? (
+              <div style={{ textAlign: "center", padding: "20px", borderRadius: 16, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", animation: "fadeUp 0.4s ease" }}>
+                <CheckCircle size={36} style={{ color: "#22c55e", margin: "0 auto 10px", display: "block" }} />
+                <p style={{ fontSize: 15, fontWeight: 800, color: "#22c55e", marginBottom: 4 }}>Booking Confirm Ho Gayi! 🎉</p>
+                <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>Room {bookingResult?.roomNumber || selectedRoom?.number || ""} aapke naam RESERVE ho gaya hai</p>
+                <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 10, padding: "10px 12px", textAlign: "left" }}>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>📋 Booking ID: <span style={{ color: "rgba(255,255,255,0.7)", fontFamily: "monospace" }}>{bookingResult?.id?.slice(0, 12)}</span></p>
+                  {rateLockToken && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>🔒 Rate Lock Token: <span style={{ color: "#D4AF37", fontFamily: "monospace" }}>{rateLockToken}</span></p>}
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>🏨 Hotel team aapko <strong style={{ color: "#fff" }}>{guestPhone}</strong> par confirm karegi</p>
+                </div>
+              </div>
+            ) : (
+              <button onClick={handleBook} disabled={submitting} style={{ width: "100%", padding: "15px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: submitting ? "rgba(212,175,55,0.3)" : "linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color: "#000", border: "none", cursor: submitting ? "not-allowed" : "pointer", boxShadow: "0 4px 24px rgba(212,175,55,0.35)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {submitting ? <><div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(0,0,0,0.3)", borderTop: "2px solid #000", animation: "spinRingCW 0.8s linear infinite" }} /> Saving...</> : "📱 Book Karo & Owner Ko Batao"}
+              </button>
+            )}
+
+            <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderRadius: 10, background: "rgba(0,140,255,0.04)", border: "1px solid rgba(0,140,255,0.1)" }}>
+              <ShieldCheck size={13} style={{ color: "#60b8ff", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", lineHeight: 1.5 }}>Direct booking se <strong style={{ color: "rgba(255,255,255,0.5)" }}>rate lock</strong> hota hai — OTA commission nahi lagta. Checkout tak rate change nahi hoga.</p>
             </div>
           </div>
         </div>
 
-        {/* Desktop nav */}
-        <nav style={{
-          display: "flex", alignItems: "center", gap: 4,
-        }} className="desktop-nav">
-          {NAV_LINKS.map(link => (
-            <a key={link.label} href={link.href} style={{
-              fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.55)",
-              padding: "8px 14px", borderRadius: 8, textDecoration: "none",
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.55)"; e.currentTarget.style.background = "transparent"; }}
-            >
-              {link.label}
-              {link.label === "More" && <span style={{ marginLeft: 4, fontSize: 9 }}>▾</span>}
-            </a>
-          ))}
-        </nav>
-
-        {/* Right actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Dashboard link */}
-          <a href="/dashboard" style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.25)",
-            borderRadius: 10, padding: "7px 14px",
-            fontSize: 12, fontWeight: 700, color: "#D4AF37",
-            textDecoration: "none", transition: "all 0.2s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,175,55,0.15)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(212,175,55,0.08)"; }}
-          >
-            <LayoutDashboard size={13}/>
-            <span className="nav-dash-label">Hotel Login</span>
+        {/* ── LOCATION ── */}
+        <div style={{ background: "rgba(6,8,15,0.98)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 16, padding: "14px", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(0,140,255,0.1)", border: "1px solid rgba(0,140,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <MapPin size={15} style={{ color: "#60b8ff" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{hotel.name}</p>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{hotel.addressLine || hotel.location}</p>
+            </div>
+          </div>
+          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + " " + hotel.location)}`} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "10px", borderRadius: 10, background: "rgba(0,140,255,0.08)", border: "1px solid rgba(0,140,255,0.2)", color: "#60b8ff", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+            <Navigation size={11} /> Google Maps Pe Dekho
           </a>
-
-          {/* Mobile hamburger */}
-          <button
-            className="mobile-menu-btn"
-            onClick={() => setMenuOpen(true)}
-            style={{
-              display: "none", width: 38, height: 38, borderRadius: 10,
-              background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.18)",
-              alignItems: "center", justifyContent: "center", cursor: "pointer",
-            }}
-          >
-            <Menu size={17} style={{ color: "#D4AF37" }}/>
-          </button>
         </div>
+
+        {/* ── FAQ ── */}
+        <FaqSection faqOpen={faqOpen} setFaqOpen={setFaqOpen} />
+
       </div>
 
-      {/* Mobile menu overlay */}
-      {menuOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200 }}>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} onClick={() => setMenuOpen(false)}/>
-          <div style={{
-            position: "absolute", top: 0, right: 0, bottom: 0, width: 260,
-            background: "linear-gradient(180deg, #0c0f1a, #07090e)",
-            borderLeft: "1px solid rgba(212,175,55,0.12)",
-            padding: 20, display: "flex", flexDirection: "column", gap: 8,
-          }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-              <button onClick={() => setMenuOpen(false)} style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-              }}>
-                <X size={14} style={{ color: "rgba(255,255,255,0.4)" }}/>
-              </button>
+      {/* ── CHAT BUTTON ── */}
+      {!chatOpen && (
+        <button onClick={() => setChatOpen(true)} style={{ position: "fixed", bottom: 20, right: 18, zIndex: 50, width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg,#0050c8,#0080ff)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(0,140,255,0.4)" }}>
+          <MessageCircle size={20} style={{ color: "#fff" }} />
+          <div style={{ position: "absolute", top: 3, right: 3, width: 10, height: 10, borderRadius: "50%", background: "#22c55e", border: "2px solid #07090E" }} />
+        </button>
+      )}
+
+      {/* ── AI NEGOTIATOR & CONCIERGE CHAT PANEL ── */}
+      {chatOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", background: "linear-gradient(180deg,#0d111e,#060810)", animation: "slideUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards" }}>
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#14172a,#1e293b)", border: "1px solid rgba(212,175,55,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🤖</div>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 800, color: "#D4AF37" }}>AI Negotiator & Concierge</p>
+                <p style={{ fontSize: 9, color: "#22c55e", display: "flex", alignItems: "center", gap: 3 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />Online · Discount negotiate kar sakte ho</p>
+              </div>
             </div>
-            {NAV_LINKS.map(link => (
-              <a key={link.label} href={link.href}
-                onClick={() => setMenuOpen(false)}
-                style={{
-                  fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.7)",
-                  padding: "12px 16px", borderRadius: 12, textDecoration: "none",
-                  background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+            <button onClick={() => setChatOpen(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Booking context strip — shows what's currently selected */}
+          {(checkIn || selectedRoom) && (
+            <div style={{ padding: "8px 14px", background: "rgba(212,175,55,0.05)", borderBottom: "1px solid rgba(212,175,55,0.1)", display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {checkIn  && <span style={{ fontSize: 9, color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.08)", padding: "3px 8px", borderRadius: 6 }}>📅 {checkIn} → {checkOut || "?"}</span>}
+              {selectedRoom && <span style={{ fontSize: 9, color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.08)", padding: "3px 8px", borderRadius: 6 }}>🏠 Room {selectedRoom.number}</span>}
+              {negotiatedRate && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.1)", padding: "3px 8px", borderRadius: 6 }}>🔒 ₹{negotiatedRate}/night locked</span>}
+            </div>
+          )}
+
+          <div style={{ flex: 1, padding: "14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, WebkitOverflowScrolling: "touch" }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.25s ease" }}>
+                <div style={{
+                  maxWidth: "85%", padding: "10px 13px",
+                  borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                  fontSize: 12, lineHeight: 1.6,
+                  background: msg.role === "user"
+                    ? "linear-gradient(135deg,#91711e,#D4AF37)"
+                    : msg.isNegotiationResult
+                      ? msg.approved ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.08)"
+                      : "rgba(255,255,255,0.05)",
+                  color: msg.role === "user" ? "#000" : "rgba(255,255,255,0.85)",
+                  border: msg.role === "user" ? "none"
+                    : msg.isNegotiationResult
+                      ? `1px solid ${msg.approved ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.25)"}`
+                      : "1px solid rgba(255,255,255,0.06)",
+                  fontWeight: msg.role === "user" ? 700 : 400,
                 }}>
-                {link.label}
-              </a>
+                  {msg.content.split("\n").map((line, j) => <span key={j}>{line}{j < msg.content.split("\n").length - 1 && <br />}</span>)}
+                  {msg.isNegotiationResult && msg.approved && msg.token && (
+                    <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 6, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                      <p style={{ fontSize: 9, color: "#22c55e", fontFamily: "monospace" }}>🔒 Rate Lock Token: {msg.token}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             ))}
+            {(chatLoading || negotiating) && (
+              <div style={{ display: "flex", gap: 5, padding: "8px 4px", alignItems: "center" }}>
+                {negotiating && <span style={{ fontSize: 10, color: "#D4AF37", marginRight: 4 }}>Negotiating...</span>}
+                {[0, 1, 2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: negotiating ? "#D4AF37" : "#008cff", animation: "dotBounce 1.2s infinite", animationDelay: `${i * 0.2}s` }} />)}
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Quick action chips */}
+          <div style={{ padding: "8px 14px 0", display: "flex", gap: 6, flexWrap: "wrap", flexShrink: 0 }}>
+            {["Rates kya hain?", "₹1000 mein milega?", "Discount do", "Book karna hai", "Check-in time?"].map(q => (
+              <button key={q} onClick={() => sendChat(q)} style={{ fontSize: 10, padding: "6px 10px", borderRadius: 8, background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)", color: "#D4AF37", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>{q}</button>
+            ))}
+          </div>
+
+          <div style={{ padding: "10px 14px 16px", borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.3)", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()} placeholder="Hinglish mein puchho ya negotiate karo..." style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "11px 14px", fontSize: 12, color: "#fff", outline: "none" }} />
+            <button onClick={() => sendChat()} disabled={!chatInput.trim() || chatLoading} style={{ width: 42, height: 42, borderRadius: 11, background: "linear-gradient(135deg,#0050c8,#0080ff)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: (!chatInput.trim() || chatLoading) ? 0.4 : 1 }}>
+              <Send size={14} style={{ color: "#fff" }} />
+            </button>
           </div>
         </div>
       )}
-
-      <style>{`
-        @media (max-width: 768px) {
-          .desktop-nav { display: none !important; }
-          .mobile-menu-btn { display: flex !important; }
-          .nav-dash-label { display: none; }
-        }
-      `}</style>
-    </header>
+    </div>
   );
 }
 
-// ── Footer ─────────────────────────────────────────────────────────────────
-function Footer() {
+/* ═══════════════════════════════════════════
+   FAQ COMPONENT
+═══════════════════════════════════════════ */
+function FaqSection({ faqOpen, setFaqOpen }) {
+  const faqs = [
+    { q: "Check-in / Check-out time?",    a: "Check-in: 12:00 PM | Check-out: 11:00 AM. Early check-in availability pe depend karta hai." },
+    { q: "Direct booking ka fayda?",       a: "Rate lock hota hai — OTA commission nahi lagta (18% savings), aur checkout tak rate change nahi hoga." },
+    { q: "AI Negotiator kya hota hai?",    a: "AI Negotiator se aap directly discount negotiate kar sakte ho. Agar requested rate hotel ke floor price se upar hai, toh automatically approve ho jata hai aur rate lock token milta hai." },
+    { q: "Payment kab?",                   a: "Check-in ke time hotel reception pe — Cash ya UPI accepted hai." },
+    { q: "Cancellation policy?",           a: "24 ghante pehle cancellation bilkul free hai. Uske baad ek raat ka charge lagega." },
+  ];
   return (
-    <footer style={{
-      background: "rgba(3,5,10,0.98)",
-      borderTop: "1px solid rgba(212,175,55,0.08)",
-      padding: "20px",
-    }}>
-      <div style={{
-        maxWidth: 1280, margin: "0 auto",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        flexWrap: "wrap", gap: 12,
-      }}>
-        {[
-          { icon: "🛡", text: "Network Security: Military Grade" },
-          { icon: "🔒", text: "Payment Security: 100% Secure" },
-          { icon: "🔐", text: "Data Protection: Encrypted" },
-          { icon: "⊙", text: "Uptime: 99.99%", color: "#22c55e" },
-        ].map(f => (
-          <div key={f.text} style={{
-            display: "flex", alignItems: "center", gap: 6,
-            fontSize: 10, color: f.color || "rgba(255,255,255,0.3)", fontWeight: 500,
-          }}>
-            <span>{f.icon}</span>
-            <span>{f.text}</span>
-          </div>
-        ))}
+    <div style={{ background: "rgba(6,8,15,0.98)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 16, overflow: "hidden", marginBottom: 14 }}>
+      <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Aksar Puche Sawal</p>
       </div>
-    </footer>
-  );
-}
-
-// ── Root Page ──────────────────────────────────────────────────────────────
-export default function MarketplacePage() {
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#07090E",
-      color: "#fff",
-      position: "relative",
-      overflowX: "hidden",
-    }}>
-      {/* Layer 0: Neural particle canvas — fixed background */}
-      <NeuralCanvas />
-
-      {/* Layer 1: Radial gradient overlays */}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
-        background: `
-          radial-gradient(ellipse 80% 50% at 20% 20%, rgba(212,175,55,0.06) 0%, transparent 60%),
-          radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0,140,255,0.04) 0%, transparent 60%)
-        `,
-      }}/>
-
-      {/* Layer 2: Content */}
-      <div style={{ position: "relative", zIndex: 2 }}>
-        <TopNav />
-
-        {/* Main content shifted below fixed nav */}
-        <div style={{ paddingTop: 64 }}>
-          <HeroSearchSection />
-          <AdvantageGrid />
-          <MarketplaceHotels />
+      {faqs.map((f, i) => (
+        <div key={i} style={{ borderBottom: i < faqs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+          <button onClick={() => setFaqOpen(faqOpen === i ? null : i)} style={{ width: "100%", padding: "13px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: 600, flex: 1, paddingRight: 12 }}>{f.q}</span>
+            <span style={{ fontSize: 16, color: "#D4AF37", transition: "transform 0.2s", transform: faqOpen === i ? "rotate(45deg)" : "none", flexShrink: 0, display: "inline-block" }}>+</span>
+          </button>
+          {faqOpen === i && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.6, padding: "0 14px 13px", animation: "fadeUp 0.2s ease" }}>{f.a}</p>}
         </div>
-
-        <Footer />
-      </div>
-
-      {/* Layer 3: Floating AI Negotiator orb */}
-      <NegotiatorOrb />
+      ))}
     </div>
   );
 }
