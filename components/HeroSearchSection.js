@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Mic, MapPin, Zap } from "lucide-react";
+import { Mic, Search } from "lucide-react";
 
 const SEARCH_PLACEHOLDERS = [
   "Bhopal mein bus stand ke paas clean budget stay dikhao below ₹1500...",
@@ -11,7 +11,6 @@ const SEARCH_PLACEHOLDERS = [
   "Hyderabad Hitech City ke paas business hotel...",
 ];
 
-// Window grid for isometric building floors
 const FLOOR_COLORS = {
   top:    { active: "#22c55e", glow: "rgba(34,197,94,0.8)",   bg: "rgba(34,197,94,0.15)"  },
   mid:    { active: "#008cff", glow: "rgba(0,140,255,0.8)",   bg: "rgba(0,140,255,0.12)"  },
@@ -50,7 +49,6 @@ function IsometricBuilding() {
 
   return (
     <div className="relative flex flex-col items-center select-none" style={{ width: "100%", maxWidth: 420 }}>
-      {/* Ambient glow base */}
       <div style={{
         position: "absolute", bottom: -20, left: "50%", transform: "translateX(-50%)",
         width: 320, height: 40, borderRadius: "50%",
@@ -58,7 +56,6 @@ function IsometricBuilding() {
         filter: "blur(12px)",
       }}/>
 
-      {/* Building floors stack */}
       <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 3 }}>
         {floors.map((floor, fi) => (
           <div key={floor.key} style={{
@@ -71,14 +68,11 @@ function IsometricBuilding() {
             height: floor.height,
             overflow: "hidden",
           }}>
-            {/* Floor color accent strip */}
             <div style={{
               position: "absolute", top: 0, left: 0, right: 0, height: 2,
               background: `linear-gradient(90deg, transparent, ${floor.color.active}, transparent)`,
               opacity: 0.8,
             }}/>
-
-            {/* Floor label */}
             <div style={{
               position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
               fontSize: 9, fontWeight: 700, letterSpacing: "0.1em",
@@ -86,8 +80,6 @@ function IsometricBuilding() {
             }}>
               {floor.label}
             </div>
-
-            {/* Windows grid */}
             <div style={{
               position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
               display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4,
@@ -104,8 +96,6 @@ function IsometricBuilding() {
                 }}/>
               ))}
             </div>
-
-            {/* Room occupancy mini-bar */}
             <div style={{
               position: "absolute", bottom: 8, left: 12,
               display: "flex", gap: 2, alignItems: "center",
@@ -121,7 +111,6 @@ function IsometricBuilding() {
           </div>
         ))}
 
-        {/* Ground label */}
         <div style={{
           textAlign: "center", fontSize: 10, fontWeight: 800,
           letterSpacing: "0.25em", color: "rgba(212,175,55,0.5)",
@@ -131,7 +120,6 @@ function IsometricBuilding() {
         </div>
       </div>
 
-      {/* Stat widgets on right side */}
       <div style={{
         position: "absolute", right: -140, top: 0,
         display: "flex", flexDirection: "column", gap: 8,
@@ -162,27 +150,30 @@ function IsometricBuilding() {
   );
 }
 
-export default function HeroSearchSection() {
+// ── HERO SEARCH SECTION ────────────────────────────────────────────────────
+// onSearch prop: function(queryString) — lifts query to page.js which passes
+// it directly into NegotiatorOrb, bypassing the generic greeting flow.
+export default function HeroSearchSection({ onSearch }) {
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [displayText, setDisplayText]       = useState("");
-  const [isTyping, setIsTyping]             = useState(true);
-  const [voiceActive, setVoiceActive]       = useState(true);
-  const typeRef = useRef(null);
+  const [userInput, setUserInput]           = useState("");
+  const [voiceActive, setVoiceActive]       = useState(false);
+  const [isFocused, setIsFocused]           = useState(false);
+  const typeRef   = useRef(null);
   const deleteRef = useRef(null);
+  const inputRef  = useRef(null);
 
-  // Typewriter effect
+  // Typewriter effect — pauses when user is typing
   useEffect(() => {
+    if (isFocused) return; // Don't animate when user is typing
     const target = SEARCH_PLACEHOLDERS[placeholderIdx];
     let charIdx = 0;
-    setIsTyping(true);
-
     typeRef.current = setInterval(() => {
       charIdx++;
       setDisplayText(target.slice(0, charIdx));
       if (charIdx >= target.length) {
         clearInterval(typeRef.current);
         setTimeout(() => {
-          // Delete phase
           let delIdx = target.length;
           deleteRef.current = setInterval(() => {
             delIdx -= 2;
@@ -195,12 +186,37 @@ export default function HeroSearchSection() {
         }, 2500);
       }
     }, 45);
-
     return () => {
       clearInterval(typeRef.current);
       clearInterval(deleteRef.current);
     };
-  }, [placeholderIdx]);
+  }, [placeholderIdx, isFocused]);
+
+  // ── SUBMIT HANDLER ────────────────────────────────────────────
+  // This is the critical bridge: takes the user's typed/spoken query
+  // and passes it up to page.js → NegotiatorOrb via onSearch prop.
+  const handleSubmit = () => {
+    const query = userInput.trim();
+    if (!query) return;
+    if (onSearch) onSearch(query);
+    setUserInput("");
+    inputRef.current?.blur();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  // Voice search stub — opens orb with voice context
+  const handleVoiceToggle = () => {
+    setVoiceActive(v => !v);
+    if (!voiceActive && userInput.trim()) {
+      handleSubmit();
+    }
+  };
 
   return (
     <section style={{
@@ -229,7 +245,6 @@ export default function HeroSearchSection() {
             </span>
           </div>
 
-          {/* Main headline */}
           <h1 style={{ marginBottom: 8 }}>
             <span style={{
               display: "block", fontSize: "clamp(26px,4vw,42px)", fontWeight: 400,
@@ -242,7 +257,7 @@ export default function HeroSearchSection() {
               background: "linear-gradient(135deg, #b8960c 0%, #D4AF37 40%, #F5C842 70%, #D4AF37 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
               letterSpacing: "-0.03em", lineHeight: 1.1,
-              textShadow: "none", filter: "drop-shadow(0 0 30px rgba(212,175,55,0.4))",
+              filter: "drop-shadow(0 0 30px rgba(212,175,55,0.4))",
             }}>
               Smart Hotel Network
             </span>
@@ -255,7 +270,6 @@ export default function HeroSearchSection() {
             AI Powered. Secure. Commission Free.
           </p>
 
-          {/* Stats row */}
           <div style={{
             display: "flex", alignItems: "center", gap: 16, marginBottom: 36,
             padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.06)",
@@ -275,47 +289,82 @@ export default function HeroSearchSection() {
             ))}
           </div>
 
-          {/* Voice Search Box */}
+          {/* ── SEARCH BOX — now a real interactive input ── */}
           <div style={{
             position: "relative",
-            background: "rgba(4,6,12,0.9)",
-            border: "1px solid rgba(212,175,55,0.3)",
+            background: isFocused
+              ? "rgba(6,9,18,0.95)"
+              : "rgba(4,6,12,0.9)",
+            border: `1px solid rgba(212,175,55,${isFocused ? "0.55" : "0.3"})`,
             borderRadius: 20,
-            padding: "20px 24px",
-            boxShadow: `
-              0 0 0 1px rgba(212,175,55,0.08),
-              0 20px 60px rgba(0,0,0,0.6),
-              0 0 80px rgba(212,175,55,0.06)
-            `,
+            padding: "16px 20px",
+            boxShadow: isFocused
+              ? `0 0 0 3px rgba(212,175,55,0.08), 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(212,175,55,0.12)`
+              : `0 0 0 1px rgba(212,175,55,0.08), 0 20px 60px rgba(0,0,0,0.6)`,
             overflow: "hidden",
+            transition: "all 0.25s",
           }}>
-            {/* Ambient glow rings */}
-            <div style={{
-              position: "absolute", bottom: -30, right: -30,
-              width: 200, height: 200, borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(212,175,55,0.08) 0%, transparent 70%)",
-            }}/>
+            <div style={{ position: "absolute", bottom: -30, right: -30, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,175,55,0.08) 0%, transparent 70%)" }}/>
 
-            {/* Typewriter text */}
-            <div style={{
-              fontSize: "clamp(13px,2vw,15px)", color: "rgba(255,255,255,0.75)",
-              lineHeight: 1.6, minHeight: 52, marginRight: 60,
-              fontWeight: 400,
-            }}>
-              {displayText}
-              <span style={{
-                display: "inline-block", width: 2, height: "1em",
-                background: "#D4AF37", marginLeft: 2, verticalAlign: "middle",
-                animation: "cursorBlink 1s infinite",
-              }}/>
+            {/* Real text input */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginRight: 60 }}>
+              <input
+                ref={inputRef}
+                value={userInput}
+                onChange={e => setUserInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder={isFocused ? "Hotel dhundo — city, area, budget likhein..." : ""}
+                style={{
+                  flex: 1, background: "none", border: "none", outline: "none",
+                  fontSize: "clamp(13px,2vw,15px)", color: "#fff",
+                  caretColor: "#D4AF37", fontWeight: 400, lineHeight: 1.6,
+                  minHeight: 52,
+                }}
+              />
+              {/* Search submit button — appears when user has typed */}
+              {userInput.trim() && (
+                <button
+                  onClick={handleSubmit}
+                  style={{
+                    padding: "8px 16px", borderRadius: 10, cursor: "pointer",
+                    background: "linear-gradient(135deg, #b8960c, #D4AF37)",
+                    border: "none", fontSize: 12, fontWeight: 800, color: "#000",
+                    display: "flex", alignItems: "center", gap: 6,
+                    flexShrink: 0,
+                    boxShadow: "0 4px 16px rgba(212,175,55,0.4)",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <Search size={13}/>
+                  Dhundo
+                </button>
+              )}
             </div>
+
+            {/* Typewriter placeholder (hidden when focused or has value) */}
+            {!isFocused && !userInput && (
+              <div style={{
+                position: "absolute", top: 16, left: 20, right: 80,
+                fontSize: "clamp(13px,2vw,15px)", color: "rgba(255,255,255,0.55)",
+                lineHeight: 1.6, pointerEvents: "none",
+              }}>
+                {displayText}
+                <span style={{
+                  display: "inline-block", width: 2, height: "1em",
+                  background: "#D4AF37", marginLeft: 2, verticalAlign: "middle",
+                  animation: "cursorBlink 1s infinite",
+                }}/>
+              </div>
+            )}
 
             {/* Mic button */}
             <button
-              onClick={() => setVoiceActive(v => !v)}
+              onClick={handleVoiceToggle}
               style={{
-                position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)",
-                width: 52, height: 52, borderRadius: "50%",
+                position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)",
+                width: 48, height: 48, borderRadius: "50%",
                 background: voiceActive
                   ? "radial-gradient(circle, rgba(212,175,55,0.3) 0%, rgba(212,175,55,0.1) 100%)"
                   : "rgba(212,175,55,0.06)",
@@ -326,7 +375,7 @@ export default function HeroSearchSection() {
                 transition: "all 0.3s",
               }}
             >
-              <Mic size={20} style={{ color: "#D4AF37" }}/>
+              <Mic size={18} style={{ color: "#D4AF37" }}/>
               {voiceActive && (
                 <div style={{
                   position: "absolute", inset: -6, borderRadius: "50%",
@@ -336,10 +385,10 @@ export default function HeroSearchSection() {
               )}
             </button>
 
-            {/* Voice status bar */}
+            {/* Status bar */}
             <div style={{
-              marginTop: 12, display: "flex", alignItems: "center", gap: 8,
-              paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)",
+              marginTop: 8, display: "flex", alignItems: "center", gap: 8,
+              paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)",
             }}>
               <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
                 {[...Array(6)].map((_, i) => (
@@ -353,7 +402,7 @@ export default function HeroSearchSection() {
                 ))}
               </div>
               <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 600, letterSpacing: "0.08em" }}>
-                {voiceActive ? "Voice Search Active" : "Tap mic to activate"}
+                {voiceActive ? "Voice Search Active" : isFocused ? "Enter dabao ya Dhundo click karo" : "Tap mic to activate"}
               </span>
               <span style={{
                 fontSize: 10, color: "#D4AF37", fontWeight: 700,
@@ -395,7 +444,6 @@ export default function HeroSearchSection() {
         </div>
       </div>
 
-      {/* Responsive grid fix */}
       <style>{`
         @media (max-width: 900px) {
           .hero-grid { grid-template-columns: 1fr !important; }
