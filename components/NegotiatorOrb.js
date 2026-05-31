@@ -1,67 +1,214 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Send, Mic, Sparkles } from "lucide-react";
 
-const INITIAL_MESSAGES = [
+// ── Hotel data (mirrors MarketplaceHotels) ────────────────────────────────
+const HOTEL_CATALOG = [
   {
-    id: 1,
-    role: "ai",
-    text: "Namaste! Main aapka AI Hotel Negotiator hoon. Aap kahan jaana chahte hain aur budget kya hai? Main best deal dhundh dunga! 🏨",
-    time: "Just now",
+    id: "hotel-cherry-bhopal",
+    name: "Hotel Cherry, Bhopal",
+    city: "Bhopal", state: "Madhya Pradesh",
+    distance: "1.2 km from Bus Stand",
+    rating: 4.6,
+    minPrice: 1200,
+    amenities: ["Free Wi-Fi", "Complimentary Breakfast"],
+    tags: ["budget", "business", "bus stand"],
+  },
+  {
+    id: "boutique-stays-jaipur",
+    name: "Boutique Stays, Jaipur",
+    city: "Jaipur", state: "Rajasthan",
+    distance: "2.1 km from City Center",
+    rating: 4.7,
+    minPrice: 1150,
+    amenities: ["Free Wi-Fi", "Pool Access"],
+    tags: ["boutique", "pool", "city center", "4-star"],
+  },
+  {
+    id: "hotel-midtown-indore",
+    name: "Hotel Midtown, Indore",
+    city: "Indore", state: "Madhya Pradesh",
+    distance: "900 m from Bus Stand",
+    rating: 4.5,
+    minPrice: 1100,
+    amenities: ["Free Wi-Fi", "Early Check-in"],
+    tags: ["budget", "couple", "sarafa", "early check-in"],
+  },
+  {
+    id: "city-comforts-nagpur",
+    name: "City Comforts, Nagpur",
+    city: "Nagpur", state: "Maharashtra",
+    distance: "1.5 km from Bus Stand",
+    rating: 4.4,
+    minPrice: 1000,
+    amenities: ["Free Wi-Fi", "Parking"],
+    tags: ["budget", "parking", "bus stand"],
   },
 ];
 
-const QUICK_REPLIES = [
-  "Bhopal budget stay ₹1500",
-  "Jaipur 4-star hotel",
-  "Mumbai airport hotel",
-  "Delhi corporate stay",
-];
+// System prompt for the AI Negotiator
+const SYSTEM_PROMPT = `You are an AI Hotel Negotiator for The GuestInn Network — India's smart hotel booking platform.
+You speak in friendly Hinglish (mix of Hindi and English). Keep responses concise (2-4 sentences max).
+You help guests find hotels from our network.
 
-let msgIdCounter = 2;
+Current Hotel Catalog:
+${HOTEL_CATALOG.map(h => `- ${h.name} (${h.city}, ${h.state}) — ₹${h.minPrice}/night, Rating: ${h.rating}, ${h.amenities.join(", ")}, ${h.distance}`).join("\n")}
 
-export default function NegotiatorOrb() {
+Rules:
+1. When user mentions a city or area, immediately show matching hotels from catalog with prices.
+2. NEVER ask "Kaunsi city prefer karoge?" if the city is already mentioned in their query.
+3. If no exact match in catalog, suggest nearest available option and mention more properties are available.
+4. Always mention AI Rate Lock and 0% commission advantage.
+5. For booking, say: "View Hotel button pe click karein" with the hotel name.
+6. Keep it warm, helpful, and actionable.
+7. Use ₹ for prices, not Rs or INR.`;
+
+let msgIdCounter = 10;
+
+// ── NegotiatorOrb ─────────────────────────────────────────────────────────
+// Props:
+//   pendingQuery   — string | null  — query from HeroSearchSection
+//   forceOpen      — bool           — open panel immediately
+//   onQueryConsumed — fn()          — tells page.js to clear pending query
+export default function NegotiatorOrb({ pendingQuery, forceOpen, onQueryConsumed }) {
   const [open, setOpen]         = useState(false);
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState([]);
   const [input, setInput]       = useState("");
   const [thinking, setThinking] = useState(false);
   const [pulse, setPulse]       = useState(true);
-  const scrollRef = useRef(null);
+  const scrollRef  = useRef(null);
+  const consumedRef = useRef(null); // tracks which query we've already processed
 
+  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, thinking]);
 
-  const sendMessage = async (text) => {
+  // ── CORE: consume pending query from HeroSearchSection ────────
+  // This fires when user submits a search from the hero input.
+  // We open the panel and IMMEDIATELY treat the query as the first message —
+  // no generic greeting, no "kaunsi city" question.
+  useEffect(() => {
+    if (!pendingQuery || pendingQuery === consumedRef.current) return;
+    consumedRef.current = pendingQuery;
+
+    // Open the panel
+    setOpen(true);
+    setPulse(false);
+
+    // Seed conversation: show user's query + trigger AI response
+    const userMsg = {
+      id: msgIdCounter++,
+      role: "user",
+      text: pendingQuery,
+      time: "Just now",
+    };
+    setMessages([userMsg]);
+    setThinking(true);
+
+    // Fire AI with the query immediately
+    callAI([{ role: "user", content: pendingQuery }]).then(aiReply => {
+      setMessages(prev => [...prev, {
+        id: msgIdCounter++,
+        role: "ai",
+        text: aiReply,
+        time: "Now",
+      }]);
+      setThinking(false);
+    });
+
+    // Tell page.js we've consumed it
+    if (onQueryConsumed) onQueryConsumed();
+  }, [pendingQuery]);
+
+  // Force-open from page.js
+  useEffect(() => {
+    if (forceOpen) {
+      setOpen(true);
+      setPulse(false);
+    }
+  }, [forceOpen]);
+
+  // ── AI API CALL ───────────────────────────────────────────────
+  const callAI = async (conversationHistory) => {
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: SYSTEM_PROMPT,
+          messages: conversationHistory,
+        }),
+      });
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      const data = await response.json();
+      const text = data.content
+        ?.filter(b => b.type === "text")
+        .map(b => b.text)
+        .join("") || "Kuch technical issue aa gaya. Please dobara try karein.";
+      return text;
+    } catch (err) {
+      console.error("AI call failed:", err);
+      return "Network issue hai — please dobara try karein. 🙏";
+    }
+  };
+
+  // ── SEND MESSAGE ──────────────────────────────────────────────
+  const sendMessage = useCallback(async (text) => {
     const userText = (text || input).trim();
-    if (!userText) return;
+    if (!userText || thinking) return;
     setInput("");
 
     const userMsg = { id: msgIdCounter++, role: "user", text: userText, time: "Now" };
     setMessages(prev => [...prev, userMsg]);
     setThinking(true);
 
-    // Simulate AI response with contextual replies
-    await new Promise(r => setTimeout(r, 1200 + Math.random() * 800));
+    // Build full history for context
+    const history = [...messages, userMsg].map(m => ({
+      role: m.role === "ai" ? "assistant" : "user",
+      content: m.text,
+    }));
 
-    const responses = [
-      `Main aapke liye ${userText.includes("budget") ? "budget-friendly" : "best"} hotels dhundh raha hoon... 🔍 Abhi 3 properties match ho rahe hain with AI Rate Lock!`,
-      "Yeh sahi choice hai! GuestInn Network mein aapko 100% commission-free direct booking milegi. Rate Lock guarantee ke saath!",
-      "Aapka AI Negotiator activate ho gaya hai. Main hotels se seedha best price negotiate kar raha hoon — koi hidden charges nahi! ✅",
-      `Perfect! ${userText.split(" ").slice(0,2).join(" ")} ke liye maine 5 verified properties shortlist ki hain. Kaunsi city prefer karoge?`,
-    ];
-
-    const aiMsg = {
+    const aiReply = await callAI(history);
+    setMessages(prev => [...prev, {
       id: msgIdCounter++,
       role: "ai",
-      text: responses[Math.floor(Math.random() * responses.length)],
+      text: aiReply,
       time: "Now",
-    };
-    setMessages(prev => [...prev, aiMsg]);
+    }]);
     setThinking(false);
+  }, [input, thinking, messages]);
+
+  // ── INITIAL GREETING (only when opened manually, no pending query) ──
+  const handleManualOpen = () => {
+    setOpen(o => {
+      const next = !o;
+      if (next && messages.length === 0) {
+        // Show greeting only when opened fresh with no existing query
+        setMessages([{
+          id: msgIdCounter++,
+          role: "ai",
+          text: "Namaste! 🏨 Main aapka AI Hotel Negotiator hoon. Kahan jaana hai aur budget kya hai? Best deal dhundh dunga!",
+          time: "Just now",
+        }]);
+      }
+      return next;
+    });
+    setPulse(false);
   };
+
+  const QUICK_REPLIES = [
+    "Bhopal budget stay ₹1500",
+    "Jaipur 4-star hotel pool",
+    "Indore couple-friendly hotel",
+    "Nagpur bus stand ke paas",
+  ];
+
+  const isFirstMessage = messages.length <= 1;
 
   return (
     <>
@@ -82,6 +229,7 @@ export default function NegotiatorOrb() {
         transition: "right 0.4s cubic-bezier(0.4,0,0.2,1)",
         overflow: "hidden",
       }}>
+
         {/* Panel header */}
         <div style={{
           padding: "16px 20px",
@@ -91,7 +239,6 @@ export default function NegotiatorOrb() {
           flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* Mini orb */}
             <div style={{
               width: 38, height: 38, borderRadius: "50%",
               background: "radial-gradient(circle at 35% 35%, rgba(0,140,255,0.6) 0%, rgba(0,80,200,0.3) 50%, rgba(0,40,120,0.2) 100%)",
@@ -163,7 +310,7 @@ export default function NegotiatorOrb() {
                 padding: "10px 14px",
               }}>
                 <p style={{
-                  fontSize: 12, lineHeight: 1.6,
+                  fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap",
                   color: msg.role === "user" ? "#D4AF37" : "rgba(255,255,255,0.82)",
                 }}>
                   {msg.text}
@@ -205,8 +352,8 @@ export default function NegotiatorOrb() {
           )}
         </div>
 
-        {/* Quick replies */}
-        {messages.length <= 2 && (
+        {/* Quick replies — shown on fresh open */}
+        {isFirstMessage && !thinking && (
           <div style={{
             padding: "0 16px 8px",
             display: "flex", gap: 6, flexWrap: "wrap",
@@ -243,11 +390,7 @@ export default function NegotiatorOrb() {
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 14, padding: "10px 14px",
             display: "flex", alignItems: "center", gap: 8,
-            transition: "border-color 0.2s",
-          }}
-          onFocus={e => { e.currentTarget.style.borderColor = "rgba(212,175,55,0.4)"; }}
-          onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
-          >
+          }}>
             <Mic size={14} style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0 }}/>
             <input
               value={input}
@@ -256,8 +399,7 @@ export default function NegotiatorOrb() {
               placeholder="Hotel dhundo ya poochho..."
               style={{
                 flex: 1, background: "none", border: "none", outline: "none",
-                fontSize: 12, color: "#fff",
-                caretColor: "#D4AF37",
+                fontSize: 12, color: "#fff", caretColor: "#D4AF37",
               }}
             />
           </div>
@@ -267,17 +409,17 @@ export default function NegotiatorOrb() {
             disabled={!input.trim() || thinking}
             style={{
               width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-              background: input.trim()
+              background: input.trim() && !thinking
                 ? "linear-gradient(135deg, #b8960c, #D4AF37)"
                 : "rgba(255,255,255,0.04)",
-              border: `1px solid ${input.trim() ? "rgba(212,175,55,0.5)" : "rgba(255,255,255,0.08)"}`,
+              border: `1px solid ${input.trim() && !thinking ? "rgba(212,175,55,0.5)" : "rgba(255,255,255,0.08)"}`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: input.trim() ? "pointer" : "default",
+              cursor: input.trim() && !thinking ? "pointer" : "default",
               transition: "all 0.2s",
-              boxShadow: input.trim() ? "0 4px 16px rgba(212,175,55,0.3)" : "none",
+              boxShadow: input.trim() && !thinking ? "0 4px 16px rgba(212,175,55,0.3)" : "none",
             }}
           >
-            <Send size={14} style={{ color: input.trim() ? "#000" : "rgba(255,255,255,0.2)" }}/>
+            <Send size={14} style={{ color: input.trim() && !thinking ? "#000" : "rgba(255,255,255,0.2)" }}/>
           </button>
         </div>
       </div>
@@ -291,7 +433,7 @@ export default function NegotiatorOrb() {
         transition: "right 0.4s cubic-bezier(0.4,0,0.2,1)",
       }}>
         <button
-          onClick={() => { setOpen(o => !o); setPulse(false); }}
+          onClick={handleManualOpen}
           style={{
             width: 68, height: 68, borderRadius: "50%",
             background: "radial-gradient(circle at 35% 35%, rgba(0,160,255,0.9) 0%, rgba(0,80,200,0.7) 50%, rgba(0,30,100,0.8) 100%)",
@@ -306,7 +448,6 @@ export default function NegotiatorOrb() {
           onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; }}
           onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
         >
-          {/* Pulse rings */}
           {pulse && [1,2,3].map(i => (
             <div key={i} style={{
               position: "absolute", inset: -(i * 10),
@@ -315,7 +456,6 @@ export default function NegotiatorOrb() {
               animation: `orbRing 2s ease-out ${i * 0.4}s infinite`,
             }}/>
           ))}
-
           <Sparkles size={22} style={{ color: "#fff" }}/>
           <span style={{
             fontSize: 8, fontWeight: 800, color: "rgba(255,255,255,0.8)",
@@ -325,7 +465,6 @@ export default function NegotiatorOrb() {
           </span>
         </button>
 
-        {/* Label */}
         {!open && (
           <div style={{
             position: "absolute", bottom: -22, left: "50%", transform: "translateX(-50%)",
