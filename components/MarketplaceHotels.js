@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { MapPin, Wifi, Coffee, Star, ArrowRight, Shield } from "lucide-react";
 
 const HOTELS = [
@@ -71,6 +72,7 @@ const HOTELS = [
 
 function HotelCard({ hotel }) {
   const [selectedRoom, setSelectedRoom] = useState(hotel.defaultRoom);
+  const router = useRouter();
   const activeRoom = hotel.rooms[selectedRoom];
 
   return (
@@ -234,7 +236,9 @@ function HotelCard({ hotel }) {
         </div>
 
         {/* CTA */}
-        <button style={{
+        <button
+        onClick={() => router.push(`/booking/${hotel.id}`)}
+        style={{
           width: "100%", padding: "12px 20px",
           background: "linear-gradient(135deg, #b8960c 0%, #D4AF37 50%, #F5C842 100%)",
           border: "none", borderRadius: 12, cursor: "pointer",
