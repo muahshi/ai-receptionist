@@ -1,5 +1,7 @@
-# 🎯 The GuestInn v2.0 — SKILLS.md
-> **Claude ke liye:** Yeh file poore project ka complete technical reference hai. Koi bhi feature implement karne ya bug fix karne se pehle yeh file padho.
+# 🎯 The GuestInn Network v2.0 — SKILLS.md
+> **Claude ke liye complete technical reference.**
+> Koi bhi feature implement karne ya bug fix karne se pehle yeh file padho.
+> Yeh file project ka single source of truth hai.
 
 ---
 
@@ -7,393 +9,529 @@
 
 ```
 app/
-  page.js                    ← Staff app shell. Tab nav. Body ko "app-locked" class deta hai.
-  layout.js                  ← Root layout. apple-touch-icon, fonts, metadata.
-  globals.css                ← Global CSS. html/body scroll — NO overflow:hidden globally.
-                               Staff app: body.app-locked class se scroll lock hota hai.
-  booking/[hotelId]/page.js  ← Public booking page. Standalone. db.js import nahi karta.
-                               savePublicBooking() function internally define hai.
+  page.js                    ← Marketplace shell. NeuralCanvas + HeroSearchSection +
+                               AdvantageGrid + MarketplaceHotels + NegotiatorOrb.
+                               pendingSearchQuery state yahan hai — HeroSearch → Orb bridge.
+  layout.js                  ← Root layout. apple-touch-icon, fonts, PWA meta.
+  globals.css                ← Global CSS. NO overflow:hidden globally.
+                               Staff app: body.app-locked class se lock hota hai.
+  dashboard/page.js          ← Staff hotel management app. Tab nav.
+  booking/[hotelId]/page.js  ← Public guest booking. Standalone — db.js import nahi.
   h/[hotelId]/page.js        ← Staff direct login shortcut URL.
   api/
-    groq/route.js            ← type: "id_scan" | "ai_insight" | "chat"
+    groq/route.js            ← type: "id_scan"|"ai_insight"|"chat"|"negotiate"
+                               "chat" mein body.systemOverride support hai.
     alerts/route.js          ← Email via Resend. POST {emails[], subject, html}
-    push/route.js            ← action: "subscribe" | "send" | "unsubscribe". Uses web-push npm.
+    push/route.js            ← action: "subscribe"|"send"|"unsubscribe". web-push npm.
 
 components/
-  DashboardView.js           ← Main dashboard. Rooms, revenue, AI insight, hologram, push bell.
-  ScannerView.js             ← Staff ID scanner. Camera → Groq → form fill → saveBooking()
-  GuestsView.js              ← Guest list table + GRC print HTML generation.
-  ReportsView.js             ← Revenue charts (Recharts AreaChart) + booking history.
+  HeroSearchSection.js       ← Marketplace hero. LiveNetworkCanvas + voice search + input.
+                               Props: onSearch(queryString) — lifts to page.js.
+  NegotiatorOrb.js           ← Floating AI chat. Groq via /api/groq.
+                               Props: pendingQuery, forceOpen, onQueryConsumed.
+                               consumedRef.current prevents double-fire.
+  MarketplaceHotels.js       ← Hotel cards. useRouter → /booking/[hotelId].
+  AdvantageGrid.js           ← Feature benefits cards section.
+  DashboardView.js           ← Staff dashboard. Room grid, revenue, AI insight, push bell.
+  ScannerView.js             ← AI ID scanner + booking form.
+  GuestsView.js              ← Guest list + GRC print HTML generation.
+  ReportsView.js             ← Revenue charts (Recharts) + history.
   SettingsView.js            ← Settings form. Rate slider + manual input + presets.
-  LoginScreen.js             ← Hotel selector + PIN login. Logo from /branding/logo-main.png.
+  LoginScreen.js             ← Hotel selector + PIN login.
 
 lib/
-  db.js                      ← SINGLE SOURCE OF TRUTH. Read this before any data work.
-  alerts.js                  ← sendBookingAlerts(booking). WhatsApp + Email + Push.
-  usePushNotifications.js    ← React hook. subscribe/unsubscribe + hotel bell sound (Web Audio).
-
-public/
-  sw-push.js                 ← Service Worker. Push event → showNotification → vibrate.
-  branding/logo-main.png     ← 1200×400. Used in LoginScreen + landing.html (navbar + footer).
-  icons/
-    apple-touch-icon.png     ← 180×180. layout.js <link rel="apple-touch-icon">
-    icon-192.png             ← 192×192. manifest.json
-    icon-512.png             ← 512×512. manifest.json
-  manifest.json              ← PWA. icon paths MUST match actual filenames exactly.
-  sw-push.js                 ← Service Worker for push.
+  db.js                      ← SINGLE SOURCE OF TRUTH for data. Read before any data work.
+  db.supabase.js             ← Supabase-specific functions.
+  hotelConfig.js             ← Hotel config helpers.
+  alerts.js                  ← sendBookingAlerts(). WhatsApp + Email + Push.
+  usePushNotifications.js    ← React hook. subscribe/unsubscribe + Web Audio bell.
 ```
 
 ---
 
-## 💾 2. DATA LAYER — lib/db.js
+## 🔗 2. CRITICAL STATE SYNC — Hero → Orb
 
-### Key Pattern
+Yeh sabse important architecture hai. Galat samjho to "Kaunsi city?" bug wapas aata hai.
+
+### page.js mein (bridge state)
 ```js
-air_[hotelId]_config     // hotel settings
-air_[hotelId]_rooms      // room array with status
-air_[hotelId]_bookings   // booking records
-gi_hotel_registry        // all hotels list
-air_current_user         // current session
+const [pendingSearchQuery, setPendingSearchQuery] = useState(null);
+const [orbForceOpen, setOrbForceOpen]             = useState(false);
+
+const handleHeroSearch = useCallback((queryText) => {
+  setPendingSearchQuery(queryText);  // query set karo
+  setOrbForceOpen(true);             // orb kholo
+}, []);
+
+const clearPendingQuery = useCallback(() => {
+  setPendingSearchQuery(null);
+  setOrbForceOpen(false);
+}, []);
 ```
 
-### Critical Functions
-
-#### `getHotelConfig(hotelId)`
-Config load karta hai aur **dono rate formats normalize karta hai:**
-```js
-// Output mein dono hain:
-cfg.rates.standard   // Settings use karta hai
-cfg.standardRate     // Booking page + rooms use karte hain
-cfg.deluxeRate
-cfg.suiteRate
-```
-⚠️ Agar sirf ek format save karo to dusra missing rahega. `saveHotelConfig()` automatically dono save karta hai.
-
-#### `saveHotelConfig(hotelId, data)`
-Dono formats normalize karke save karta hai. Always yeh use karo — direct `localStorage.setItem` mat karo config ke liye.
-
-#### `getRooms(hotelId)`
-```js
-// Latest config se rates sync karta hai har baar
-// rooms[n].baseRate = cfg.rates.standard/deluxe/suite based on room.type
+```jsx
+<HeroSearchSection onSearch={handleHeroSearch} />
+<NegotiatorOrb
+  pendingQuery={pendingSearchQuery}
+  forceOpen={orbForceOpen}
+  onQueryConsumed={clearPendingQuery}
+/>
 ```
 
-#### `saveBooking(hotelId, bookingData)`
+### HeroSearchSection.js mein (sender)
 ```js
-// bookingData.isPublicBooking = true → room status "reserved"
-// bookingData.isPublicBooking = false/undefined → room status "occupied"
-// Supabase + localStorage dono mein save hota hai
+// onSearch prop milta hai page.js se
+const handleSubmit = useCallback(() => {
+  const query = userInput.trim();
+  if (!query) return;
+  if (onSearch) onSearch(query);   // ← yeh page.js ko query deta hai
+  setUserInput("");
+}, [userInput, onSearch]);
 ```
 
-#### `updateRoomStatus(hotelId, roomId, status, bookingId, guestName)`
+### NegotiatorOrb.js mein (receiver)
 ```js
-// status values: "vacant" | "occupied" | "reserved" | "cleaning" | "out_of_order"
-// "reserved" = public booking page se book hua, staff ne approve nahi kiya
-// "occupied" = staff ne check-in approve kar diya
+const consumedRef = useRef(null); // prevent double-fire
+
+useEffect(() => {
+  if (!pendingQuery || pendingQuery === consumedRef.current) return;
+  consumedRef.current = pendingQuery;   // mark as consumed
+
+  setOpen(true);
+  setPulse(false);
+
+  const userMsg = { id: msgIdCounter++, role:"user", text:pendingQuery, time:"Just now" };
+  setMessages([userMsg]);
+  setThinking(true);
+
+  // SEEDHA Groq call — koi greeting nahi, koi "kaunsi city" nahi
+  callGroq([{ role:"user", content:pendingQuery }]).then(reply => {
+    setMessages(prev => [...prev, { id:msgIdCounter++, role:"ai", text:reply, time:"Now" }]);
+    setThinking(false);
+  });
+
+  if (onQueryConsumed) onQueryConsumed();
+}, [pendingQuery]);
 ```
 
-#### `exportCSV(hotelId)` / `exportAllData(hotelId)`
+**Rule:** `consumedRef` check karo pehle — warna React strict mode double-fire karta hai aur 2 messages aa jaate hain.
+
+---
+
+## 🎨 3. LIVE NETWORK CANVAS
+
+File: `components/HeroSearchSection.js` → `LiveNetworkCanvas()` function
+
+### Canvas Setup
 ```js
-exportCSV()       // CSV file download — Excel compatible
-exportAllData()   // JSON download — config + bookings + rooms
-// Dono browser download trigger karte hain
+const dpr = window.devicePixelRatio || 1;
+canvas.width  = canvas.offsetWidth  * dpr;
+canvas.height = canvas.offsetHeight * dpr;
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+// → Retina/HiDPI displays pe sharp rendering
 ```
 
-### Supabase Sync Pattern
+### Node Types
 ```js
-// Write: localStorage pehle (instant) → Supabase background mein
-// Read: Supabase try karo → fail ho to localStorage fallback
-// Supabase down ho to bhi app kaam karta hai (offline-first)
+const TYPES = {
+  person: { color:"#22c55e", emoji:"👤", label:"GUEST",    size:22, glowR:38 },
+  hotel:  { color:"#D4AF37", emoji:"🏨", label:"HOTEL",    size:26, glowR:46 },
+  ai:     { color:"#38bdf8", emoji:"⬡",  label:"AI·AGENT", size:20, glowR:34 },
+};
+```
+
+### Connection Logic
+```js
+const CD = Math.min(W() * 0.40, 260); // connect distance
+// Nodes jo CD se closer hain unke beech line draw hoti hai
+// Animated dashed line: ctx.setLineDash([5,9]) + lineDashOffset -= frame*0.9
+// Gradient: node A ka color → node B ka color
+```
+
+### Particle Flow
+```js
+// particle = { fx,fy, tx,ty, t:0, speed, color, r, tail:[] }
+// t: 0→1 travel karta hai, Math.sin(t*PI) = fade in/out
+// tail array = last 10 positions = glowing trail effect
+// spawn: frame%50 === (i*j)%50 && Math.random()>0.45
+```
+
+### Ping Rings
+```js
+// Har node pe random intervals pe ping ring animate hoti hai
+if (frame % 80 === (i*5)%80) n.pingT = 0;
+if (n.pingT >= 0) n.pingT += 0.045;
+// Ring radius badhti hai: (r+6) + n.pingT*32
+// Opacity ghatti hai: (1-pingT)*200
+```
+
+### Vignette (canvas wrapper div ke andar)
+```js
+// Left side heavy vignette (text readable) → right-bottom light (nodes visible)
+background: `
+  radial-gradient(ellipse 55% 90% at 28% 50%, rgba(7,9,14,0.72) 0%, rgba(7,9,14,0.15) 100%),
+  radial-gradient(ellipse 40% 80% at 85% 50%, rgba(7,9,14,0.5) 0%, rgba(7,9,14,0.1) 100%)
+`
+// Agar nodes visible nahi → is vignette ko aur light karo (0.72 → 0.5)
+// Agar text readable nahi → heavy karo (0.72 → 0.85)
 ```
 
 ---
 
-## 🤖 3. AI — Groq API
+## 🎤 4. VOICE SEARCH
 
-### Route: `POST /api/groq`
+File: `components/HeroSearchSection.js`
 
-#### ID Scan
+### Implementation
 ```js
-{ type: "id_scan", imageBase64: "..." }
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recog = new SR();
+recog.lang = "hi-IN";         // Hindi + English dono
+recog.continuous = false;
+recog.interimResults = true;  // real-time transcript
+
+recog.onresult = (event) => {
+  const transcript = Array.from(event.results).map(r => r[0].transcript).join("");
+  setUserInput(transcript);    // input mein live dikhao
+
+  if (event.results[event.results.length-1].isFinal) {
+    // Final result → auto submit to NegotiatorOrb
+    if (transcript.trim() && onSearch) {
+      setTimeout(() => { onSearch(transcript.trim()); setUserInput(""); }, 400);
+    }
+  }
+};
+```
+
+### Error Messages (Hinglish)
+```js
+"not-allowed" → "Mic permission denied — please allow mic access"
+"no-speech"   → "Kuch suna nahi — dobara try karein"
+default       → "Voice error: " + e.error
+```
+
+### Browser Support
+- Chrome: ✅ Full support
+- Safari iOS: ✅ (webkitSpeechRecognition)
+- Firefox: ❌ Not supported
+- `voiceSupported` state se mic button conditionally render karo
+
+---
+
+## 🤖 5. GROQ API — /api/groq/route.js
+
+### Type: chat (Marketplace use karta hai)
+```js
+// systemOverride support — yeh NegotiatorOrb se aata hai
+const systemPrompt = body.systemOverride || `default hotel receptionist prompt...`;
+
+const res = await groq.chat.completions.create({
+  model: "llama-3.3-70b-versatile",
+  max_tokens: 300,
+  messages: [
+    { role: "system", content: systemPrompt },
+    ...(body.messages || [])
+  ]
+});
+```
+
+### NegotiatorOrb ka systemOverride
+```js
+const MARKETPLACE_SYSTEM = `You are AI Hotel Negotiator for The GuestInn Network...
+Hinglish mein baat karo. Max 3-4 lines.
+
+Available Hotels:
+• Hotel Cherry, Bhopal — ₹1200/night, Rating 4.6, ...
+• Boutique Stays, Jaipur — ₹1150/night, Rating 4.7, ...
+• Hotel Midtown, Indore — ...
+• City Comforts, Nagpur — ...
+
+Rules:
+1. City mention hai → SEEDHA hotels dikhao, mat poochho "kaunsi city"
+2. Price ₹ mein
+3. View Hotel button mention karo for booking
+4. AI Rate Lock + 0% commission batao`;
+```
+
+### Type: id_scan
+```js
+{ type:"id_scan", imageBase64:"..." }
 // Model: meta-llama/llama-4-scout-17b-16e-instruct (Vision)
-// Returns: { success:true, data:{ name, dob, address, idNumber, idType, gender } }
-// idType: "Aadhaar" | "PAN" | "Passport" | "Driving License" | "Voter ID"
-// gender: "M" or "F" (component mein "Male"/"Female" convert karo)
+// Returns: { name, dob, address, idNumber, idType, gender }
+// gender: "M" | "F"  (component mein "Male"/"Female" convert karo)
 ```
 
-#### AI Insight
+### Type: negotiate
 ```js
-{ type: "ai_insight", stats:{occupancy,revenue,...}, hotelName:"..." }
-// Model: llama-3.3-70b-versatile
-// Returns: { success:true, insight: "Hinglish tip..." }
-```
-
-#### Chat
-```js
-{ type: "chat", messages:[{role,content}], hotelConfig:{name,location,rates} }
-// Model: llama-3.3-70b-versatile
-// Returns: { success:true, message: "Hinglish response..." }
+{ type:"negotiate", requestedRate, roomType, bookingContext }
+// Rate lock logic yahan hai
 ```
 
 ---
 
-## 🔔 4. PUSH NOTIFICATIONS
+## 💾 6. DATA LAYER — lib/db.js
 
-### Flow
-```
-User → Header Bell Click → usePushNotifications.subscribe()
-  → navigator.serviceWorker.register('/sw-push.js')
-  → pushManager.subscribe({VAPID key})
-  → POST /api/push {action:"subscribe", hotelId, subscription}
-  → Supabase push_subscriptions table mein save
-
-Room book ho → sendBookingAlerts(booking) → POST /api/push {action:"send"}
-  → Supabase se sab subscriptions fetch
-  → web-push.sendNotification() → browser push server
-  → sw-push.js "push" event → showNotification() + vibrate
-  → User ke phone pe notification + chime sound
-```
-
-### Sound — Web Audio API (usePushNotifications.js)
+### Rate Format — CRITICAL
 ```js
-// playNotificationSound() — no external audio file needed
-// 3-note hotel bell: D5 (587Hz) → G5 (784Hz) → B5 (987Hz)
-// AudioContext create → oscillator → exponential ramp
-```
-
-### VAPID Keys
-```
-NEXT_PUBLIC_VAPID_PUBLIC_KEY  — browser ko dete hain (safe to expose)
-VAPID_PRIVATE_KEY             — server only (secret, never in client code)
-VAPID_SUBJECT                 — mailto:admin@yourhotel.com
-```
-Keys ek baar generate karo, kabhi change mat karo (subscribers expire ho jaate hain).
-
----
-
-## ⚙️ 5. SETTINGS — Rate Sync
-
-### Problem Jo Pehle Tha
-Settings `rates.standard` save karta tha → Booking page `standardRate` dhundta tha → **mismatch → rates galat dikhte the**
-
-### Current Fix (db.js mein)
-```js
-// saveHotelConfig() automatically dono save karta hai:
+// saveHotelConfig() dono formats save karta hai:
 {
-  rates: { standard:1200, deluxe:2000, suite:3800 },  // Settings read karta hai
-  standardRate: 1200,   // Booking page + fetchHotel() read karta hai
+  rates: { standard:1200, deluxe:2000, suite:3800 },  // Settings padhta hai
+  standardRate: 1200,   // booking/[hotelId]/page.js + rooms padhte hain
   deluxeRate:   2000,
   suiteRate:    3800,
 }
-
-// getRooms() har call pe rooms[n].baseRate sync karta hai from config
-// Isliye dashboard ka "Base Rate" bhi Settings se match karta hai
+// KABHI direct localStorage.setItem mat karo config ke liye
+// Hamesha saveHotelConfig() use karo
 ```
 
-### SettingsView.js — Rate Input
-```
-Har rate (Standard/Deluxe/Suite) ke liye 3 ways:
-1. Slider (range input) — gold fill, draggable
-2. Number input — manually type karo
-3. Preset buttons — quick select (600, 800, 1K, 1.5K...)
-Teeno sync hain — ek change karo baaki reflect hota hai
-```
-
----
-
-## 🌐 6. PUBLIC BOOKING PAGE
-
-### File: `app/booking/[hotelId]/page.js`
-
-⚠️ **Standalone file hai** — `lib/db.js` import nahi karta kyunki server components se conflict hota. Apne functions internally define hain:
-- `fetchHotel()` — Supabase → localStorage → DEMOS fallback
-- `savePublicBooking()` — mirrors db.js saveBooking, `isPublicBooking:true`
-- `getRooms()` — local function, localStorage se
-
-### Booking Save Flow
+### Key Functions
 ```js
-savePublicBooking(hotelId, bookingData)
-  // 1. localStorage bookings array mein prepend
-  // 2. localStorage rooms mein room.status = "reserved"
-  // 3. Supabase bookings POST
-  // 4. Supabase rooms PATCH {status:"reserved"}
-  // WhatsApp deep link → owner ke number pe
+getHotelConfig(hotelId)         // Config + rate normalization
+saveHotelConfig(hotelId, data)  // Dono formats + Supabase sync
+getRooms(hotelId)               // Rooms + baseRate sync from config
+saveBooking(hotelId, booking)   // localStorage + Supabase
+updateRoomStatus(hotelId, roomId, status, bookingId, guestName)
+exportCSV(hotelId)              // Browser download trigger
+exportAllData(hotelId)          // JSON dump — config + bookings + rooms
 ```
 
-### Room Statuses on Booking Page
+### Room Status Values
 ```
-vacant    → Green keycap → ONLY clickable state
-reserved  → Gold/amber keycap → 📌 badge (already booked via this page)
-occupied  → Red keycap → staff ne check-in kar liya
-cleaning  → Indigo keycap
-other     → Gray
+"vacant"       → Green — clickable on booking page
+"reserved"     → Gold — public booking se aaya, staff approve nahi kiya
+"occupied"     → Red — staff ne check-in kar diya
+"cleaning"     → Indigo
+"out_of_order" → Gray
+```
+
+### Offline-First
+```
+Write: localStorage (instant) → Supabase (background async)
+Read:  Supabase try → fail → localStorage fallback
+Result: App works even when Supabase is down
 ```
 
 ---
 
-## 🎨 7. DESIGN SYSTEM
+## 🏨 7. PUBLIC BOOKING PAGE — booking/[hotelId]/page.js
 
-### Colors
-```css
---bg-primary:    #07090E   /* Deep space black */
---gold:          #D4AF37   /* Liquid gold — primary accent */
---gold-warm:     #C9A84C   /* Landing page gold */
---blue-cyber:    #008cff   /* Neon cyber blue */
---blue-soft:     #60b8ff   /* Soft blue text */
---emerald:       #22c55e   /* Success / available rooms */
---red:           #ef4444   /* Occupied rooms */
---amber:         #f59e0b   /* Reserved rooms */
---indigo:        #818cf8   /* Cleaning rooms */
+⚠️ **Standalone file** — `lib/db.js` import nahi karta (server/client mismatch avoid)
+
+```js
+// Internal functions defined in file:
+fetchHotel()          // Supabase → localStorage → DEMOS fallback
+savePublicBooking()   // mirrors db.js, sets isPublicBooking:true
+getRooms()            // localStorage se rooms
+
+// isPublicBooking:true → room status "reserved" (not "occupied")
+// Staff dashboard pe "reserved" gold color mein dikhta hai
 ```
-
-### Glow Effects
-```css
-/* Blue glow: */
-filter: drop-shadow(0 0 16px #008cff) drop-shadow(0 0 32px rgba(0,140,255,0.35))
-
-/* Gold glow: */
-filter: drop-shadow(0 0 12px rgba(212,175,55,0.4))
-
-/* Box shadow pattern: */
-box-shadow: 0 4px 28px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03)
-```
-
-### Animations (globals.css + inline)
-```css
-@keyframes holoPulse   /* Hologram building glow */
-@keyframes spinRingCW  /* AI reactor rings */
-@keyframes laserPulse  /* AI reactor laser */
-@keyframes audioBar    /* Scanning bars */
-@keyframes fadeUp      /* Section entry */
-@keyframes slideUp     /* Chat panel */
-@keyframes dotBounce   /* Chat typing indicator */
-```
-
-### Components Copy Karo (DashboardView.js → Booking page mein bhi same)
-- `HologramBuilding()` — exact SVG same hai dono mein
-- `RoomKeycap()` — 3D keycap button, status-based colors
-- `AiReactor` / `AiScanReactor` — spinning rings + laser emitters
 
 ---
 
 ## 📜 8. SCROLL ARCHITECTURE
 
-### Problem History
-`globals.css` mein `overflow:hidden` tha → **poori app ka scroll band**
-
-### Current Solution
+### globals.css
 ```css
-/* globals.css */
 html { overflow-x: hidden; }
 body { overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 body.app-locked { overflow: hidden; overscroll-behavior: none; }
+/* NO overflow:hidden on html/body globally */
 ```
 
+### Staff App (dashboard/page.js)
 ```js
-// app/page.js (staff app) — mount pe lock, unmount pe unlock:
 useEffect(() => {
   document.body.classList.add("app-locked");
   return () => document.body.classList.remove("app-locked");
 }, []);
-
-// booking/page.js — koi class nahi lagata → body naturally scrolls
 ```
 
-**Rule:** Booking page pe `overflow:hidden` kuch bhi mat lagao — body natural scroll kare.
-
----
-
-## 🔐 9. PWA / ICONS
-
-### Manifest.json — Critical Rule
-```json
-// SAHI filenames (actual files jo exist karti hain):
-{ "src": "/icons/apple-touch-icon.png", "sizes": "180x180" }
-{ "src": "/icons/icon-192.png",         "sizes": "192x192" }
-{ "src": "/icons/icon-512.png",         "sizes": "512x512" }
-
-// ❌ GALAT (yeh files exist nahi karti):
-// icon-192x192.png, icon-96x96.png, icon-144x144.png
+### Booking Page + Marketplace
 ```
-
-### layout.js apple-touch-icon
-```html
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-```
-
-### Logo Usage
-```
-/public/branding/logo-main.png (1200×400)
-  → components/LoginScreen.js  header mein <img src="/branding/logo-main.png">
-  → public/landing.html        navbar + footer dono mein (SVG replace ho gaya)
+// Koi class nahi lagate — body natural scroll kare
+// KABHI overflow:hidden mat lagao kisi bhi wrapper pe
 ```
 
 ---
 
-## 📦 10. ENV VARIABLES — COMPLETE LIST
+## 🔔 9. PUSH NOTIFICATIONS
 
-| Variable | Required | Where Used |
+### Flow
+```
+Header Bell → usePushNotifications.subscribe()
+  → navigator.serviceWorker.register('/sw-push.js')
+  → pushManager.subscribe({ applicationServerKey: VAPID_PUBLIC })
+  → POST /api/push { action:"subscribe", hotelId, subscription }
+  → Supabase push_subscriptions mein save
+
+Room Book → sendBookingAlerts(booking)
+  → POST /api/push { action:"send", hotelId, payload }
+  → Supabase se sab subscriptions fetch
+  → web-push.sendNotification() → browser push server
+  → sw-push.js "push" event → showNotification() + vibrate
+```
+
+### Sound (Web Audio — no file needed)
+```js
+// playNotificationSound() in usePushNotifications.js
+// 3-note: D5(587Hz) → G5(784Hz) → B5(987Hz)
+// OscillatorNode + exponentialRampToValueAtTime
+```
+
+### VAPID Rule
+```
+NEVER change VAPID keys after deployment
+→ existing subscribers expire hote hain aur unsubscribe ho jaate hain
+→ Keys generate once, store securely, kabhi rotate mat karo
+```
+
+---
+
+## 🎨 10. DESIGN TOKENS
+
+### Colors
+```css
+--bg-primary:  #07090E   /* Deep space */
+--gold:        #D4AF37   /* Primary accent */
+--gold-warm:   #b8960c   /* Darker gold for gradients */
+--blue-cyber:  #008cff   /* Neon blue */
+--blue-soft:   #38bdf8   /* AI node color */
+--green:       #22c55e   /* Network online / guest nodes */
+--red:         #ef4444   /* Error / occupied */
+--amber:       #f59e0b   /* Reserved / warning */
+--indigo:      #818cf8   /* Cleaning */
+```
+
+### Glow Patterns
+```css
+/* Gold glow (buttons, accents) */
+box-shadow: 0 4px 16px rgba(212,175,55,0.4);
+filter: drop-shadow(0 0 12px rgba(212,175,55,0.4));
+
+/* Blue glow (AI elements) */
+box-shadow: 0 0 16px rgba(0,140,255,0.4);
+filter: drop-shadow(0 0 16px #008cff);
+
+/* Green glow (network online) */
+box-shadow: 0 0 8px #22c55e;
+```
+
+### Animation Keyframes
+```css
+@keyframes netPulse   /* Network Online badge dot */
+@keyframes netRing1   /* Badge pulse ring 1 */
+@keyframes netRing2   /* Badge pulse ring 2 — offset 0.3s */
+@keyframes cursorBlink /* Search input caret */
+@keyframes voicePing  /* Mic active ring */
+@keyframes voiceBar   /* Waveform bars */
+@keyframes thinkDot   /* NegotiatorOrb typing indicator */
+@keyframes orbRing    /* Floating orb pulse rings */
+```
+
+---
+
+## 📦 11. ENV VARIABLES
+
+| Variable | Required | Where |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | db.js, push route, booking page |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | db.js, push route, booking page |
 | `MY_GROQ_KEY` | ✅ | api/groq/route.js |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Push ke liye | usePushNotifications.js |
-| `VAPID_PRIVATE_KEY` | Push ke liye | api/push/route.js (server only) |
-| `VAPID_SUBJECT` | Push ke liye | api/push/route.js |
-| `RESEND_API_KEY` | Email ke liye | api/alerts/route.js |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Push | usePushNotifications.js |
+| `VAPID_PRIVATE_KEY` | Push | api/push/route.js (server only) |
+| `VAPID_SUBJECT` | Push | api/push/route.js |
+| `RESEND_API_KEY` | Email | api/alerts/route.js |
 
 ---
 
-## 🐛 11. KNOWN BUGS & FIXES
+## 🐛 12. KNOWN BUGS HISTORY & FIXES
 
-| Bug | File | Fix |
+| Bug | Root Cause | Fix |
 |---|---|---|
-| `useState` inside `.reduce()` | booking/page.js | FAQ ko alag `FaqSection` component banao |
-| `Module not found: web-push` | package.json | `"web-push": "^3.6.7"` add karo + npm install |
-| Rates Settings se sync nahi | db.js | `normalizeConfig()` dono formats save karta hai |
-| JSON export kaam nahi karta | db.js | `exportAllData()` function add hua |
-| 2 bell icons dashboard pe | DashboardView.js | Dashboard wala bell hatao, sirf page.js wala rakho |
-| Room baseRate Settings se match nahi | db.js | `getRooms()` ab config se rates sync karta hai |
-| Booking page scroll band | globals.css | `overflow:hidden` hatao, `app-locked` class use karo |
-| Push notification nahi aati | api/push/route.js | `web-push` npm use karo, manual VAPID nahi |
+| NegotiatorOrb "Kaunsi city?" generic reply | No state sync between Hero and Orb | `pendingSearchQuery` in page.js + consumedRef in Orb |
+| AI chat "Network issue" error | Anthropic API call (wrong key) | Use `/api/groq` with `MY_GROQ_KEY` |
+| Orb fires twice on query | React StrictMode double-effect | `consumedRef.current` check karo |
+| View Hotel button kaam nahi | No onClick on button | `useRouter` + `router.push('/booking/${hotel.id}')` |
+| Rates Settings se match nahi | `standardRate` vs `rates.standard` mismatch | `saveHotelConfig` normalize karta hai dono |
+| Background animation invisible | Vignette too dark + nodes too small | Nodes size 2x, vignette lighter |
+| Voice search submit nahi hota | SpeechRecognition `isFinal` check missing | `isFinal` → `onSearch(transcript)` |
+| `useState` inside `.reduce()` | React rules of hooks violation | Move FAQ to separate component |
+| Push notification nahi aati | `web-push` package missing | `npm install web-push` |
+| Booking page scroll locked | `overflow:hidden` on body globally | `app-locked` class pattern |
+| PWA icon 404 | Wrong filenames in manifest | `icon-192.png` not `icon-192x192.png` |
+| JSON export kaam nahi | `exportAllData` function missing | Latest db.js use karo |
 
 ---
 
-## 🚀 12. DEPLOYMENT CHECKLIST
+## 🚀 13. DEPLOYMENT CHECKLIST
 
 ```
-□ .env.local mein sab vars set hain
-□ supabase_schema.sql run ho gaya (hotels + bookings + push_subscriptions)
-□ Vercel mein environment variables add ki hain
-□ package.json mein web-push: "^3.6.7" hai
-□ manifest.json mein correct icon filenames hain
-□ layout.js mein apple-touch-icon sahi path hai
-□ globals.css mein overflow:hidden nahi hai (sirf body.app-locked mein)
-□ VAPID keys generate ho gayi hain
+□ .env.local — MY_GROQ_KEY, SUPABASE vars, VAPID keys set hain
+□ Vercel environment variables — same sab add ki hain
+□ supabase_schema.sql — SQL Editor mein run ho gaya
+□ package.json — "web-push": "^3.6.7" hai, npm install chala
+□ manifest.json — exact icon filenames: icon-192.png, icon-512.png
+□ layout.js — <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+□ globals.css — NO overflow:hidden globally, sirf body.app-locked mein
+□ VAPID keys — generate ho gayi, KABHI change mat karna
+□ api/groq/route.js — body.systemOverride support hai
+□ NegotiatorOrb.js — callGroq() → /api/groq, NOT Anthropic direct
 ```
 
 ---
 
-## 📊 13. SUPABASE TABLES QUICK REF
+## 📊 14. SUPABASE SCHEMA
 
 ```sql
--- Hotels
-hotels: id(PK), name, location, total_rooms, plan, emoji,
-        owner_pin, manager_pin, owner_phone, created_at, updated_at
+-- Hotels table
+CREATE TABLE hotels (
+  id TEXT PRIMARY KEY,
+  name TEXT, location TEXT, total_rooms INTEGER,
+  plan TEXT DEFAULT 'basic', emoji TEXT,
+  owner_pin TEXT, manager_pin TEXT,
+  owner_phone TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- Bookings  
-bookings: id(PK), hotel_id(FK), guest_name, guest_phone, address,
-          id_type, id_number, gender, dob, room_id, room_type,
-          check_in_date, check_out_date, nights, rate_per_night,
-          total_amount, payment_mode, status, rate_locked, created_at
+-- Bookings table
+CREATE TABLE bookings (
+  id TEXT PRIMARY KEY,
+  hotel_id TEXT REFERENCES hotels(id),
+  guest_name TEXT, guest_phone TEXT, address TEXT,
+  id_type TEXT, id_number TEXT, gender TEXT, dob TEXT,
+  room_id TEXT, room_type TEXT,
+  check_in_date TEXT, check_out_date TEXT,
+  nights INTEGER, rate_per_night NUMERIC,
+  total_amount NUMERIC, payment_mode TEXT,
+  status TEXT DEFAULT 'confirmed',
+  rate_locked BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 
--- Push Subscriptions
-push_subscriptions: id(PK), hotel_id, role, endpoint(UNIQUE),
-                    p256dh, auth, subscription(JSON), created_at
+-- Push subscriptions
+CREATE TABLE push_subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hotel_id TEXT REFERENCES hotels(id),
+  role TEXT, endpoint TEXT UNIQUE,
+  p256dh TEXT, auth TEXT,
+  subscription JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS (Row Level Security)
+ALTER TABLE hotels              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookings            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions  ENABLE ROW LEVEL SECURITY;
+
+-- Open policies (app PIN se authenticate karta hai)
+CREATE POLICY "all" ON hotels             FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "all" ON bookings           FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "all" ON push_subscriptions FOR ALL USING (true) WITH CHECK (true);
 ```
-
-All tables: **RLS enabled**, open policies (app handles auth via PIN).
 
 ---
 
-*The GuestInn v2.0 — Last updated: May 2026*
+*The GuestInn Network v2.0 — Skills.md last updated: June 2026*
+*Marketplace layer added: LiveNetworkCanvas, NegotiatorOrb state-sync, Voice Search, Groq chat integration*
