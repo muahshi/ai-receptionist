@@ -21,8 +21,9 @@ const FLOOR_COLORS = {
 };
 
 // ─── LIVE NETWORK CANVAS ──────────────────────────────────────────────────
-// Animated agents (humans, hotels, AI nodes) connecting via flowing particles.
-// This replaces the static background and visualizes "network activity".
+// Full-section animated network showing GUEST (👤 green) ↔ AI-AGENT (⬡ blue)
+// ↔ HOTEL (🏨 gold) nodes drifting and connecting with glowing dashed lines.
+// Data packets flow between nodes showing real-time booking activity.
 function LiveNetworkCanvas() {
   const canvasRef = useRef(null);
 
@@ -30,187 +31,187 @@ function LiveNetworkCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
 
-    const resize = () => {
-      canvas.width  = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+    const setSize = () => {
+      const w = canvas.offsetWidth;
+      const h = canvas.offsetHeight;
+      canvas.width  = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
+    setSize();
+    window.addEventListener("resize", setSize);
 
-    // Node types: person (guest), hotel (building), ai (agent)
-    const NODE_TYPES = ["person", "hotel", "ai"];
-    const COLORS = {
-      person: { fill: "#22c55e", glow: "rgba(34,197,94,0.6)", label: "👤" },
-      hotel:  { fill: "#D4AF37", glow: "rgba(212,175,55,0.6)", label: "🏨" },
-      ai:     { fill: "#008cff", glow: "rgba(0,140,255,0.6)",  label: "✦" },
-    };
+    const W = () => canvas.offsetWidth;
+    const H = () => canvas.offsetHeight;
 
-    // Seed nodes across canvas
-    const createNodes = () => {
-      const nodes = [];
-      const count = Math.min(18, Math.floor(canvas.width / 60));
-      for (let i = 0; i < count; i++) {
-        const type = NODE_TYPES[i % 3 === 0 ? 2 : i % 3 === 1 ? 0 : 1];
-        nodes.push({
-          id: i,
-          type,
-          x: 60 + Math.random() * (canvas.width - 120),
-          y: 30 + Math.random() * (canvas.height - 60),
-          vx: (Math.random() - 0.5) * 0.35,
-          vy: (Math.random() - 0.5) * 0.35,
-          r: type === "ai" ? 7 : type === "hotel" ? 6 : 5,
-          pulse: Math.random() * Math.PI * 2,
-          pulseSpeed: 0.02 + Math.random() * 0.02,
-          alpha: 0.7 + Math.random() * 0.3,
-          active: Math.random() > 0.3,
-        });
-      }
-      return nodes;
+    const TYPES = {
+      person: { color:"#22c55e", glow:"#22c55e", emoji:"👤", label:"GUEST",    size:22, glowR:38 },
+      hotel:  { color:"#D4AF37", glow:"#D4AF37", emoji:"🏨", label:"HOTEL",    size:26, glowR:46 },
+      ai:     { color:"#38bdf8", glow:"#38bdf8", emoji:"⬡",  label:"AI·AGENT", size:20, glowR:34 },
     };
 
-    let nodes = createNodes();
+    // 15 nodes: repeating pattern person-hotel-ai
+    const TYPE_SEQ = ["person","hotel","ai","person","hotel","person","ai","hotel","person","ai","hotel","person","hotel","ai","person"];
 
-    // Flowing particles along edges
+    const makeNodes = () => TYPE_SEQ.map((type, i) => ({
+      id:i, type,
+      x: 50 + Math.random() * (W() - 100),
+      y: 50 + Math.random() * (H() - 100),
+      vx: (Math.random()-0.5) * 0.55,
+      vy: (Math.random()-0.5) * 0.55,
+      pulse: Math.random() * Math.PI * 2,
+      pingT: -1,
+    }));
+
+    let nodes = makeNodes();
     const particles = [];
-    const MAX_PARTICLES = 30;
 
-    const spawnParticle = (from, to) => {
-      if (particles.length >= MAX_PARTICLES) return;
-      particles.push({
-        fromId: from.id, toId: to.id,
-        t: 0,
-        speed: 0.008 + Math.random() * 0.012,
-        color: COLORS[from.type].fill,
-        size: 1.5 + Math.random() * 1.5,
-      });
+    const spawn = (a, b) => {
+      if (particles.length > 55) return;
+      const rev = Math.random() > 0.5;
+      const [f, t] = rev ? [b, a] : [a, b];
+      particles.push({ fx:f.x,fy:f.y, tx:t.x,ty:t.y, color:TYPES[f.type].color, t:0, speed:0.007+Math.random()*0.009, r:2.8+Math.random()*1.8, tail:[] });
     };
 
-    // Connections: pairs of nodes within range
-    const CONNECT_DIST = Math.min(canvas.width * 0.35, 220);
-
-    let frame = 0;
-    let animId;
+    let frame = 0, animId;
 
     const draw = () => {
       frame++;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = W(), h = H();
+      ctx.clearRect(0, 0, w, h);
+
+      const CD = Math.min(w * 0.40, 260);
 
       // Move nodes
-      nodes.forEach(n => {
+      nodes.forEach((n,i) => {
         n.x += n.vx; n.y += n.vy;
-        n.pulse += n.pulseSpeed;
-        if (n.x < 30 || n.x > canvas.width  - 30) n.vx *= -1;
-        if (n.y < 20 || n.y > canvas.height - 20) n.vy *= -1;
+        n.pulse += 0.028;
+        if (n.x < 35 || n.x > w-35) n.vx *= -1;
+        if (n.y < 35 || n.y > h-35) n.vy *= -1;
+        if (frame % 80 === (i*5)%80) n.pingT = 0;
+        if (n.pingT >= 0) n.pingT += 0.045;
+        if (n.pingT > 1) n.pingT = -1;
       });
 
-      // Draw edges + spawn particles
+      // ── EDGES ──
       for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i], b = nodes[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < CONNECT_DIST) {
-            const strength = 1 - dist / CONNECT_DIST;
-            // Edge line
-            const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-            grad.addColorStop(0, `${COLORS[a.type].fill}${Math.round(strength * 55).toString(16).padStart(2,"0")}`);
-            grad.addColorStop(1, `${COLORS[b.type].fill}${Math.round(strength * 55).toString(16).padStart(2,"0")}`);
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = grad;
-            ctx.lineWidth = strength * 1.2;
-            ctx.stroke();
+        for (let j = i+1; j < nodes.length; j++) {
+          const a=nodes[i], b=nodes[j];
+          const dx=a.x-b.x, dy=a.y-b.y;
+          const dist=Math.sqrt(dx*dx+dy*dy);
+          if (dist > CD) continue;
+          const str = 1 - dist/CD;
 
-            // Randomly spawn a particle along this edge
-            if (frame % 40 === 0 && Math.random() > 0.6 && a.active && b.active) {
-              spawnParticle(Math.random() > 0.5 ? a : b, Math.random() > 0.5 ? b : a);
-            }
-          }
+          // Dashed animated line
+          ctx.save();
+          ctx.setLineDash([5,9]);
+          ctx.lineDashOffset = -frame * 0.9;
+          const g = ctx.createLinearGradient(a.x,a.y,b.x,b.y);
+          const aHex = Math.round(str*150).toString(16).padStart(2,"0");
+          g.addColorStop(0, TYPES[a.type].color+aHex);
+          g.addColorStop(1, TYPES[b.type].color+aHex);
+          ctx.beginPath();
+          ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+          ctx.strokeStyle=g; ctx.lineWidth=0.9+str*1.6;
+          ctx.stroke();
+          ctx.restore();
+
+          // Spawn packet
+          if (frame%(50) === (i*j)%50 && Math.random()>0.45) spawn(a,b);
         }
       }
 
-      // Animate + draw particles
-      for (let i = particles.length - 1; i >= 0; i--) {
+      // ── PARTICLES ──
+      for (let i = particles.length-1; i>=0; i--) {
         const p = particles[i];
-        const from = nodes.find(n => n.id === p.fromId);
-        const to   = nodes.find(n => n.id === p.toId);
-        if (!from || !to) { particles.splice(i, 1); continue; }
-
         p.t += p.speed;
-        if (p.t >= 1) { particles.splice(i, 1); continue; }
+        if (p.t>=1){ particles.splice(i,1); continue; }
+        const px = p.fx+(p.tx-p.fx)*p.t;
+        const py = p.fy+(p.ty-p.fy)*p.t;
+        const fade = Math.sin(p.t*Math.PI);
+        p.tail.push({x:px,y:py});
+        if(p.tail.length>10) p.tail.shift();
 
-        const px = from.x + (to.x - from.x) * p.t;
-        const py = from.y + (to.y - from.y) * p.t;
-        const fade = Math.sin(p.t * Math.PI);
-
-        // Glowing dot
-        ctx.beginPath();
-        ctx.arc(px, py, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color + Math.round(fade * 220).toString(16).padStart(2,"0");
-        ctx.fill();
-
-        // Trail
-        ctx.beginPath();
-        ctx.arc(px, py, p.size * 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = p.color + Math.round(fade * 40).toString(16).padStart(2,"0");
-        ctx.fill();
+        // Tail
+        for(let k=0;k<p.tail.length-1;k++){
+          const tf=(k/p.tail.length)*fade;
+          ctx.beginPath();
+          ctx.moveTo(p.tail[k].x,p.tail[k].y);
+          ctx.lineTo(p.tail[k+1].x,p.tail[k+1].y);
+          ctx.strokeStyle=p.color+Math.round(tf*200).toString(16).padStart(2,"0");
+          ctx.lineWidth=p.r*(k/p.tail.length)*1.2;
+          ctx.stroke();
+        }
+        // Glow halo
+        const grd=ctx.createRadialGradient(px,py,0,px,py,p.r*4);
+        grd.addColorStop(0, p.color+Math.round(fade*180).toString(16).padStart(2,"0"));
+        grd.addColorStop(1, p.color+"00");
+        ctx.beginPath(); ctx.arc(px,py,p.r*4,0,Math.PI*2); ctx.fillStyle=grd; ctx.fill();
+        // Core
+        ctx.beginPath(); ctx.arc(px,py,p.r,0,Math.PI*2); ctx.fillStyle=p.color+"ff"; ctx.fill();
       }
 
-      // Draw nodes
+      // ── NODES ──
       nodes.forEach(n => {
-        const c = COLORS[n.type];
-        const pulse = Math.sin(n.pulse) * 0.3 + 0.7;
+        const T = TYPES[n.type];
+        const pulse = Math.sin(n.pulse)*0.22+0.78;
+        const r = T.size*0.52;
 
-        // Outer glow ring
-        const ringR = n.r + 4 + Math.sin(n.pulse) * 2;
+        // Multi-layer glow
+        [2.2,1.4,0.8].forEach((k,ki) => {
+          const gr=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,T.glowR*k*pulse);
+          const a=[20,35,60][ki];
+          gr.addColorStop(0, T.glow+a.toString(16).padStart(2,"0"));
+          gr.addColorStop(1, T.glow+"00");
+          ctx.beginPath(); ctx.arc(n.x,n.y,T.glowR*k*pulse,0,Math.PI*2); ctx.fillStyle=gr; ctx.fill();
+        });
+
+        // Pulsing outer ring
         ctx.beginPath();
-        ctx.arc(n.x, n.y, ringR, 0, Math.PI * 2);
-        ctx.strokeStyle = c.glow.replace("0.6", `${(0.15 * pulse).toFixed(2)}`);
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        ctx.arc(n.x,n.y, r+4+Math.sin(n.pulse)*2.5, 0,Math.PI*2);
+        ctx.strokeStyle=T.color+"66"; ctx.lineWidth=1.5; ctx.stroke();
 
-        // Core
-        const coreGrad = ctx.createRadialGradient(n.x - n.r * 0.3, n.y - n.r * 0.3, 0, n.x, n.y, n.r);
-        coreGrad.addColorStop(0, c.fill + "ff");
-        coreGrad.addColorStop(1, c.fill + "99");
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-        ctx.fillStyle = coreGrad;
-        ctx.fill();
+        // Dark bg circle
+        ctx.beginPath(); ctx.arc(n.x,n.y,r+2,0,Math.PI*2);
+        ctx.fillStyle="#080d18"; ctx.fill();
 
-        // Icon label
-        ctx.font = `${n.r * 1.5}px serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(c.label, n.x, n.y);
+        // Colored border
+        ctx.beginPath(); ctx.arc(n.x,n.y,r+2,0,Math.PI*2);
+        ctx.strokeStyle=T.color+"dd"; ctx.lineWidth=1.8; ctx.stroke();
+
+        // Emoji icon
+        ctx.font=`${Math.round(r*1.15)}px serif`;
+        ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle="#fff";
+        ctx.fillText(T.emoji,n.x,n.y);
+
+        // Ping ring
+        if(n.pingT>=0){
+          const pr=(r+6)+n.pingT*32;
+          ctx.beginPath(); ctx.arc(n.x,n.y,pr,0,Math.PI*2);
+          ctx.strokeStyle=T.color+Math.round((1-n.pingT)*200).toString(16).padStart(2,"0");
+          ctx.lineWidth=2.5; ctx.stroke();
+        }
+
+        // Label
+        ctx.font="bold 8.5px monospace";
+        ctx.textAlign="center"; ctx.textBaseline="top";
+        ctx.fillStyle=T.color+"bb";
+        ctx.fillText(T.label, n.x, n.y+r+7);
       });
 
       animId = requestAnimationFrame(draw);
     };
     draw();
 
-    return () => {
-      cancelAnimationFrame(animId);
-      ro.disconnect();
-    };
+    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize",setSize); };
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: "absolute", inset: 0,
-        width: "100%", height: "100%",
-        opacity: 0.85,
-        pointerEvents: "none",
-      }}
-    />
+    <canvas ref={canvasRef} style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none", display:"block" }}/>
   );
 }
-
 // ─── ISOMETRIC BUILDING ───────────────────────────────────────────────────
 function IsometricBuilding() {
   const [windows, setWindows] = useState(() =>
@@ -425,8 +426,8 @@ export default function HeroSearchSection({ onSearch }) {
         <div style={{
           position: "absolute", inset: 0,
           background: `
-            radial-gradient(ellipse 70% 80% at 30% 50%, rgba(7,9,14,0.35) 0%, rgba(7,9,14,0.85) 100%),
-            radial-gradient(ellipse 60% 70% at 80% 50%, rgba(7,9,14,0.5) 0%, rgba(7,9,14,0.9) 100%)
+            radial-gradient(ellipse 55% 90% at 28% 50%, rgba(7,9,14,0.72) 0%, rgba(7,9,14,0.15) 100%),
+            radial-gradient(ellipse 40% 80% at 85% 50%, rgba(7,9,14,0.5) 0%, rgba(7,9,14,0.1) 100%)
           `,
         }}/>
       </div>
