@@ -785,22 +785,7 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
           </div>
         );
       })()}
-    </div>
-  );
-}
 
-function localInsight(s) {
-  if(!s) return "Data load ho raha hai...";
-  if(s.occupancyPercent>80)return`Aaj occupancy ${s.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
-  if(s.occupancyPercent>50)return`${s.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
-  return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing consider karo!";
-}
-
-function Skeleton() {
-  return(
-    <div style={{height:"100%",padding:"16px 14px",display:"flex",flexDirection:"column",gap:12,background:"#07090E"}}>
-      {[80,160,280,120].map((h,i)=>(<div key={i} style={{height:h,background:"rgba(255,255,255,0.022)",borderRadius:20}}/>))}
-    </div>
 
       {/* ── Phase 4: Live Service Alert Modal ────────────────────────── */}
       {alertModal && (
@@ -950,6 +935,21 @@ function Skeleton() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function localInsight(s) {
+  if(!s) return "Data load ho raha hai...";
+  if(s.occupancyPercent>80)return`Aaj occupancy ${s.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
+  if(s.occupancyPercent>50)return`${s.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
+  return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing consider karo!";
+}
+
+function Skeleton() {
+  return(
+    <div style={{height:"100%",padding:"16px 14px",display:"flex",flexDirection:"column",gap:12,background:"#07090E"}}>
+      {[80,160,280,120].map((h,i)=>(<div key={i} style={{height:h,background:"rgba(255,255,255,0.022)",borderRadius:20}}/>))}
     </div>
   );
 }
