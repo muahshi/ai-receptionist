@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { Phone, BedDouble, Calendar, RefreshCw } from "lucide-react";
-import { getBookings, getBookingsSync, checkoutBooking } from "../lib/db";
+import { getBookings, getBookingsSync, checkoutBooking, onHotelUpdate } from "../lib/db";
 
 export default function GuestsView({ hotelId, hotel, user }) {
   const [guests,     setGuests]     = useState([]);
@@ -48,21 +48,18 @@ export default function GuestsView({ hotelId, hotel, user }) {
     return () => clearInterval(iv);
   }, [load]);
 
-  // Listen for new bookings from other tabs / components
+  // Listen for new bookings — BroadcastChannel (same+other tabs) + focus
   useEffect(() => {
-    const handleStorage = (e) => {
-      if (e.key && e.key.includes("bookings")) {
-        load();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    // Also check on focus (user switches back to tab)
-    window.addEventListener("focus", () => load());
+    const unsub = onHotelUpdate((msg) => {
+      if (!msg.hotelId || msg.hotelId === hotelId) load();
+    });
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
     return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("focus", () => load());
+      unsub();
+      window.removeEventListener("focus", onFocus);
     };
-  }, [load]);
+  }, [load, hotelId]);
 
   const filtered = guests.filter(g =>
     filter === "all" ? true :

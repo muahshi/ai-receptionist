@@ -4,7 +4,7 @@ import { RefreshCw, ExternalLink, Check, Brain } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import {
   getTodayStats, getRooms, getBookingById, checkoutBooking,
-  getTodayBookings, getWeeklyRevenue, initializeRooms, getBookings
+  getTodayBookings, getWeeklyRevenue, initializeRooms, getBookings, onHotelUpdate
 } from "../lib/db";
 import { usePushNotifications, playNotificationSound } from "../lib/usePushNotifications";
 
@@ -300,6 +300,16 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
     const iv = setInterval(poll, 10000);
     return () => clearInterval(iv);
   }, [hotelId, lastPollAt]);
+
+  /* ── BroadcastChannel: instant refresh when booking created (same tab) ── */
+  useEffect(() => {
+    const unsub = onHotelUpdate((msg) => {
+      if (!msg.hotelId || msg.hotelId === hotelId) {
+        load();
+      }
+    });
+    return unsub;
+  }, [hotelId, load]);
 
   /* ── Resolve alert (mark done in DB + clear grid highlight) ─── */
   const resolveAlert = async (alertId, roomNumber) => {

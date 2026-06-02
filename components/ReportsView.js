@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Download, FileText, TrendingUp } from "lucide-react";
-import { getWeeklyRevenue, getBookings, getBookingsSync, exportCSV, exportAllData } from "../lib/db";
+import { getWeeklyRevenue, getBookings, getBookingsSync, exportCSV, exportAllData, onHotelUpdate } from "../lib/db";
 
 export default function ReportsView({ hotelId, hotel, user }) {
   const [weekly,   setWeekly]   = useState([]);
@@ -43,18 +43,18 @@ export default function ReportsView({ hotelId, hotel, user }) {
     return () => clearInterval(iv);
   }, [refresh]);
 
-  // Reload when window regains focus (user came back from booking tab)
+  // Reload on BroadcastChannel update (same+other tabs) or focus
   useEffect(() => {
-    window.addEventListener("focus", refresh);
-    const handleStorage = (e) => {
-      if (e.key && e.key.includes("bookings")) refresh();
-    };
-    window.addEventListener("storage", handleStorage);
+    const unsub = onHotelUpdate((msg) => {
+      if (!msg.hotelId || msg.hotelId === hotelId) refresh();
+    });
+    const onFocus = () => refresh();
+    window.addEventListener("focus", onFocus);
     return () => {
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("storage", handleStorage);
+      unsub();
+      window.removeEventListener("focus", onFocus);
     };
-  }, [refresh]);
+  }, [refresh, hotelId]);
 
   const total   = all.reduce((s, b) => s + (b.totalAmount || 0), 0);
   const nights  = all.reduce((s, b) => s + (b.nights || 0), 0);
