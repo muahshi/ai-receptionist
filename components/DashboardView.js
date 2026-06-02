@@ -4,7 +4,7 @@ import { RefreshCw, ExternalLink, Check, Brain } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import {
   getTodayStats, getRooms, getBookingById, checkoutBooking,
-  getTodayBookings, getWeeklyRevenue, initializeRooms
+  getTodayBookings, getWeeklyRevenue, initializeRooms, getBookings
 } from "../lib/db";
 import { usePushNotifications, playNotificationSound } from "../lib/usePushNotifications";
 
@@ -236,15 +236,24 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   const { supported: pushSupported, subscribed: pushSubscribed,
           subscribe: subscribePush } = usePushNotifications(hotelId, "staff");
 
-  const load = useCallback(() => {
+  // load() — sync from localStorage instantly, then pull Supabase in background
+  const load = useCallback(async (fromSupabase = false) => {
     if (!hotelId) return;
     initializeRooms(hotelId, hotel?.totalRooms || 20);
     setStats(getTodayStats(hotelId));
     setRooms(getRooms(hotelId));
     setRevData(getWeeklyRevenue(hotelId));
+    // If called with fromSupabase flag (e.g. on new_booking push), pull fresh data from DB
+    if (fromSupabase) {
+      try {
+        await getBookings(hotelId); // this caches to localStorage
+        setStats(getTodayStats(hotelId));
+        setRevData(getWeeklyRevenue(hotelId));
+      } catch {}
+    }
   }, [hotelId, hotel?.totalRooms]);
 
-  useEffect(() => { load(); fetchInsight(); const iv=setInterval(load,30000); return ()=>clearInterval(iv); }, [load]);
+  useEffect(() => { load(); fetchInsight(); const iv=setInterval(() => load(true), 30000); return ()=>clearInterval(iv); }, [load]);
 
   /* ── Phase 4: Poll /api/push for new service_requests every 10s ── */
   useEffect(() => {
@@ -262,7 +271,17 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             const fresh = data.requests.filter(r => !existingIds.has(r.id));
             if (fresh.length) {
               playNotificationSound();
-              setAlertModal(fresh[0]); // show latest alert as modal
+              // If any fresh event is a new_booking, pull Supabase so guests/reports update
+              const hasNewBooking = fresh.some(r => r.action_id === "new_booking");
+              if (hasNewBooking) {
+                getBookings(hotelId).then(() => {
+                  setStats(getTodayStats(hotelId));
+                  setRevData(getWeeklyRevenue(hotelId));
+                }).catch(() => {});
+              }
+              // Only show modal for non-booking service alerts
+              const serviceAlerts = fresh.filter(r => r.action_id !== "new_booking");
+              if (serviceAlerts.length) setAlertModal(serviceAlerts[0]);
               // Mark room in alertRooms for grid color
               const roomUpdates = {};
               fresh.forEach(req => {
