@@ -1,10 +1,14 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
-import { Send, MessageCircle, X, MapPin, Star, ShieldCheck, Navigation, Camera, RefreshCw, CheckCircle, Zap } from "lucide-react";
+import {
+  Send, MessageCircle, X, MapPin, Star, ShieldCheck,
+  Navigation, Camera, RefreshCw, CheckCircle, Zap,
+  UtensilsCrossed, Sparkles, Phone, ChevronDown, ChevronUp,
+} from "lucide-react";
 
 /* ═══════════════════════════════════════════
-   HOTEL FETCH
+   HOTEL FETCH — now includes Phase 1 config fields
 ═══════════════════════════════════════════ */
 async function fetchHotel(hotelId) {
   const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -20,23 +24,31 @@ async function fetchHotel(hotelId) {
         if (data?.length > 0) {
           const h = data[0];
           return {
-            id:            h.id,
-            name:          h.name,
-            location:      h.location       || "",
-            addressLine:   h.address_line   || "",
-            distanceTag:   h.distance_tag   || "",
-            totalRooms:    h.total_rooms     || 20,
-            ownerPhone:    h.owner_phone     || "",
-            managerPhone:  h.manager_phone   || "",
-            ownerEmail:    h.owner_email     || "",
-            emoji:         h.emoji           || "🏨",
-            standardRate:  h.standard_rate   || 1200,
-            deluxeRate:    h.deluxe_rate     || 2000,
-            suiteRate:     h.suite_rate      || 3800,
-            minFloorPrice: h.min_floor_price || 800,
-            amenities:     h.amenities       || [],
-            avgRating:     h.avg_rating      || 4.0,
-            totalReviews:  h.total_reviews   || 0,
+            id:                  h.id,
+            name:                h.name,
+            location:            h.location       || "",
+            addressLine:         h.address_line   || "",
+            distanceTag:         h.distance_tag   || "",
+            totalRooms:          h.total_rooms     || 20,
+            ownerPhone:          h.owner_phone     || "",
+            managerPhone:        h.manager_phone   || "",
+            ownerEmail:          h.owner_email     || "",
+            emoji:               h.emoji           || "🏨",
+            standardRate:        h.standard_rate   || 1200,
+            deluxeRate:          h.deluxe_rate     || 2000,
+            suiteRate:           h.suite_rate      || 3800,
+            minFloorPrice:       h.min_floor_price || 800,
+            amenities:           h.amenities       || [],
+            avgRating:           h.avg_rating      || 4.0,
+            totalReviews:        h.total_reviews   || 0,
+            // Phase 1 fields
+            wifiPassword:        h.wifi_password        || "",
+            menuUrl:             h.menu_url             || "",
+            menuText:            h.menu_text            || "",
+            receptionPhone:      h.reception_phone      || h.owner_phone || "",
+            enableWifi:          h.enable_wifi          ?? true,
+            enableFoodOrdering:  h.enable_food_ordering ?? true,
+            enableHousekeeping:  h.enable_housekeeping  ?? true,
           };
         }
       }
@@ -45,21 +57,40 @@ async function fetchHotel(hotelId) {
   try {
     const cfg = JSON.parse(localStorage.getItem(`air_${hotelId}_config`) || "{}");
     if (cfg.name) return {
-      id: hotelId, name: cfg.name, location: cfg.location || "", addressLine: "", distanceTag: "",
-      totalRooms: cfg.totalRooms || 20, ownerPhone: cfg.ownerPhone || "", emoji: cfg.emoji || "🏨",
-      standardRate: cfg.standardRate || 1200, deluxeRate: cfg.deluxeRate || 2000, suiteRate: cfg.suiteRate || 3800,
-      minFloorPrice: cfg.minFloorPrice || 800, amenities: [], avgRating: 4.0, totalReviews: 0,
-      managerPhone: cfg.managerPhone || "",
+      id:                  hotelId,
+      name:                cfg.name,
+      location:            cfg.location        || "",
+      addressLine:         "",
+      distanceTag:         "",
+      totalRooms:          cfg.totalRooms       || 20,
+      ownerPhone:          cfg.ownerPhone       || "",
+      managerPhone:        cfg.managerPhone     || "",
+      emoji:               cfg.emoji            || "🏨",
+      standardRate:        cfg.standardRate     || 1200,
+      deluxeRate:          cfg.deluxeRate       || 2000,
+      suiteRate:           cfg.suiteRate        || 3800,
+      minFloorPrice:       cfg.minFloorPrice    || 800,
+      amenities:           [],
+      avgRating:           4.0,
+      totalReviews:        0,
+      // Phase 1 fields from localStorage config key
+      wifiPassword:        cfg.wifiPassword        || "",
+      menuUrl:             cfg.menuUrl             || "",
+      menuText:            cfg.menuText            || "",
+      receptionPhone:      cfg.receptionPhone      || cfg.ownerPhone || "",
+      enableWifi:          cfg.enableWifi          ?? true,
+      enableFoodOrdering:  cfg.enableFoodOrdering  ?? true,
+      enableHousekeeping:  cfg.enableHousekeeping  ?? true,
     };
   } catch {}
   const DEMOS = [
-    { id: "cherry-bhopal",   name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128 },
-    { id: "hotel-cherry",    name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128 },
-    { id: "sunrise-jaipur",  name: "Hotel Sunrise Palace",   location: "Jaipur, Rajasthan",       totalRooms: 40, ownerPhone: "919876543210", emoji: "🌅", standardRate: 1500, deluxeRate: 2500, suiteRate: 5000, minFloorPrice: 1100, addressLine: "Civil Lines, Jaipur - 302006",           distanceTag: "2.1 km from City Center", amenities: ["Free Wi-Fi","Pool Access","AC Rooms"], avgRating: 4.7, totalReviews: 312 },
-    { id: "midtown-indore",  name: "Hotel Midtown",          location: "Indore, Madhya Pradesh",  totalRooms: 35, ownerPhone: "919977665544", emoji: "🏙️", standardRate: 1100, deluxeRate: 1800, suiteRate: 3500, minFloorPrice: 850,  addressLine: "MG Road, Indore - 452001",              distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","Early Check-in","AC Rooms"], avgRating: 4.5, totalReviews: 89 },
-    { id: "comforts-nagpur", name: "City Comforts Nagpur",   location: "Nagpur, Maharashtra",     totalRooms: 30, ownerPhone: "919988776655", emoji: "🏨", standardRate: 1000, deluxeRate: 1600, suiteRate: 3200, minFloorPrice: 800,  addressLine: "Sitabuldi, Nagpur - 440012",            distanceTag: "1.5 km from Bus Stand",  amenities: ["Free Wi-Fi","Parking","AC Rooms"], avgRating: 4.4, totalReviews: 56 },
-    { id: "grand-mumbai",    name: "The Grand Inn Mumbai",   location: "Mumbai, Maharashtra",     totalRooms: 120, ownerPhone: "919900001111", emoji: "🏩", standardRate: 2500, deluxeRate: 4500, suiteRate: 9000, minFloorPrice: 2000, addressLine: "Andheri West, Mumbai - 400053",         distanceTag: "1.8 km from Metro Station", amenities: ["Free Wi-Fi","Restaurant","Gym","AC Rooms"], avgRating: 4.8, totalReviews: 920 },
-    { id: "amardeep-palace", name: "Hotel Amardeep Palace",  location: "Bhopal, Madhya Pradesh",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🏨", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Hamidia Road, Bhopal - 462001",         distanceTag: "500m from Railway Station", amenities: ["Free Wi-Fi","AC Rooms"], avgRating: 4.3, totalReviews: 44 },
+    { id: "cherry-bhopal",   name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128, wifiPassword: "cherry@2024", menuText: "Dal Fry ₹120 | Paneer Butter Masala ₹180 | Roti ₹15 | Rice ₹60 | Tea ₹20 | Coffee ₹30", menuUrl: "", receptionPhone: "919009109108", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    { id: "hotel-cherry",    name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128, wifiPassword: "cherry@2024", menuText: "Dal Fry ₹120 | Paneer Butter Masala ₹180 | Roti ₹15 | Rice ₹60 | Tea ₹20 | Coffee ₹30", menuUrl: "", receptionPhone: "919009109108", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    { id: "sunrise-jaipur",  name: "Hotel Sunrise Palace",   location: "Jaipur, Rajasthan",       totalRooms: 40, ownerPhone: "919876543210", emoji: "🌅", standardRate: 1500, deluxeRate: 2500, suiteRate: 5000, minFloorPrice: 1100, addressLine: "Civil Lines, Jaipur - 302006",           distanceTag: "2.1 km from City Center", amenities: ["Free Wi-Fi","Pool Access","AC Rooms"], avgRating: 4.7, totalReviews: 312, wifiPassword: "sunrise#jaipur", menuText: "Dal Baati ₹150 | Laal Maas ₹250 | Bajra Roti ₹20 | Lassi ₹50", menuUrl: "", receptionPhone: "919876543210", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    { id: "midtown-indore",  name: "Hotel Midtown",          location: "Indore, Madhya Pradesh",  totalRooms: 35, ownerPhone: "919977665544", emoji: "🏙️", standardRate: 1100, deluxeRate: 1800, suiteRate: 3500, minFloorPrice: 850,  addressLine: "MG Road, Indore - 452001",              distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","Early Check-in","AC Rooms"], avgRating: 4.5, totalReviews: 89, wifiPassword: "midtown@456", menuText: "Poha ₹60 | Kachori ₹50 | Biryani ₹180 | Chai ₹15", menuUrl: "", receptionPhone: "919977665544", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    { id: "comforts-nagpur", name: "City Comforts Nagpur",   location: "Nagpur, Maharashtra",     totalRooms: 30, ownerPhone: "919988776655", emoji: "🏨", standardRate: 1000, deluxeRate: 1600, suiteRate: 3200, minFloorPrice: 800,  addressLine: "Sitabuldi, Nagpur - 440012",            distanceTag: "1.5 km from Bus Stand",  amenities: ["Free Wi-Fi","Parking","AC Rooms"], avgRating: 4.4, totalReviews: 56, wifiPassword: "comforts2024", menuText: "Sabudana Khichdi ₹80 | Vada Pav ₹30 | Thali ₹120", menuUrl: "", receptionPhone: "919988776655", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    { id: "grand-mumbai",    name: "The Grand Inn Mumbai",   location: "Mumbai, Maharashtra",     totalRooms: 120, ownerPhone: "919900001111", emoji: "🏩", standardRate: 2500, deluxeRate: 4500, suiteRate: 9000, minFloorPrice: 2000, addressLine: "Andheri West, Mumbai - 400053",         distanceTag: "1.8 km from Metro Station", amenities: ["Free Wi-Fi","Restaurant","Gym","AC Rooms"], avgRating: 4.8, totalReviews: 920, wifiPassword: "GrandMumbai#9", menuUrl: "https://example.com/menu", menuText: "", receptionPhone: "919900001111", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    { id: "amardeep-palace", name: "Hotel Amardeep Palace",  location: "Bhopal, Madhya Pradesh",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🏨", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Hamidia Road, Bhopal - 462001",         distanceTag: "500m from Railway Station", amenities: ["Free Wi-Fi","AC Rooms"], avgRating: 4.3, totalReviews: 44, wifiPassword: "amardeep123", menuText: "Biryani ₹160 | Paneer Tikka ₹200 | Roti ₹15 | Tea ₹20", menuUrl: "", receptionPhone: "919009109108", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
   ];
   return DEMOS.find(h => h.id === hotelId) || DEMOS.find(h => hotelId.includes(h.id.split("-")[0])) || null;
 }
@@ -88,28 +119,28 @@ async function saveBooking(booking, hotelId) {
   if (sbUrl && sbKey && sbUrl !== "undefined") {
     try {
       const row = {
-        id:             booking.id,
-        hotel_id:       hotelId,
-        guest_name:     booking.guestName     || "",
-        guest_phone:    booking.guestPhone    || "",
-        address:        booking.address       || "",
-        id_type:        booking.idType        || "Aadhaar",
-        id_number:      booking.idNumber      || "[Aadhaar Redacted]",
-        gender:         booking.gender        || "",
-        dob:            booking.dob           || "",
-        room_id:        booking.roomId        || "",
-        room_type:      booking.roomType      || "standard",
-        check_in_date:  booking.checkInDate   || "",
-        check_out_date: booking.checkOutDate  || "",
-        nights:         booking.nights        || 1,
-        rate_per_night: booking.ratePerNight  || 0,
-        total_amount:   booking.totalAmount   || 0,
-        payment_mode:   booking.paymentMode   || "Cash",
-        status:         "active",
-        rate_locked:    true,
-        negotiated:     booking.negotiated    || false,
+        id:              booking.id,
+        hotel_id:        hotelId,
+        guest_name:      booking.guestName     || "",
+        guest_phone:     booking.guestPhone    || "",
+        address:         booking.address       || "",
+        id_type:         booking.idType        || "Aadhaar",
+        id_number:       booking.idNumber      || "[Aadhaar Redacted]",
+        gender:          booking.gender        || "",
+        dob:             booking.dob           || "",
+        room_id:         booking.roomId        || "",
+        room_type:       booking.roomType      || "standard",
+        check_in_date:   booking.checkInDate   || "",
+        check_out_date:  booking.checkOutDate  || "",
+        nights:          booking.nights        || 1,
+        rate_per_night:  booking.ratePerNight  || 0,
+        total_amount:    booking.totalAmount   || 0,
+        payment_mode:    booking.paymentMode   || "Cash",
+        status:          "active",
+        rate_locked:     true,
+        negotiated:      booking.negotiated    || false,
         negotiated_from: booking.negotiatedFrom || 0,
-        source:         "marketplace",
+        source:          "marketplace",
       };
       const res = await fetch(`${sbUrl}/rest/v1/bookings`, {
         method: "POST",
@@ -119,7 +150,6 @@ async function saveBooking(booking, hotelId) {
       if (res.ok || res.status === 201) return { success: true };
     } catch {}
   }
-  // Fallback localStorage
   try {
     const key  = `air_${hotelId}_bookings`;
     const list = JSON.parse(localStorage.getItem(key) || "[]");
@@ -180,11 +210,8 @@ function AiReactor({ scanning, progress }) {
 
 /* ═══════════════════════════════════════════
    NEGOTIATE DETECT
-   Detects discount requests in chat messages
 ═══════════════════════════════════════════ */
 function detectNegotiationIntent(text) {
-  const lower = text.toLowerCase();
-  // Patterns: "1000 mein milega", "800 kar do", "discount do", "less karo", "₹900"
   const patterns = [
     /(\d{3,5})\s*(mein|me|pe|par|kar\s*do|chahiye|milega|dedo|de\s*do)/i,
     /discount|kam\s*karo|less\s*karo|reduce|negotiate|sasta|cheap|concession/i,
@@ -192,9 +219,7 @@ function detectNegotiationIntent(text) {
     /(\d{3,5})\s*(rupee|rs|inr)/i,
   ];
   for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      // Try to extract a number
+    if (text.match(p)) {
       const numMatch = text.match(/(\d{3,5})/);
       return { isNegotiation: true, requestedRate: numMatch ? parseInt(numMatch[1]) : null };
     }
@@ -203,21 +228,429 @@ function detectNegotiationIntent(text) {
 }
 
 /* ═══════════════════════════════════════════
+   PHASE 2 — IN-ROOM DIGITAL COMPANION TABS
+═══════════════════════════════════════════ */
+
+/* Tab bar */
+function CompanionTabBar({ activeTab, setActiveTab, hotel }) {
+  const tabs = [
+    { id: "chat",         label: "Sandy",    icon: "🤖" },
+    { id: "food",         label: "Food",     icon: "🍽️", disabled: !(hotel?.enableFoodOrdering ?? true) },
+    { id: "service",      label: "Service",  icon: "🧹", disabled: !(hotel?.enableHousekeeping ?? true) },
+    { id: "desk",         label: "Desk",     icon: "📞" },
+  ];
+  return (
+    <div style={{ display: "flex", gap: 6, padding: "10px 16px", background: "rgba(0,0,0,0.4)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          onClick={() => !t.disabled && setActiveTab(t.id)}
+          style={{
+            flex: 1, padding: "8px 4px", borderRadius: 10,
+            background: activeTab === t.id ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${activeTab === t.id ? "rgba(212,175,55,0.45)" : "rgba(255,255,255,0.07)"}`,
+            color: activeTab === t.id ? "#D4AF37" : t.disabled ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.5)",
+            fontSize: 9, fontWeight: 700, cursor: t.disabled ? "not-allowed" : "pointer",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+            transition: "all 0.15s",
+          }}
+        >
+          <span style={{ fontSize: 16 }}>{t.icon}</span>
+          {t.label}
+          {t.disabled && <span style={{ fontSize: 7, color: "rgba(255,255,255,0.2)" }}>Off</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* Food Tab */
+function FoodTab({ hotel }) {
+  const hasUrl  = !!(hotel?.menuUrl  || "").trim();
+  const hasText = !!(hotel?.menuText || "").trim();
+  const items   = hasText
+    ? hotel.menuText.split(/[|\n]/).map(s => s.trim()).filter(Boolean)
+    : [];
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "14px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ textAlign: "center" }}>
+        <span style={{ fontSize: 32 }}>🍽️</span>
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: "#fff", marginTop: 6 }}>Restaurant Menu</h3>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
+          {hotel?.name} ki kitchen se sidha aapke room tak
+        </p>
+      </div>
+
+      {!hasUrl && !hasText && (
+        <div style={{ textAlign: "center", padding: "24px 16px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>Menu abhi available nahi hai</p>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 4 }}>Reception se contact karo</p>
+        </div>
+      )}
+
+      {hasUrl && (
+        <a
+          href={hotel.menuUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 14, background: "linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.06))", border: "1px solid rgba(212,175,55,0.3)", color: "#D4AF37", fontSize: 13, fontWeight: 800, textDecoration: "none" }}
+        >
+          <UtensilsCrossed size={16} /> Digital Menu Dekho →
+        </a>
+      )}
+
+      {hasText && items.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Today's Menu</p>
+          {items.map((item, i) => {
+            const priceMatch = item.match(/₹\s*(\d+)/);
+            const price = priceMatch ? priceMatch[0] : null;
+            const name  = price ? item.replace(priceMatch[0], "").trim().replace(/[-–]$/, "").trim() : item;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 13px", borderRadius: 11, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ fontSize: 18 }}>{["🍛","🫓","🥘","🍚","☕","🍵","🥗","🧆"][i % 8]}</span>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>{name}</span>
+                </div>
+                {price && <span style={{ fontSize: 13, fontWeight: 800, color: "#D4AF37", flexShrink: 0 }}>{price}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Order via Sandy nudge */}
+      <div style={{ marginTop: 4, padding: "12px 14px", borderRadius: 12, background: "rgba(0,140,255,0.06)", border: "1px solid rgba(0,140,255,0.15)" }}>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
+          🤖 <strong style={{ color: "#60b8ff" }}>Sandy se order karo:</strong> Chat tab mein jaao aur likhein — <em style={{ color: "rgba(255,255,255,0.35)" }}>"Ek dal fry aur 2 roti chahiye room mein"</em>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* Room Service Tab */
+function ServiceTab({ hotel, bookingResult, onRequestSent }) {
+  const [sentRequests, setSentRequests] = useState([]);
+  const [loading,      setLoading]      = useState(null);
+
+  const actions = [
+    { id: "clean",    emoji: "🧹", label: "Clean My Room",       msg: "Room cleaning chahiye" },
+    { id: "water",    emoji: "💧", label: "Water Bottle Laao",   msg: "Water bottle chahiye" },
+    { id: "towel",    emoji: "🛁", label: "Extra Towel Chahiye", msg: "Extra towel chahiye" },
+    { id: "ac",       emoji: "❄️", label: "AC Issue Report",     msg: "AC mein problem hai" },
+    { id: "blanket",  emoji: "🛏️", label: "Extra Blanket",       msg: "Extra blanket chahiye" },
+    { id: "wakeup",   emoji: "⏰", label: "Wake-Up Call Chahiye",msg: "Wake-up call chahiye" },
+    { id: "dnd",      emoji: "🔕", label: "Do Not Disturb",      msg: "Do not disturb mode on karo" },
+    { id: "checkout", emoji: "🧾", label: "Bill Prepare Karo",   msg: "Checkout ke liye bill ready karo" },
+  ];
+
+  const handleRequest = async (action) => {
+    if (sentRequests.includes(action.id)) return;
+    setLoading(action.id);
+    try {
+      await fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hotelId:     hotel?.id,
+          type:        "room_service",
+          title:       `🔔 Room ${bookingResult?.roomNumber || "?"} — Service Request`,
+          body:        `${action.msg} · Guest: ${bookingResult?.guestName || "In-house guest"}`,
+          actionId:    action.id,
+          roomNumber:  bookingResult?.roomNumber,
+          guestName:   bookingResult?.guestName,
+          timestamp:   new Date().toISOString(),
+        }),
+      });
+    } catch {}
+    setSentRequests(p => [...p, action.id]);
+    setLoading(null);
+    onRequestSent?.(action);
+  };
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "14px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ textAlign: "center" }}>
+        <span style={{ fontSize: 32 }}>🧹</span>
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: "#fff", marginTop: 6 }}>Room Service</h3>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Ek tap mein staff ko request bhejo</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {actions.map(action => {
+          const sent    = sentRequests.includes(action.id);
+          const loading_ = loading === action.id;
+          return (
+            <button
+              key={action.id}
+              onClick={() => handleRequest(action)}
+              disabled={sent || loading_}
+              style={{
+                padding: "14px 10px", borderRadius: 14, textAlign: "center",
+                background: sent
+                  ? "rgba(34,197,94,0.1)"
+                  : "rgba(255,255,255,0.04)",
+                border: `1px solid ${sent ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.07)"}`,
+                cursor: sent ? "default" : "pointer",
+                transition: "all 0.15s",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              }}
+            >
+              <span style={{ fontSize: 24 }}>{sent ? "✅" : action.emoji}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: sent ? "#22c55e" : "rgba(255,255,255,0.7)", lineHeight: 1.3 }}>
+                {loading_ ? "Sending..." : sent ? "Sent!" : action.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {sentRequests.length > 0 && (
+        <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)" }}>
+          <p style={{ fontSize: 11, color: "#22c55e", fontWeight: 700 }}>✓ Staff ko notify kar diya gaya</p>
+          <p style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Thodi der mein aapka kaam ho jayega</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Call Desk Tab */
+function CallDeskTab({ hotel }) {
+  const phone = hotel?.receptionPhone || hotel?.ownerPhone || hotel?.managerPhone || "";
+  const e164  = phone.startsWith("+") ? phone : phone ? `+${phone}` : "";
+  const whatsapp = phone.replace(/\D/g, "");
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "14px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ textAlign: "center" }}>
+        <span style={{ fontSize: 32 }}>📞</span>
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: "#fff", marginTop: 6 }}>Call Desk</h3>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Reception se directly baat karo</p>
+      </div>
+
+      {e164 ? (
+        <>
+          <a
+            href={`tel:${e164}`}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              padding: "16px", borderRadius: 16,
+              background: "linear-gradient(135deg,#14532d,#166534)",
+              border: "1px solid rgba(34,197,94,0.35)",
+              color: "#fff", fontSize: 15, fontWeight: 900, textDecoration: "none",
+              boxShadow: "0 4px 20px rgba(34,197,94,0.25)",
+            }}
+          >
+            <Phone size={18} /> 📲 Reception Ko Call Karo
+          </a>
+
+          {whatsapp && (
+            <a
+              href={`https://wa.me/${whatsapp}?text=Namaste%2C%20mujhe%20room%20service%20chahiye`}
+              target="_blank" rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                padding: "14px", borderRadius: 14,
+                background: "rgba(37,211,102,0.08)",
+                border: "1px solid rgba(37,211,102,0.25)",
+                color: "#25D366", fontSize: 13, fontWeight: 800, textDecoration: "none",
+              }}
+            >
+              <span style={{ fontSize: 18 }}>💬</span> WhatsApp Pe Message Karo
+            </a>
+          )}
+
+          <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "center" }}>Reception number</p>
+            <p style={{ fontSize: 20, fontWeight: 900, color: "#fff", textAlign: "center", marginTop: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>{e164}</p>
+          </div>
+        </>
+      ) : (
+        <div style={{ textAlign: "center", padding: "24px 16px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>Contact number configure nahi hai</p>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 4 }}>Hotel admin se baat karo</p>
+        </div>
+      )}
+
+      <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(0,140,255,0.05)", border: "1px solid rgba(0,140,255,0.12)" }}>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>
+          ⏰ <strong style={{ color: "#60b8ff" }}>Check-out time:</strong> 11:00 AM<br />
+          🔑 <strong style={{ color: "#60b8ff" }}>Check-in time:</strong> 12:00 PM<br />
+          🆘 <strong style={{ color: "#60b8ff" }}>Emergency:</strong> Reception pe directly aao
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   IN-ROOM COMPANION PANEL (Full Screen)
+═══════════════════════════════════════════ */
+function InRoomCompanion({
+  hotel, bookingResult,
+  messages, chatInput, setChatInput,
+  chatLoading, negotiating, sendChat,
+  checkIn, checkOut, selectedRoom, negotiatedRate, rateLockToken, nights, roomRate, activeRoomTypeKey,
+  chatEndRef,
+  onClose,
+}) {
+  const [activeTab, setActiveTab] = useState("chat");
+
+  const handleServiceRequest = (action) => {
+    // Optionally log or echo in chat
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", background: "linear-gradient(180deg,#0d111e,#060810)", animation: "slideUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards" }}>
+      {/* Header */}
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#1a1400,#2d2200)", border: "1px solid rgba(212,175,55,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{hotel?.emoji}</div>
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 800, color: "#D4AF37" }}>In-Room Companion</p>
+            <p style={{ fontSize: 9, color: "#22c55e", display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+              {bookingResult?.guestName ? `Welcome, ${bookingResult.guestName.split(" ")[0]}! Room ${bookingResult.roomNumber}` : `${hotel?.name} · Guest Services`}
+            </p>
+          </div>
+        </div>
+        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* Wi-Fi strip — always visible if password is set */}
+      {hotel?.wifiPassword && (hotel?.enableWifi ?? true) && (
+        <div style={{ padding: "8px 16px", background: "rgba(0,140,255,0.06)", borderBottom: "1px solid rgba(0,140,255,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ fontSize: 14 }}>📶</span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Wi-Fi Password:</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#60b8ff", fontFamily: "monospace" }}>{hotel.wifiPassword}</span>
+          </div>
+          <WifiCopyButton password={hotel.wifiPassword} />
+        </div>
+      )}
+
+      {/* Tab Bar */}
+      <CompanionTabBar activeTab={activeTab} setActiveTab={setActiveTab} hotel={hotel} />
+
+      {/* Tab Content */}
+      {activeTab === "chat" && (
+        <ChatTab
+          messages={messages} chatInput={chatInput} setChatInput={setChatInput}
+          chatLoading={chatLoading} negotiating={negotiating} sendChat={sendChat}
+          checkIn={checkIn} checkOut={checkOut} selectedRoom={selectedRoom}
+          negotiatedRate={negotiatedRate} rateLockToken={rateLockToken}
+          nights={nights} roomRate={roomRate} activeRoomTypeKey={activeRoomTypeKey}
+          chatEndRef={chatEndRef}
+        />
+      )}
+      {activeTab === "food" && <FoodTab hotel={hotel} />}
+      {activeTab === "service" && (
+        <ServiceTab hotel={hotel} bookingResult={bookingResult} onRequestSent={handleServiceRequest} />
+      )}
+      {activeTab === "desk" && <CallDeskTab hotel={hotel} />}
+    </div>
+  );
+}
+
+/* Wi-Fi copy button */
+function WifiCopyButton({ password }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard?.writeText(password).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button onClick={copy} style={{ fontSize: 9, padding: "4px 8px", borderRadius: 6, background: copied ? "rgba(34,197,94,0.1)" : "rgba(0,140,255,0.1)", border: `1px solid ${copied ? "rgba(34,197,94,0.3)" : "rgba(0,140,255,0.25)"}`, color: copied ? "#22c55e" : "#60b8ff", cursor: "pointer", fontWeight: 700 }}>
+      {copied ? "Copied ✓" : "Copy"}
+    </button>
+  );
+}
+
+/* Chat Tab — extracted from original inline chat panel */
+function ChatTab({ messages, chatInput, setChatInput, chatLoading, negotiating, sendChat, checkIn, checkOut, selectedRoom, negotiatedRate, rateLockToken, nights, roomRate, activeRoomTypeKey, chatEndRef }) {
+  return (
+    <>
+      {/* Booking context strip */}
+      {(checkIn || selectedRoom) && (
+        <div style={{ padding: "7px 14px", background: "rgba(212,175,55,0.05)", borderBottom: "1px solid rgba(212,175,55,0.1)", display: "flex", gap: 10, flexWrap: "wrap", flexShrink: 0 }}>
+          {checkIn  && <span style={{ fontSize: 9, color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.08)", padding: "3px 8px", borderRadius: 6 }}>📅 {checkIn} → {checkOut || "?"}</span>}
+          {selectedRoom && <span style={{ fontSize: 9, color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.08)", padding: "3px 8px", borderRadius: 6 }}>🏠 Room {selectedRoom.number}</span>}
+          {negotiatedRate && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.1)", padding: "3px 8px", borderRadius: 6 }}>🔒 ₹{negotiatedRate}/night locked</span>}
+        </div>
+      )}
+
+      <div style={{ flex: 1, padding: "14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, WebkitOverflowScrolling: "touch" }}>
+        {messages.map((msg, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.25s ease" }}>
+            <div style={{
+              maxWidth: "85%", padding: "10px 13px",
+              borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+              fontSize: 12, lineHeight: 1.6,
+              background: msg.role === "user"
+                ? "linear-gradient(135deg,#91711e,#D4AF37)"
+                : msg.isNegotiationResult
+                  ? msg.approved ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.08)"
+                  : "rgba(255,255,255,0.05)",
+              color: msg.role === "user" ? "#000" : "rgba(255,255,255,0.85)",
+              border: msg.role === "user" ? "none"
+                : msg.isNegotiationResult
+                  ? `1px solid ${msg.approved ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.25)"}`
+                  : "1px solid rgba(255,255,255,0.06)",
+              fontWeight: msg.role === "user" ? 700 : 400,
+            }}>
+              {msg.content.split("\n").map((line, j) => <span key={j}>{line}{j < msg.content.split("\n").length - 1 && <br />}</span>)}
+              {msg.isNegotiationResult && msg.approved && msg.token && (
+                <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 6, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                  <p style={{ fontSize: 9, color: "#22c55e", fontFamily: "monospace" }}>🔒 Rate Lock Token: {msg.token}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {(chatLoading || negotiating) && (
+          <div style={{ display: "flex", gap: 5, padding: "8px 4px", alignItems: "center" }}>
+            {negotiating && <span style={{ fontSize: 10, color: "#D4AF37", marginRight: 4 }}>Negotiating...</span>}
+            {[0, 1, 2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: negotiating ? "#D4AF37" : "#008cff", animation: "dotBounce 1.2s infinite", animationDelay: `${i * 0.2}s` }} />)}
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Quick chips */}
+      <div style={{ padding: "8px 14px 0", display: "flex", gap: 6, flexWrap: "wrap", flexShrink: 0 }}>
+        {["Rates kya hain?", "₹1000 mein milega?", "Wi-fi password?", "Khana order karna hai", "Checkout time?"].map(q => (
+          <button key={q} onClick={() => sendChat(q)} style={{ fontSize: 10, padding: "6px 10px", borderRadius: 8, background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)", color: "#D4AF37", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>{q}</button>
+        ))}
+      </div>
+
+      <div style={{ padding: "10px 14px 16px", borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.3)", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()} placeholder="Hinglish mein puchho ya negotiate karo..." style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "11px 14px", fontSize: 12, color: "#fff", outline: "none" }} />
+        <button onClick={() => sendChat()} disabled={!chatInput.trim() || chatLoading} style={{ width: 42, height: 42, borderRadius: 11, background: "linear-gradient(135deg,#0050c8,#0080ff)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: (!chatInput.trim() || chatLoading) ? 0.4 : 1 }}>
+          <Send size={14} style={{ color: "#fff" }} />
+        </button>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════ */
 export default function BookingPage() {
-  const params     = useParams();
-  const hotelId    = params?.hotelId;
+  const params   = useParams();
+  const hotelId  = params?.hotelId;
 
-  // ── Core state ───────────────────────────────────────────────
-  const [hotel,        setHotel]        = useState(null);
-  const [rooms,        setRooms]        = useState([]);
-  const [pageLoading,  setPageLoading]  = useState(true);
-
-  // ── Room selection ───────────────────────────────────────────
+  const [hotel,         setHotel]         = useState(null);
+  const [rooms,         setRooms]         = useState([]);
+  const [pageLoading,   setPageLoading]   = useState(true);
   const [selectedRoom,  setSelectedRoom]  = useState(null);
 
-  // ── Form state ───────────────────────────────────────────────
   const [guestName,    setGuestName]    = useState("");
   const [guestPhone,   setGuestPhone]   = useState("");
   const [checkIn,      setCheckIn]      = useState("");
@@ -231,7 +664,6 @@ export default function BookingPage() {
   const [roomType,     setRoomType]     = useState("Deluxe Room");
   const [paymentMode,  setPaymentMode]  = useState("Cash");
 
-  // ── ID Scanner state ─────────────────────────────────────────
   const [scanStep,     setScanStep]     = useState("idle");
   const [scanSide,     setScanSide]     = useState("front");
   const [scanProgress, setScanProgress] = useState(0);
@@ -242,28 +674,24 @@ export default function BookingPage() {
   const canvasRef  = useRef(null);
   const streamRef  = useRef(null);
 
-  // ── Booking submission ───────────────────────────────────────
-  const [submitting,   setSubmitting]   = useState(false);
-  const [submitted,    setSubmitted]    = useState(false);
-  const [bookingResult,setBookingResult]= useState(null);
-  const [formError,    setFormError]    = useState("");
+  const [submitting,    setSubmitting]    = useState(false);
+  const [submitted,     setSubmitted]     = useState(false);
+  const [bookingResult, setBookingResult] = useState(null);
+  const [formError,     setFormError]     = useState("");
 
-  // ── Negotiator state ─────────────────────────────────────────
-  const [negotiatedRate,    setNegotiatedRate]    = useState(null);
-  const [rateLockToken,     setRateLockToken]     = useState(null);
-  const [negotiating,       setNegotiating]       = useState(false);
+  const [negotiatedRate, setNegotiatedRate] = useState(null);
+  const [rateLockToken,  setRateLockToken]  = useState(null);
+  const [negotiating,    setNegotiating]    = useState(false);
 
-  // ── Chat state ───────────────────────────────────────────────
-  const [chatOpen,     setChatOpen]     = useState(false);
-  const [messages,     setMessages]     = useState([]);
-  const [chatInput,    setChatInput]    = useState("");
-  const [chatLoading,  setChatLoading]  = useState(false);
+  // Companion panel (replaces old chat panel — now tabbed)
+  const [companionOpen, setCompanionOpen] = useState(false);
+  const [messages,      setMessages]      = useState([]);
+  const [chatInput,     setChatInput]     = useState("");
+  const [chatLoading,   setChatLoading]   = useState(false);
   const chatEndRef = useRef(null);
 
-  // ── FAQ ──────────────────────────────────────────────────────
   const [faqOpen, setFaqOpen] = useState(null);
 
-  // ── Derived values ───────────────────────────────────────────
   const nights = (() => {
     if (!checkIn || !checkOut) return 0;
     const diff = (new Date(checkOut) - new Date(checkIn)) / 86400000;
@@ -271,7 +699,6 @@ export default function BookingPage() {
   })();
 
   const roomRate = (() => {
-    // If AI negotiator locked a rate, use it
     if (negotiatedRate) return negotiatedRate;
     if (selectedRoom) return selectedRoom.baseRate || hotel?.standardRate || 1200;
     if (!hotel) return 0;
@@ -282,7 +709,6 @@ export default function BookingPage() {
 
   const total = roomRate * nights;
 
-  // ── Detect active room type label ────────────────────────────
   const activeRoomTypeKey = (() => {
     if (selectedRoom) return selectedRoom.type || "standard";
     if (roomType.toLowerCase().includes("suite"))  return "suite";
@@ -290,7 +716,6 @@ export default function BookingPage() {
     return "standard";
   })();
 
-  /* ─── Load hotel + rooms ─────────────────────────────────── */
   useEffect(() => {
     if (!hotelId) { setPageLoading(false); return; }
     fetchHotel(hotelId).then(h => {
@@ -300,20 +725,17 @@ export default function BookingPage() {
     });
   }, [hotelId]);
 
-  /* ─── Welcome message in chat ────────────────────────────── */
   useEffect(() => {
     if (hotel && messages.length === 0) {
       setMessages([{
         role: "assistant",
-        content: `Namaste! 🙏 Main ${hotel.name} ka AI Receptionist hoon.\n\nMujhse puchho:\n• Room rates & availability\n• Booking mein help\n• Discount negotiate karna\n\nKya main aapki help kar sakta hoon? 😊`,
+        content: `Namaste! 🙏 Main ${hotel.name} ka AI Concierge Sandy hoon.\n\nAap puchh sakte ho:\n• 📶 Wi-Fi password\n• 🍽️ Menu & food order\n• 🏨 Room service requests\n• 💰 Rates & discount negotiate\n\nKya main aapki help kar sakta hoon? 😊`,
       }]);
     }
   }, [hotel]);
 
-  /* ─── Scroll chat to bottom ─────────────────────────────── */
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  /* ─── Camera utils ──────────────────────────────────────── */
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
@@ -343,7 +765,6 @@ export default function BookingPage() {
     setScanStep("scanning");
     setScanProgress(0);
     if (scanSide === "front") setFrontImage(base64); else setBackImage(base64);
-
     const prog = setInterval(() => setScanProgress(p => p >= 90 ? 90 : p + 12), 250);
     try {
       const res  = await fetch("/api/groq", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "id_scan", imageBase64: base64 }) });
@@ -352,12 +773,12 @@ export default function BookingPage() {
       setScanProgress(100);
       if (data.success && data.data) {
         const d = data.data;
-        if (d.name)      setGuestName(d.name);
-        if (d.dob)       setDob(d.dob.replace(/(\d{2})\/(\d{2})\/(\d{4})/, "$3-$2-$1"));
-        if (d.address)   setAddress(d.address);
-        if (d.idNumber)  setIdNumber(d.idNumber);
-        if (d.idType)    setIdType(d.idType);
-        if (d.gender)    setGender(d.gender === "M" ? "Male" : d.gender === "F" ? "Female" : d.gender);
+        if (d.name)     setGuestName(d.name);
+        if (d.dob)      setDob(d.dob.replace(/(\d{2})\/(\d{2})\/(\d{4})/, "$3-$2-$1"));
+        if (d.address)  setAddress(d.address);
+        if (d.idNumber) setIdNumber(d.idNumber);
+        if (d.idType)   setIdType(d.idType);
+        if (d.gender)   setGender(d.gender === "M" ? "Male" : d.gender === "F" ? "Female" : d.gender);
         setTimeout(() => setScanStep("done"), 400);
       } else {
         setScanError(data.error || "ID data extract nahi hua.");
@@ -375,7 +796,6 @@ export default function BookingPage() {
     setFrontImage(""); setBackImage(""); stopCamera();
   };
 
-  /* ─── Booking submit ─────────────────────────────────────── */
   const handleBook = async () => {
     setFormError("");
     if (!guestName.trim())  return setFormError("Guest ka naam likhna zaroori hai.");
@@ -383,71 +803,58 @@ export default function BookingPage() {
     if (!checkIn)           return setFormError("Check-in date select karo.");
     if (!checkOut)          return setFormError("Check-out date select karo.");
     if (nights <= 0)        return setFormError("Check-out, check-in ke baad honi chahiye.");
-
     setSubmitting(true);
-    const bid = `BK${Date.now().toString(36).toUpperCase()}`;
-    const roomId = selectedRoom?.id || `${hotelId}_AUTO`;
+    const bid        = `BK${Date.now().toString(36).toUpperCase()}`;
+    const roomId     = selectedRoom?.id     || `${hotelId}_AUTO`;
     const roomNumber = selectedRoom?.number || "—";
-
     const booking = {
-      id:              bid,
+      id:             bid,
       hotelId,
-      guestName:       guestName.trim(),
-      guestPhone:      guestPhone.trim(),
-      address:         address.trim(),
+      guestName:      guestName.trim(),
+      guestPhone:     guestPhone.trim(),
+      address:        address.trim(),
       idType,
-      idNumber:        idNumber.trim() || "[Aadhaar Redacted]",
+      idNumber:       idNumber.trim() || "[Aadhaar Redacted]",
       gender,
       dob,
       nationality,
       roomId,
       roomNumber,
-      roomType:        activeRoomTypeKey,
-      checkInDate:     checkIn,
-      checkOutDate:    checkOut,
+      roomType:       activeRoomTypeKey,
+      checkInDate:    checkIn,
+      checkOutDate:   checkOut,
       nights,
-      ratePerNight:    roomRate,
-      totalAmount:     total,
+      ratePerNight:   roomRate,
+      totalAmount:    total,
       paymentMode,
-      rateLocked:      true,
-      negotiated:      !!negotiatedRate,
-      negotiatedFrom:  negotiatedRate ? (selectedRoom?.baseRate || hotel?.standardRate || 0) : 0,
-      rateLockToken:   rateLockToken || null,
-      source:          "marketplace",
-      createdAt:       new Date().toISOString(),
+      rateLocked:     true,
+      negotiated:     !!negotiatedRate,
+      negotiatedFrom: negotiatedRate ? (selectedRoom?.baseRate || hotel?.standardRate || 0) : 0,
+      rateLockToken:  rateLockToken || null,
+      source:         "marketplace",
+      createdAt:      new Date().toISOString(),
     };
-
     const result = await saveBooking(booking, hotelId);
-
-    // Update room status locally
     if (selectedRoom) {
       setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, status: "reserved", currentBookingId: bid } : r));
     }
-
-    // Fire WhatsApp alerts
     try {
       const { sendBookingAlerts } = await import("../../../lib/alerts");
       await sendBookingAlerts(booking);
     } catch {}
-
     setBookingResult({ ...booking, roomNumber });
     setSubmitted(true);
     setSubmitting(false);
   };
 
-  /* ─── Chat + Negotiator ──────────────────────────────────── */
   const sendChat = async (override) => {
     const text = (override || chatInput).trim();
     if (!text || chatLoading) return;
     if (!override) setChatInput("");
-
     const newMsgs = [...messages, { role: "user", content: text }];
     setMessages(newMsgs);
     setChatLoading(true);
-
-    // ── Detect negotiation intent before sending to AI ────────
     const { isNegotiation, requestedRate } = detectNegotiationIntent(text);
-
     if (isNegotiation && requestedRate && hotel) {
       setNegotiating(true);
       try {
@@ -466,60 +873,53 @@ export default function BookingPage() {
               suiteRate:     hotel.suiteRate,
               minFloorPrice: hotel.minFloorPrice,
             },
-            // Pass current booking context so AI can confirm specifics
             bookingContext: {
-              checkIn,
-              checkOut,
-              nights,
+              checkIn, checkOut, nights,
               roomType: activeRoomTypeKey,
               selectedRoom: selectedRoom ? { id: selectedRoom.id, number: selectedRoom.number } : null,
             },
           }),
         });
         const data = await res.json();
-
         if (data.success) {
-          if (data.approved) {
-            setNegotiatedRate(data.finalRate);
-            setRateLockToken(data.rateLockToken);
-          }
+          if (data.approved) { setNegotiatedRate(data.finalRate); setRateLockToken(data.rateLockToken); }
           setMessages(p => [...p, {
-            role:      "assistant",
-            content:   data.message,
-            isNegotiationResult: true,
-            approved:  data.approved,
-            finalRate: data.finalRate,
-            token:     data.rateLockToken,
+            role: "assistant", content: data.message,
+            isNegotiationResult: true, approved: data.approved,
+            finalRate: data.finalRate, token: data.rateLockToken,
           }]);
-        } else {
-          throw new Error(data.error || "Negotiate failed");
-        }
-      } catch (e) {
+        } else throw new Error(data.error || "Negotiate failed");
+      } catch {
         setMessages(p => [...p, { role: "assistant", content: "Rate negotiation mein problem aayi. Dobara try karo 🙏" }]);
       }
       setNegotiating(false);
       setChatLoading(false);
       return;
     }
-
-    // ── Regular chat — inject current booking context ──────────
+    // Inject hotel config (incl. wifi/menu) into context for Phase 3 — already structured here
     const bookingContextBlock = (checkIn || checkOut || selectedRoom)
       ? `\n\n[CURRENT BOOKING CONTEXT: Check-in: ${checkIn || "not set"}, Check-out: ${checkOut || "not set"}, Nights: ${nights || 0}, Room: ${selectedRoom ? `Room ${selectedRoom.number} (${activeRoomTypeKey})` : roomType}, Rate: ₹${roomRate}/night${negotiatedRate ? `, NEGOTIATED RATE LOCKED: ₹${negotiatedRate} (Token: ${rateLockToken})` : ""}]`
       : "";
-
     try {
       const res = await fetch("/api/groq", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "chat",
           hotelConfig: {
-            name:         hotel?.name,
-            location:     hotel?.location,
-            standardRate: hotel?.standardRate,
-            deluxeRate:   hotel?.deluxeRate,
-            suiteRate:    hotel?.suiteRate,
-            minFloorPrice: hotel?.minFloorPrice,
-            rates: { standard: hotel?.standardRate, deluxe: hotel?.deluxeRate, suite: hotel?.suiteRate },
+            name:               hotel?.name,
+            location:           hotel?.location,
+            standardRate:       hotel?.standardRate,
+            deluxeRate:         hotel?.deluxeRate,
+            suiteRate:          hotel?.suiteRate,
+            minFloorPrice:      hotel?.minFloorPrice,
+            rates:              { standard: hotel?.standardRate, deluxe: hotel?.deluxeRate, suite: hotel?.suiteRate },
+            // Phase 1 fields injected so AI can answer Wi-Fi, menu, service queries
+            wifiPassword:       hotel?.wifiPassword        || "",
+            menuText:           hotel?.menuText            || "",
+            menuUrl:            hotel?.menuUrl             || "",
+            receptionPhone:     hotel?.receptionPhone      || "",
+            enableFoodOrdering: hotel?.enableFoodOrdering  ?? true,
+            enableHousekeeping: hotel?.enableHousekeeping  ?? true,
           },
           messages: [
             ...newMsgs.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
@@ -535,7 +935,6 @@ export default function BookingPage() {
     setChatLoading(false);
   };
 
-  /* ─── Render guards ─────────────────────────────────────── */
   if (pageLoading) return (
     <div style={{ minHeight: "100vh", background: "#07090E", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ width: 50, height: 50, borderRadius: "50%", border: "2px solid rgba(0,140,255,0.3)", borderTop: "2px solid #008cff", animation: "spinRingCW 1s linear infinite" }} />
@@ -551,10 +950,9 @@ export default function BookingPage() {
   const inpStyle   = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "11px 13px", fontSize: 13, color: "#fff", outline: "none", boxSizing: "border-box", colorScheme: "dark" };
   const labelStyle = { fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 5 };
 
-  // ── Room floor map data ───────────────────────────────────────
-  const vacantN  = rooms.filter(r => r.status === "vacant").length;
-  const byFloor  = rooms.reduce((acc, r) => { (acc[r.floor] = acc[r.floor] || []).push(r); return acc; }, {});
-  const floors   = Object.keys(byFloor).map(Number).sort((a, b) => a - b);
+  const vacantN = rooms.filter(r => r.status === "vacant").length;
+  const byFloor = rooms.reduce((acc, r) => { (acc[r.floor] = acc[r.floor] || []).push(r); return acc; }, {});
+  const floors  = Object.keys(byFloor).map(Number).sort((a, b) => a - b);
 
   return (
     <div style={{ minHeight: "100vh", background: "#07090E", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", paddingBottom: 90 }}>
@@ -572,7 +970,7 @@ export default function BookingPage() {
         ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.15);border-radius:3px}
       `}</style>
 
-      {/* ── NAV ── */}
+      {/* NAV */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(7,9,14,0.94)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#1a1400,#2d2200)", border: "1px solid rgba(212,175,55,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{hotel.emoji}</div>
@@ -591,10 +989,9 @@ export default function BookingPage() {
         </div>
       </nav>
 
-      {/* ── MAIN CONTENT ── */}
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 16px 0" }}>
 
-        {/* ── HOTEL HERO CARD ── */}
+        {/* HOTEL HERO CARD */}
         <div style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.07),rgba(0,0,0,0.3))", border: "1px solid rgba(212,175,55,0.18)", borderRadius: 20, padding: "18px", marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
             <div>
@@ -612,7 +1009,6 @@ export default function BookingPage() {
             </div>
           </div>
 
-          {/* Rate lock banner */}
           {negotiatedRate && (
             <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)", display: "flex", alignItems: "center", gap: 8, animation: "fadeUp 0.3s ease", marginTop: 8 }}>
               <Zap size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
@@ -623,7 +1019,6 @@ export default function BookingPage() {
             </div>
           )}
 
-          {/* Amenities */}
           {hotel.amenities?.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 10 }}>
               {hotel.amenities.map(a => (
@@ -633,7 +1028,36 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* ── ROOM ALLOCATOR ── */}
+        {/* POST-BOOKING IN-ROOM COMPANION CARD */}
+        {submitted && bookingResult && (
+          <div style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.1),rgba(0,0,0,0.4))", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 20, padding: "16px", marginBottom: 12, animation: "fadeUp 0.4s ease" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✅</div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 900, color: "#22c55e" }}>Check-in Confirm!</p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Room {bookingResult.roomNumber} · {bookingResult.guestName}</p>
+              </div>
+            </div>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 10, lineHeight: 1.5 }}>
+              Aapka digital companion ready hai — Wi-Fi password, food order, room service, aur call desk — sab ek jagah.
+            </p>
+            <button
+              onClick={() => setCompanionOpen(true)}
+              style={{
+                width: "100%", padding: "14px", borderRadius: 14,
+                background: "linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",
+                border: "none", cursor: "pointer",
+                color: "#000", fontSize: 14, fontWeight: 900,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                boxShadow: "0 4px 20px rgba(212,175,55,0.35)",
+              }}
+            >
+              <Sparkles size={16} /> Open In-Room Companion
+            </button>
+          </div>
+        )}
+
+        {/* ROOM ALLOCATOR */}
         <div style={{ background: "linear-gradient(135deg,rgba(5,15,8,0.9),rgba(2,10,4,0.95))", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 20, padding: "16px", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Visual Room Allocator</p>
@@ -644,7 +1068,7 @@ export default function BookingPage() {
           </div>
 
           {floors.map(floor => {
-            const fr   = byFloor[floor]; const cols = 5;
+            const fr = byFloor[floor]; const cols = 5;
             const padded = [...fr]; while (padded.length % cols !== 0) padded.push(null);
             const rowArr = []; for (let i = 0; i < padded.length; i += cols) rowArr.push(padded.slice(i, i + cols));
             return (
@@ -684,7 +1108,7 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* ── AI ID SCANNER ── */}
+        {/* AI ID SCANNER */}
         <div style={{ background: "linear-gradient(135deg,rgba(0,18,45,0.55),rgba(0,8,22,0.65))", border: "1px solid rgba(0,140,255,0.18)", borderRadius: 20, padding: "16px", marginBottom: 12, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", inset: 0, opacity: 0.025, backgroundImage: "linear-gradient(rgba(0,140,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(0,140,255,0.8) 1px,transparent 1px)", backgroundSize: "22px 22px", pointerEvents: "none" }} />
           <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>📷 AI ID Scanner</p>
@@ -798,7 +1222,6 @@ export default function BookingPage() {
               </div>
             </div>
 
-            {/* Bill summary */}
             {nights > 0 && (
               <div style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.2)", borderRadius: 12, padding: "12px 14px", animation: "fadeUp 0.3s ease" }}>
                 {negotiatedRate && (
@@ -846,7 +1269,7 @@ export default function BookingPage() {
           </div>
         </div>
 
-        {/* ── LOCATION ── */}
+        {/* LOCATION */}
         <div style={{ background: "rgba(6,8,15,0.98)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 16, padding: "14px", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(0,140,255,0.1)", border: "1px solid rgba(0,140,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -862,95 +1285,54 @@ export default function BookingPage() {
           </a>
         </div>
 
-        {/* ── FAQ ── */}
+        {/* FAQ */}
         <FaqSection faqOpen={faqOpen} setFaqOpen={setFaqOpen} />
 
       </div>
 
-      {/* ── CHAT BUTTON ── */}
-      {!chatOpen && (
-        <button onClick={() => setChatOpen(true)} style={{ position: "fixed", bottom: 20, right: 18, zIndex: 50, width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg,#0050c8,#0080ff)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(0,140,255,0.4)" }}>
-          <MessageCircle size={20} style={{ color: "#fff" }} />
-          <div style={{ position: "absolute", top: 3, right: 3, width: 10, height: 10, borderRadius: "50%", background: "#22c55e", border: "2px solid #07090E" }} />
+      {/* FLOATING COMPANION BUTTON — always visible once hotel loaded */}
+      {!companionOpen && (
+        <button
+          onClick={() => setCompanionOpen(true)}
+          style={{
+            position: "fixed", bottom: 20, right: 18, zIndex: 50,
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "12px 16px", borderRadius: 28,
+            background: "linear-gradient(135deg,#b8960c,#D4AF37)",
+            border: "none", cursor: "pointer",
+            boxShadow: "0 4px 20px rgba(212,175,55,0.45)",
+            color: "#000", fontWeight: 900, fontSize: 12,
+            animation: "goldPulse 2s infinite",
+          }}
+        >
+          <Sparkles size={16} />
+          {submitted ? "Room Services" : "Sandy — AI Concierge"}
+          <div style={{ position: "absolute", top: -2, right: -2, width: 10, height: 10, borderRadius: "50%", background: "#22c55e", border: "2px solid #07090E" }} />
         </button>
       )}
 
-      {/* ── AI NEGOTIATOR & CONCIERGE CHAT PANEL ── */}
-      {chatOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", background: "linear-gradient(180deg,#0d111e,#060810)", animation: "slideUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards" }}>
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#14172a,#1e293b)", border: "1px solid rgba(212,175,55,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🤖</div>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 800, color: "#D4AF37" }}>AI Negotiator & Concierge</p>
-                <p style={{ fontSize: 9, color: "#22c55e", display: "flex", alignItems: "center", gap: 3 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />Online · Discount negotiate kar sakte ho</p>
-              </div>
-            </div>
-            <button onClick={() => setChatOpen(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <X size={15} />
-            </button>
-          </div>
-
-          {/* Booking context strip — shows what's currently selected */}
-          {(checkIn || selectedRoom) && (
-            <div style={{ padding: "8px 14px", background: "rgba(212,175,55,0.05)", borderBottom: "1px solid rgba(212,175,55,0.1)", display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {checkIn  && <span style={{ fontSize: 9, color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.08)", padding: "3px 8px", borderRadius: 6 }}>📅 {checkIn} → {checkOut || "?"}</span>}
-              {selectedRoom && <span style={{ fontSize: 9, color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.08)", padding: "3px 8px", borderRadius: 6 }}>🏠 Room {selectedRoom.number}</span>}
-              {negotiatedRate && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.1)", padding: "3px 8px", borderRadius: 6 }}>🔒 ₹{negotiatedRate}/night locked</span>}
-            </div>
-          )}
-
-          <div style={{ flex: 1, padding: "14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, WebkitOverflowScrolling: "touch" }}>
-            {messages.map((msg, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.25s ease" }}>
-                <div style={{
-                  maxWidth: "85%", padding: "10px 13px",
-                  borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                  fontSize: 12, lineHeight: 1.6,
-                  background: msg.role === "user"
-                    ? "linear-gradient(135deg,#91711e,#D4AF37)"
-                    : msg.isNegotiationResult
-                      ? msg.approved ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.08)"
-                      : "rgba(255,255,255,0.05)",
-                  color: msg.role === "user" ? "#000" : "rgba(255,255,255,0.85)",
-                  border: msg.role === "user" ? "none"
-                    : msg.isNegotiationResult
-                      ? `1px solid ${msg.approved ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.25)"}`
-                      : "1px solid rgba(255,255,255,0.06)",
-                  fontWeight: msg.role === "user" ? 700 : 400,
-                }}>
-                  {msg.content.split("\n").map((line, j) => <span key={j}>{line}{j < msg.content.split("\n").length - 1 && <br />}</span>)}
-                  {msg.isNegotiationResult && msg.approved && msg.token && (
-                    <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 6, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                      <p style={{ fontSize: 9, color: "#22c55e", fontFamily: "monospace" }}>🔒 Rate Lock Token: {msg.token}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            {(chatLoading || negotiating) && (
-              <div style={{ display: "flex", gap: 5, padding: "8px 4px", alignItems: "center" }}>
-                {negotiating && <span style={{ fontSize: 10, color: "#D4AF37", marginRight: 4 }}>Negotiating...</span>}
-                {[0, 1, 2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: negotiating ? "#D4AF37" : "#008cff", animation: "dotBounce 1.2s infinite", animationDelay: `${i * 0.2}s` }} />)}
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Quick action chips */}
-          <div style={{ padding: "8px 14px 0", display: "flex", gap: 6, flexWrap: "wrap", flexShrink: 0 }}>
-            {["Rates kya hain?", "₹1000 mein milega?", "Discount do", "Book karna hai", "Check-in time?"].map(q => (
-              <button key={q} onClick={() => sendChat(q)} style={{ fontSize: 10, padding: "6px 10px", borderRadius: 8, background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)", color: "#D4AF37", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>{q}</button>
-            ))}
-          </div>
-
-          <div style={{ padding: "10px 14px 16px", borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.3)", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-            <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()} placeholder="Hinglish mein puchho ya negotiate karo..." style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "11px 14px", fontSize: 12, color: "#fff", outline: "none" }} />
-            <button onClick={() => sendChat()} disabled={!chatInput.trim() || chatLoading} style={{ width: 42, height: 42, borderRadius: 11, background: "linear-gradient(135deg,#0050c8,#0080ff)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: (!chatInput.trim() || chatLoading) ? 0.4 : 1 }}>
-              <Send size={14} style={{ color: "#fff" }} />
-            </button>
-          </div>
-        </div>
+      {/* IN-ROOM COMPANION PANEL */}
+      {companionOpen && (
+        <InRoomCompanion
+          hotel={hotel}
+          bookingResult={bookingResult}
+          messages={messages}
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          chatLoading={chatLoading}
+          negotiating={negotiating}
+          sendChat={sendChat}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          selectedRoom={selectedRoom}
+          negotiatedRate={negotiatedRate}
+          rateLockToken={rateLockToken}
+          nights={nights}
+          roomRate={roomRate}
+          activeRoomTypeKey={activeRoomTypeKey}
+          chatEndRef={chatEndRef}
+          onClose={() => setCompanionOpen(false)}
+        />
       )}
     </div>
   );
