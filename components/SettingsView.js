@@ -11,6 +11,7 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
   const [saving,       setSaving]   = useState(false);
   const [showOP,       setShowOP]   = useState(false);
   const [showMP,       setShowMP]   = useState(false);
+  const [showWifi,     setShowWifi] = useState(false);
   const [testEmailSent,setTestEmail]= useState(false);
   const [testWASent,   setTestWA]   = useState(false);
 
@@ -65,13 +66,22 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
           headers:{ apikey:sbKey, Authorization:`Bearer ${sbKey}`,
             "Content-Type":"application/json", Prefer:"return=minimal" },
           body:JSON.stringify({
-            name:        cfg.name,
-            location:    cfg.location,
-            total_rooms: cfg.totalRooms || 20,
-            owner_pin:   cfg.ownerPin,
-            manager_pin: cfg.managerPin,
-            owner_phone: cfg.ownerPhone || "",
-            updated_at:  new Date().toISOString(),
+            name:                cfg.name,
+            location:            cfg.location,
+            total_rooms:         cfg.totalRooms || 20,
+            owner_pin:           cfg.ownerPin,
+            manager_pin:         cfg.managerPin,
+            owner_phone:         cfg.ownerPhone || "",
+            // ── Phase 1: Guest Services ──────────────────────
+            wifi_password:       cfg.wifiPassword       || "",
+            menu_url:            cfg.menuUrl            || "",
+            menu_text:           cfg.menuText           || "",
+            reception_phone:     cfg.receptionPhone     || "",
+            enable_wifi:         cfg.enableWifi         ?? true,
+            enable_food_ordering:cfg.enableFoodOrdering ?? true,
+            enable_housekeeping: cfg.enableHousekeeping ?? true,
+            enable_call_desk:    cfg.enableCallDesk     ?? true,
+            updated_at:          new Date().toISOString(),
           }),
         });
       } catch {}
@@ -295,6 +305,102 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
           </div>
         </div>
 
+        {/* ── GUEST SERVICES & DIGITAL COMPANION ── */}
+        <Section title="⚙️ Guest Services & Digital Companion">
+          <div className="px-3 py-2 rounded-xl text-xs"
+            style={{background:"rgba(99,102,241,0.06)",border:"1px solid rgba(99,102,241,0.2)",color:"rgba(255,255,255,0.5)"}}>
+            💡 Yeh settings AI Sandy aur In-Room Guest Dashboard mein use hongi
+          </div>
+
+          {/* Wi-Fi Toggle + Password */}
+          <ServiceToggle
+            label="📶 Wi-Fi"
+            subLabel="Guests ko Wi-Fi password dikhao"
+            enabled={cfg.enableWifi ?? true}
+            onToggle={v => setCfg({...cfg, enableWifi: v})}
+          />
+          {(cfg.enableWifi ?? true) && (
+            <div>
+              <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>Wi-Fi Password</label>
+              <div className="relative">
+                <input
+                  type={showWifi ? "text" : "password"}
+                  value={cfg.wifiPassword || ""}
+                  onChange={e => setCfg({...cfg, wifiPassword: e.target.value})}
+                  placeholder="Hotel ka Wi-Fi password"
+                  className="inp w-full px-3 py-2.5 text-sm pr-10 font-mono"
+                  style={{letterSpacing: showWifi ? "normal" : "0.2em", colorScheme:"dark"}}
+                />
+                <button onClick={() => setShowWifi(!showWifi)} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {showWifi
+                    ? <EyeOff size={14} style={{color:"rgba(255,255,255,0.3)"}}/>
+                    : <Eye    size={14} style={{color:"rgba(255,255,255,0.3)"}}/>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Food Ordering Toggle + Menu */}
+          <ServiceToggle
+            label="🍽️ Food Ordering"
+            subLabel="Guests in-room food order kar sakein"
+            enabled={cfg.enableFoodOrdering ?? true}
+            onToggle={v => setCfg({...cfg, enableFoodOrdering: v})}
+          />
+          {(cfg.enableFoodOrdering ?? true) && (
+            <div className="space-y-2">
+              <LI
+                label="Menu URL (optional)"
+                val={cfg.menuUrl || ""}
+                onChange={v => setCfg({...cfg, menuUrl: v})}
+                ph="https://hotel.com/menu ya Zomato link"
+                type="url"
+              />
+              <div>
+                <label className="text-xs mb-1 block" style={{color:"rgba(255,255,255,0.4)"}}>
+                  Plain Text Menu <span style={{color:"rgba(255,255,255,0.2)"}}>(agar URL nahi hai)</span>
+                </label>
+                <textarea
+                  value={cfg.menuText || ""}
+                  onChange={e => setCfg({...cfg, menuText: e.target.value})}
+                  placeholder={"Dal Fry - ₹120\nPaneer Butter Masala - ₹180\nFried Rice - ₹150\n..."}
+                  rows={5}
+                  className="inp w-full px-3 py-2.5 text-sm"
+                  style={{colorScheme:"dark", resize:"vertical", fontFamily:"monospace", fontSize:12, lineHeight:1.6}}
+                />
+                <p className="text-xs mt-1" style={{color:"rgba(255,255,255,0.2)"}}>
+                  Ek item per line. Format: Naam - ₹Price
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Housekeeping Toggle */}
+          <ServiceToggle
+            label="🧹 Housekeeping Requests"
+            subLabel="Guests room cleaning request bhej sakein"
+            enabled={cfg.enableHousekeeping ?? true}
+            onToggle={v => setCfg({...cfg, enableHousekeeping: v})}
+          />
+
+          {/* Call Desk Toggle + Reception Number */}
+          <ServiceToggle
+            label="📞 Call Desk"
+            subLabel="Guests seedha reception ko call kar sakein"
+            enabled={cfg.enableCallDesk ?? true}
+            onToggle={v => setCfg({...cfg, enableCallDesk: v})}
+          />
+          {(cfg.enableCallDesk ?? true) && (
+            <LI
+              label="Reception / Manager Phone"
+              val={cfg.receptionPhone || ""}
+              onChange={v => setCfg({...cfg, receptionPhone: v})}
+              ph="+91 9999999999"
+              type="tel"
+            />
+          )}
+        </Section>
+
         {/* ── LOGIN PINs ── */}
         <Section title="🔐 Login PINs Change Karo">
           <div className="px-3 py-2 rounded-xl text-xs"
@@ -406,7 +512,42 @@ function LI({label,val,onChange,ph,type="text"}){
   );
 }
 
-function PinField({label,val,onChange,show,setShow}){
+function ServiceToggle({ label, subLabel, enabled, onToggle }) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <div>
+        <p className="text-sm font-semibold" style={{color:"rgba(255,255,255,0.75)"}}>{label}</p>
+        {subLabel && <p className="text-xs" style={{color:"rgba(255,255,255,0.3)"}}>{subLabel}</p>}
+      </div>
+      <button
+        onClick={() => onToggle(!enabled)}
+        className="relative flex-shrink-0"
+        style={{width:44, height:24}}
+        aria-label={`Toggle ${label}`}
+      >
+        <div style={{
+          width:44, height:24, borderRadius:12,
+          background: enabled
+            ? "linear-gradient(135deg,#b8960c,#D4AF37)"
+            : "rgba(255,255,255,0.08)",
+          border: enabled ? "none" : "1px solid rgba(255,255,255,0.1)",
+          transition:"all 0.2s ease",
+          position:"relative",
+        }}>
+          <div style={{
+            position:"absolute",
+            top:2, left: enabled ? 22 : 2,
+            width:20, height:20, borderRadius:"50%",
+            background: enabled ? "#000" : "rgba(255,255,255,0.3)",
+            transition:"left 0.2s ease",
+            boxShadow: enabled ? "0 0 6px rgba(212,175,55,0.4)" : "none",
+          }}/>
+        </div>
+      </button>
+    </div>
+  );
+}
+
   return(
     <div>
       <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>{label}</label>
