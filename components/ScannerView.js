@@ -6,7 +6,7 @@ import {
   Plus, Minus, RefreshCw, Users, ArrowRight, Edit3
 } from "lucide-react";
 import { createBooking, getRooms, getHotelConfig } from "../lib/db";
-import { sendBookingAlerts } from "../lib/alerts";
+import { sendBookingAlerts, sendWelcomeKit } from "../lib/alerts";
 
 /* ─── STEPS ─────────────────────────────────────────────────── */
 const S = {
@@ -221,6 +221,8 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
         roomType:     vacantRooms.find(r=>r.id===booking.roomId)?.type||"standard",
       });
       sendBookingAlerts(b).catch(console.error);
+      // Phase 5: Send digital companion welcome kit to guest
+      sendWelcomeKit(b).catch(e => console.warn("[WELCOME-KIT] Failed:", e.message));
       setStep(S.SUCCESS);
       setTimeout(onSuccess, 3000);
     } catch(e){ console.error(e); setSub(false); }
@@ -250,6 +252,7 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
         </p>
       </div>
       <p className="text-gray-700 text-xs">📱 WhatsApp alerts bhej diye gaye</p>
+      <p className="text-gray-700 text-xs">🎁 Welcome Kit → Guest ko send ho raha hai</p>
     </div>
   );
 
