@@ -548,6 +548,7 @@ function ServiceToggle({ label, subLabel, enabled, onToggle }) {
   );
 }
 
+function PinField({label,val,onChange,show,setShow}){
   return(
     <div>
       <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>{label}</label>
