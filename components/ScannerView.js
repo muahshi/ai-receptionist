@@ -1,608 +1,832 @@
 "use client";
-/**
- * components/ScannerView.js — The GuestInn Network
- * ═══════════════════════════════════════════════════════════════
- * Staff-facing ID scanner portal.
- * - Opens device camera (preferably rear-facing)
- * - Captures frame → sends to /api/groq (id_scan)
- * - Stores absolute Base64 string as id_image_base64 in booking
- *   record — required for police records compliance (Form C / GRC)
- * - Extracted fields auto-populate parent form via onScanComplete()
- * - Supports both camera capture and file upload fallback
- * ═══════════════════════════════════════════════════════════════
- */
+import { useState, useRef, useEffect } from "react";
+import {
+  ChevronLeft, Camera, Loader, Check, Lock,
+  User, Phone, MapPin, CreditCard, Moon,
+  Plus, Minus, RefreshCw, Users, ArrowRight, Edit3
+} from "lucide-react";
+import { createBooking, getRooms, getHotelConfig } from "../lib/db";
+import { sendBookingAlerts } from "../lib/alerts";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Camera, Upload, RefreshCw, CheckCircle, X, ZoomIn } from "lucide-react";
-
-// ── Schema that must be returned to parent ───────────────────
-// Matches bookings table columns exactly:
-// guestName, dob, address, idType, idNumber, idImageBase64,
-// gender, fatherName, placeOfBirth
-const EMPTY_SCHEMA = {
-  guestName:     "",
-  dob:           "",
-  address:       "",
-  idType:        "Aadhaar",
-  idNumber:      "",
-  idImageBase64: null,   // Absolute Base64 string — stored in DB for police records
-  idImageFront:  null,   // Data URL thumbnail for display only
-  idImageBack:   null,
-  gender:        "",
-  fatherName:    "",
-  placeOfBirth:  "",
+/* ─── STEPS ─────────────────────────────────────────────────── */
+const S = {
+  GUEST_COUNT : "guest_count",
+  SCAN_FRONT  : "scan_front",
+  SCAN_BACK   : "scan_back",
+  REVIEW      : "review",
+  BOOKING     : "booking",
+  SUCCESS     : "success",
 };
 
-export default function ScannerView({
-  onScanComplete,      // (schemaObj) => void — called with matched schema
-  bookingId = null,    // If provided, API will store Base64 in DB immediately
-  compact = false,     // Compact mode for inline use inside booking form
-  onClose = null,      // Called when user closes the scanner modal
-}) {
-  const videoRef    = useRef(null);
-  const canvasRef   = useRef(null);
-  const streamRef   = useRef(null);
-  const fileRef     = useRef(null);
+const blankGuest = () => ({
+  // Basic
+  guestName:"", guestPhone:"", email:"", address:"",
+  gender:"", dob:"", nationality:"Indian",
+  // ID Document
+  idType:"Aadhaar", idNumber:"",
+  passportNo:"", passportIssueDate:"", passportExpiry:"",
+  passportPlaceOfIssue:"", visaNo:"", visaIssueDate:"", visaPlaceOfIssue:"",
+  // Stay details (per guest)
+  arrivalFrom:"", proceedingTo:"", purposeOfVisit:"",
+  // Company (for business guests)
+  companyName:"", gstNo:"",
+  // Scan status
+  frontScanned:false, backScanned:false,
+  idImageFront:null, idImageBack:null,
+});
 
-  const [step,        setStep]        = useState("idle");     // idle|camera|scanning|done|error
-  const [scanSide,    setScanSide]    = useState("front");    // front|back
-  const [progress,    setProgress]    = useState(0);
-  const [error,       setError]       = useState("");
-  const [extracted,   setExtracted]   = useState(EMPTY_SCHEMA);
-  const [frontThumb,  setFrontThumb]  = useState(null);       // Display thumbnail
-  const [backThumb,   setBackThumb]   = useState(null);
-  const [base64Front, setBase64Front] = useState(null);       // Full Base64 for DB
-  const [base64Back,  setBase64Back]  = useState(null);
-  const [previewImg,  setPreviewImg]  = useState(null);       // Full-res preview modal
-  const [cameraFacing,setCameraFacing]= useState("environment"); // environment|user
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════════════ */
+export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack }) {
+  const [step,       setStep]    = useState(S.GUEST_COUNT);
+  const [guestCount, setCount]   = useState(1);
+  const [guests,     setGuests]  = useState([blankGuest()]);
+  const [curGuest,   setCurGuest]= useState(0);
+  const [scanning,   setScanning]= useState(false);
+  const [scanPct,    setScanPct] = useState(0);
+  const [camErr,     setCamErr]  = useState("");
+  const [facingMode, setFacing]  = useState("environment");
+  const [rateLocked, setLocked]  = useState(false);
+  const [lockAnim,   setLockAnim]= useState(false);
+  const [submitting, setSub]     = useState(false);
+  const [vacantRooms,setVacant]  = useState([]);
+  const [booking,    setBooking] = useState({
+    roomId:"", checkInDate:new Date().toISOString().split("T")[0],
+    checkOutDate:"", nights:1, ratePerNight:0,
+    totalAmount:0, paymentMode:"Cash",
+  });
 
-  // ── Start camera ─────────────────────────────────────────
-  const startCamera = useCallback(async (facing = "environment") => {
-    stopCamera();
-    setError("");
+  const videoRef  = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  useEffect(() => {
+    const rooms = getRooms(hotelId).filter(r => r.status === "vacant");
+    setVacant(rooms);
+    // Load hotel config rates as default
+    const cfg = getHotelConfig(hotelId);
+    const defaultRate = cfg?.rates?.standard || 1500;
+    setBooking(b => ({ ...b, ratePerNight: defaultRate, totalAmount: defaultRate * b.nights }));
+    return () => stopCam();
+  }, [hotelId]);
+
+  useEffect(() => {
+    if (step === S.SCAN_FRONT || step === S.SCAN_BACK) startCam();
+    else stopCam();
+  }, [step, facingMode]);
+
+  /* ── camera ── */
+  const startCam = async () => {
+    stopCam();
     try {
-      const constraints = {
-        video: {
-          facingMode: { ideal: facing },
-          width:  { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video:{ facingMode, width:{ideal:1280}, height:{ideal:720} }
+      });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraFacing(facing);
-      setStep("camera");
-    } catch (e) {
-      setError(`Camera access nahi mila: ${e.message}. File upload use karo.`);
-      setStep("error");
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setCamErr("");
+    } catch {
+      setCamErr("Camera nahi mila.");
+      setStep(S.REVIEW);
     }
-  }, []);
-
-  // ── Stop camera ──────────────────────────────────────────
-  const stopCamera = useCallback(() => {
+  };
+  const stopCam = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-  }, []);
-
-  useEffect(() => () => stopCamera(), [stopCamera]);
-
-  // ── Capture frame from video ─────────────────────────────
-  const captureFrame = useCallback(() => {
-    const video  = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return null;
-
-    // Full resolution capture
-    canvas.width  = video.videoWidth  || 1280;
-    canvas.height = video.videoHeight || 720;
-    canvas.getContext("2d").drawImage(video, 0, 0);
-
-    // Full-quality JPEG Base64 for police records
-    const fullBase64 = canvas.toDataURL("image/jpeg", 0.92).split(",")[1];
-
-    // Compressed thumbnail (320px) for display only
-    const thumb = document.createElement("canvas");
-    thumb.width = 320; thumb.height = Math.round(320 * canvas.height / canvas.width);
-    thumb.getContext("2d").drawImage(canvas, 0, 0, thumb.width, thumb.height);
-    const thumbDataUrl = thumb.toDataURL("image/jpeg", 0.7);
-
-    return { fullBase64, thumbDataUrl };
-  }, []);
-
-  // ── File upload → Base64 ─────────────────────────────────
-  const fileToBase64 = useCallback((file) => new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload  = e => {
-      const dataUrl    = e.target.result;
-      const base64Full = dataUrl.split(",")[1];
-      // Compressed thumb
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement("canvas");
-        c.width  = 320;
-        c.height = Math.round(320 * img.height / img.width);
-        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        res({ fullBase64:base64Full, thumbDataUrl:c.toDataURL("image/jpeg", 0.7) });
-      };
-      img.onerror = rej;
-      img.src = dataUrl;
-    };
-    reader.onerror = rej;
-    reader.readAsDataURL(file);
-  }), []);
-
-  // ── Core scan logic (shared by camera + file upload) ────
-  const runScan = useCallback(async ({ fullBase64, thumbDataUrl }) => {
-    stopCamera();
-    setStep("scanning");
-    setProgress(0);
-    setError("");
-
-    // Save images by side
-    if (scanSide === "front") {
-      setFrontThumb(thumbDataUrl);
-      setBase64Front(fullBase64);
-    } else {
-      setBackThumb(thumbDataUrl);
-      setBase64Back(fullBase64);
-    }
-
-    // Progress animation
-    const prog = setInterval(() =>
-      setProgress(p => p >= 88 ? 88 : p + Math.floor(Math.random() * 15) + 8), 280
-    );
-
-    try {
-      const res  = await fetch("/api/groq", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          type:        "id_scan",
-          imageBase64: fullBase64,
-          bookingId,   // API will store Base64 in Supabase if bookingId present
-        }),
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      clearInterval(prog);
-      setProgress(100);
-
-      if (!data.success) throw new Error(data.error || "Scan failed");
-
-      const d = data.data || {};
-
-      // Merge with previous extraction (back side may add missing fields)
-      setExtracted(prev => {
-        const merged = {
-          guestName:     d.name        || prev.guestName     || "",
-          dob:           d.dob
-            ? d.dob.replace(/(\d{2})\/(\d{2})\/(\d{4})/, "$3-$2-$1")
-            : prev.dob || "",
-          address:       d.address     || prev.address       || "",
-          idType:        d.idType      || prev.idType        || "Aadhaar",
-          idNumber:      d.idNumber    || prev.idNumber      || "",
-          gender:        d.gender === "M" ? "Male"
-                       : d.gender === "F" ? "Female"
-                       : d.gender        || prev.gender      || "",
-          fatherName:    d.fatherName  || prev.fatherName    || "",
-          placeOfBirth:  d.placeOfBirth|| prev.placeOfBirth  || "",
-          // id_image_base64: always the FRONT side scan (police requirement)
-          idImageBase64: scanSide === "front"
-            ? fullBase64
-            : prev.idImageBase64 || fullBase64,
-          idImageFront: scanSide === "front" ? thumbDataUrl : prev.idImageFront,
-          idImageBack:  scanSide === "back"  ? thumbDataUrl : prev.idImageBack,
-        };
-        return merged;
-      });
-
-      setTimeout(() => setStep("done"), 350);
-
-    } catch (e) {
-      clearInterval(prog);
-      setError(e.message || "Scan process fail ho gaya.");
-      setStep("error");
-    }
-  }, [scanSide, bookingId, stopCamera]);
-
-  // ── Camera capture handler ───────────────────────────────
-  const handleCapture = useCallback(async () => {
-    const result = captureFrame();
-    if (!result) { setError("Frame capture failed."); setStep("error"); return; }
-    await runScan(result);
-  }, [captureFrame, runScan]);
-
-  // ── File upload handler ──────────────────────────────────
-  const handleFileUpload = useCallback(async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { setError("Sirf image file allowed hai."); return; }
-    try {
-      const result = await fileToBase64(file);
-      await runScan(result);
-    } catch (e2) {
-      setError("File read nahi hua: " + e2.message);
-      setStep("error");
-    }
-  }, [fileToBase64, runScan]);
-
-  // ── Confirm & fire onScanComplete ────────────────────────
-  const handleConfirm = useCallback(() => {
-    if (onScanComplete) onScanComplete({ ...extracted });
-    if (onClose)        onClose();
-  }, [extracted, onScanComplete, onClose]);
-
-  // ── Reset ────────────────────────────────────────────────
-  const handleReset = useCallback(() => {
-    stopCamera();
-    setStep("idle"); setProgress(0); setError("");
-    setExtracted(EMPTY_SCHEMA);
-    setFrontThumb(null); setBackThumb(null);
-    setBase64Front(null); setBase64Back(null);
-    setScanSide("front");
-  }, [stopCamera]);
-
-  // ── Styles ───────────────────────────────────────────────
-  const S = {
-    container: {
-      background: compact ? "transparent" : "rgba(0,8,20,0.97)",
-      border:     compact ? "none" : "1px solid rgba(0,140,255,0.2)",
-      borderRadius: 20,
-      overflow: "hidden",
-      position: "relative",
-      fontFamily: "system-ui,-apple-system,sans-serif",
-    },
-    header: {
-      padding: "14px 16px",
-      borderBottom: "1px solid rgba(0,140,255,0.12)",
-      background: "rgba(0,18,45,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    body: { padding: "16px" },
-    label: {
-      display: "block", fontSize: 9, fontWeight: 700,
-      color: "rgba(255,255,255,0.3)", letterSpacing: "0.12em",
-      textTransform: "uppercase", marginBottom: 4,
-    },
-    inp: {
-      width: "100%", background: "rgba(255,255,255,0.04)",
-      border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
-      padding: "9px 12px", fontSize: 12, color: "#fff",
-      outline: "none", boxSizing: "border-box", colorScheme: "dark",
-    },
-    btn: (bg, color = "#fff", border = "none") => ({
-      padding: "10px 14px", borderRadius: 10, border,
-      background: bg, color, fontSize: 12, fontWeight: 700,
-      cursor: "pointer", display: "flex", alignItems: "center",
-      justifyContent: "center", gap: 6,
-    }),
   };
 
-  const gridTwo = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 };
+  /* ── scan ── */
+  const captureAndScan = async () => {
+    if (!videoRef.current || scanning) return;
+    setScanning(true); setScanPct(0);
+    if (navigator.vibrate) navigator.vibrate(30);
+    const piv = setInterval(() =>
+      setScanPct(p => p >= 88 ? (clearInterval(piv),88) : p + Math.random()*14)
+    , 180);
+    try {
+      const canvas = canvasRef.current;
+      canvas.width  = videoRef.current.videoWidth  || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+      canvas.getContext("2d").drawImage(videoRef.current, 0, 0);
+      const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+      const res  = await fetch("/api/groq", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ imageBase64:base64, type:"id_scan" }),
+      });
+      const data = await res.json();
+      clearInterval(piv); setScanPct(100);
 
-  return (
-    <div style={S.container}>
-      <style>{`
-        @keyframes scanLine { 0%{top:5%} 100%{top:90%} }
-        @keyframes fadeUp   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        @keyframes spin     { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-      `}</style>
+      // Debug log — visible in browser console
+      console.log("[Scanner] API response:", data);
 
-      {/* HEADER */}
-      <div style={S.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width:32, height:32, borderRadius:8, background:"rgba(0,140,255,0.12)", border:"1px solid rgba(0,140,255,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <Camera size={15} style={{ color:"#60b8ff" }} />
+      if (data.success && data.data) {
+        const d = data.data;
+        console.log("[Scanner] Extracted fields:", d);
+
+        // Save ID image thumbnail (compressed) for records
+        const thumbCanvas = document.createElement("canvas");
+        thumbCanvas.width  = 320;
+        thumbCanvas.height = 180;
+        const ctx = thumbCanvas.getContext("2d");
+        ctx.drawImage(canvas, 0, 0, 320, 180);
+        const idImageThumb = thumbCanvas.toDataURL("image/jpeg", 0.6);
+
+        // Only update fields that are non-empty strings
+        updateGuest(curGuest, prev => ({
+          ...prev,
+          guestName : (d.name    && d.name.trim())    ? d.name.trim()    : prev.guestName,
+          address   : (d.address && d.address.trim())  ? d.address.trim() : prev.address,
+          idNumber  : (d.idNumber&& d.idNumber.trim()) ? d.idNumber.trim(): prev.idNumber,
+          idType    : (d.idType  && d.idType.trim())   ? d.idType.trim()  : prev.idType,
+          gender    : (d.gender  && d.gender.trim())   ? d.gender.trim()  : prev.gender,
+          dob       : (d.dob     && d.dob.trim())      ? d.dob.trim()     : prev.dob,
+          frontScanned: step === S.SCAN_FRONT ? true : prev.frontScanned,
+          backScanned : step === S.SCAN_BACK  ? true : prev.backScanned,
+          // Save ID image — front or back
+          idImageFront: step === S.SCAN_FRONT ? idImageThumb : prev.idImageFront,
+          idImageBack : step === S.SCAN_BACK  ? idImageThumb : prev.idImageBack,
+        }));
+        if (navigator.vibrate) navigator.vibrate([50,30,100]);
+      } else {
+        console.warn("[Scanner] No data extracted. Error:", data.error);
+      }
+
+      setTimeout(() => {
+        setScanning(false); setScanPct(0);
+        setStep(step === S.SCAN_FRONT ? S.SCAN_BACK : S.REVIEW);
+      }, 400);
+    } catch(err) {
+      console.error("[Scanner] Network/parse error:", err);
+      clearInterval(piv); setScanning(false); setScanPct(0); setStep(S.REVIEW);
+    }
+  };
+
+  /* ── helpers ── */
+  const updateGuest = (idx, fn) =>
+    setGuests(prev => { const n=[...prev]; n[idx]=fn(n[idx]); return n; });
+  const updG = (f,v) => updateGuest(curGuest, g => ({...g,[f]:v}));
+
+  const updB = (k,v) => setBooking(b => {
+    const u = {...b,[k]:v};
+    if (k==="checkInDate"||k==="checkOutDate") {
+      if (u.checkInDate&&u.checkOutDate) {
+        const n = Math.max(1,Math.ceil((new Date(u.checkOutDate)-new Date(u.checkInDate))/86400000));
+        u.nights=n; u.totalAmount=n*u.ratePerNight;
+      }
+    }
+    if (k==="ratePerNight"||k==="nights") u.totalAmount=u.nights*u.ratePerNight;
+    return u;
+  });
+
+  const lockRate = () => {
+    if (rateLocked) return;
+    setLockAnim(true);
+    if (navigator.vibrate) navigator.vibrate([30,20,30,20,100]);
+    setTimeout(() => { setLocked(true); setLockAnim(false); }, 700);
+  };
+
+  const handleSubmit = async () => {
+    if (!booking.roomId || !guests[0].guestName || !rateLocked) return;
+    setSub(true);
+    if (navigator.vibrate) navigator.vibrate([50,30,50,30,200]);
+    try {
+      // Build complete guest records with ID images
+      const primaryGuest = {
+        ...guests[0],
+        // ID images stored for compliance (India documentation rules)
+        idImageFront: guests[0].idImageFront || null,
+        idImageBack:  guests[0].idImageBack  || null,
+      };
+      const extraGuestsFull = guests.length > 1
+        ? guests.slice(1).map(g => ({
+            guestName:   g.guestName,
+            guestPhone:  g.guestPhone,
+            idType:      g.idType,
+            idNumber:    g.idNumber,
+            gender:      g.gender,
+            dob:         g.dob,
+            address:     g.address,
+            idImageFront:g.idImageFront || null,
+            idImageBack: g.idImageBack  || null,
+            frontScanned:g.frontScanned,
+            backScanned: g.backScanned,
+          }))
+        : undefined;
+
+      const b = await createBooking(hotelId, {
+        ...primaryGuest, ...booking, status:"active",
+        totalGuests:  guests.length,
+        extraGuests:  extraGuestsFull,
+        roomType:     vacantRooms.find(r=>r.id===booking.roomId)?.type||"standard",
+      });
+      sendBookingAlerts(b).catch(console.error);
+      setStep(S.SUCCESS);
+      setTimeout(onSuccess, 3000);
+    } catch(e){ console.error(e); setSub(false); }
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════════════════════════ */
+
+  /* SUCCESS */
+  if (step===S.SUCCESS) return (
+    <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-5">
+      <div className="w-24 h-24 rounded-3xl flex items-center justify-center lock-seal"
+        style={{background:"rgba(34,197,94,0.15)",border:"2px solid rgba(34,197,94,0.4)"}}>
+        <span className="text-5xl">✅</span>
+      </div>
+      <div>
+        <h2 className="font-black text-3xl text-white mb-1">Check-in Ho Gaya!</h2>
+        <p className="text-gray-400 text-sm">{guests[0].guestName}</p>
+        {guests.length>1 && <p className="text-gray-600 text-xs">+{guests.length-1} aur guest</p>}
+        <p className="text-gray-600 text-xs">Room {booking.roomId}</p>
+      </div>
+      <div className="card-gold rounded-2xl px-8 py-4">
+        <p className="text-gray-500 text-xs mb-1">Total Amount</p>
+        <p className="font-black text-3xl" style={{color:"#D4AF37"}}>
+          ₹{booking.totalAmount.toLocaleString("en-IN")}
+        </p>
+      </div>
+      <p className="text-gray-700 text-xs">📱 WhatsApp alerts bhej diye gaye</p>
+    </div>
+  );
+
+  /* ── STEP 0: GUEST COUNT ── */
+  if (step===S.GUEST_COUNT) return (
+    <div className="h-full flex flex-col px-4 py-4">
+      <div className="flex items-center gap-3 mb-6 flex-shrink-0">
+        <button onClick={onBack} className="w-9 h-9 card rounded-xl flex items-center justify-center">
+          <ChevronLeft size={18} className="text-gray-400"/>
+        </button>
+        <h2 className="font-bold text-lg" style={{color:"#D4AF37"}}>Nayi Booking</h2>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center gap-8">
+        <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
+          style={{background:"rgba(212,175,55,0.1)",border:"1px solid rgba(212,175,55,0.2)"}}>
+          <Users size={36} style={{color:"#D4AF37"}}/>
+        </div>
+        <div className="text-center">
+          <h3 className="font-bold text-xl text-white mb-1">Kitne Guests Hain?</h3>
+          <p className="text-gray-500 text-sm">Har guest ka ID scan hoga</p>
+        </div>
+
+        {/* Counter */}
+        <div className="flex items-center gap-8">
+          <button onClick={()=>setCount(c=>Math.max(1,c-1))}
+            className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)"}}>
+            <Minus size={22} className="text-white"/>
+          </button>
+          <div className="text-center">
+            <span className="font-black text-6xl text-white">{guestCount}</span>
+            <p className="text-gray-500 text-xs mt-1">{guestCount===1?"Akela Guest":"Guests"}</p>
           </div>
-          <div>
-            <p style={{ fontSize:12, fontWeight:800, color:"#60b8ff" }}>AI ID Scanner</p>
-            <p style={{ fontSize:9, color:"rgba(255,255,255,0.3)" }}>Aadhaar • PAN • Passport • DL</p>
+          <button onClick={()=>setCount(c=>Math.min(8,c+1))}
+            className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)"}}>
+            <Plus size={22} className="text-white"/>
+          </button>
+        </div>
+
+        {/* Quick select */}
+        <div className="flex gap-2">
+          {[1,2,3,4].map(n=>(
+            <button key={n} onClick={()=>setCount(n)}
+              className="w-12 h-10 rounded-xl text-sm font-bold transition-all"
+              style={guestCount===n
+                ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                :{background:"rgba(255,255,255,0.05)",color:"#666",border:"1px solid rgba(255,255,255,0.08)"}}>
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 pt-4">
+        <button onClick={()=>{
+          setGuests(Array.from({length:guestCount},()=>blankGuest()));
+          setCurGuest(0); setStep(S.SCAN_FRONT);
+        }}
+          className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2"
+          style={{background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}}>
+          <Camera size={20}/>ID Scan Shuru Karo<ArrowRight size={18}/>
+        </button>
+      </div>
+    </div>
+  );
+
+  /* ── SCAN SCREEN (FRONT + BACK shared) ── */
+  if (step===S.SCAN_FRONT || step===S.SCAN_BACK) {
+    const isFront = step===S.SCAN_FRONT;
+    const gLabel  = guestCount>1 ? ` — Guest ${curGuest+1}/${guestCount}` : "";
+    return (
+      <div className="h-full flex flex-col px-3 py-2">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+          <button onClick={()=>{
+            if(isFront&&curGuest===0) setStep(S.GUEST_COUNT);
+            else if(isFront) setStep(S.REVIEW);
+            else setStep(S.SCAN_FRONT);
+          }} className="w-9 h-9 card rounded-xl flex items-center justify-center flex-shrink-0">
+            <ChevronLeft size={18} className="text-gray-400"/>
+          </button>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-bold text-base truncate" style={{color:"#D4AF37"}}>
+              {isFront?"ID Ka Aagla (Front)":"ID Ka Peechla (Back)"}{gLabel}
+            </h2>
+            <p className="text-gray-600 text-xs">
+              {isFront?"Aadhaar/Passport front side":"Peeche wali side scan karo"}
+            </p>
+          </div>
+          {/* Flip camera toggle */}
+          <button onClick={()=>setFacing(f=>f==="environment"?"user":"environment")}
+            className="w-9 h-9 card rounded-xl flex items-center justify-center flex-shrink-0">
+            <RefreshCw size={15} className="text-gray-400"/>
+          </button>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-1 mb-2 flex-shrink-0">
+          {[
+            {label:"Front", active:isFront,  done:guests[curGuest].frontScanned&&!isFront},
+            {label:"Back",  active:!isFront, done:guests[curGuest].backScanned},
+            {label:"Details",active:false,   done:false},
+          ].map((s,i)=>(
+            <div key={i} className="flex items-center gap-1">
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                style={s.active
+                  ?{background:"rgba(212,175,55,0.2)",color:"#D4AF37",border:"1px solid rgba(212,175,55,0.4)"}
+                  :s.done
+                    ?{background:"rgba(34,197,94,0.1)",color:"#22c55e"}
+                    :{background:"rgba(255,255,255,0.04)",color:"#444"}}>
+                {s.done?"✓ ":""}{s.label}
+              </span>
+              {i<2&&<div className="w-2 h-px bg-white/10"/>}
+            </div>
+          ))}
+        </div>
+
+        {/* Camera */}
+        <div className="flex-1 scan-frame relative rounded-2xl overflow-hidden min-h-0">
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"/>
+          {scanning && <div className="scan-line"/>}
+          {!scanning && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Corner guide brackets */}
+              <div className="w-4/5 h-1/2 relative">
+                {["top-0 left-0 border-t-2 border-l-2 rounded-tl-xl",
+                  "top-0 right-0 border-t-2 border-r-2 rounded-tr-xl",
+                  "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-xl",
+                  "bottom-0 right-0 border-b-2 border-r-2 rounded-br-xl",
+                ].map((c,i)=>(
+                  <div key={i} className={`absolute w-8 h-8 ${c}`}
+                    style={{borderColor:"rgba(212,175,55,0.8)"}}/>
+                ))}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center px-4 py-2 rounded-xl"
+                    style={{background:"rgba(0,0,0,0.65)",backdropFilter:"blur(8px)"}}>
+                    <p className="text-xs font-semibold" style={{color:"#D4AF37"}}>
+                      {isFront?"ID — Aagla Hissa":"ID — Peechla Hissa"}
+                    </p>
+                    <p className="text-gray-400 text-xs mt-0.5">Frame ke andar rakho</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {scanning && (
+            <div className="absolute bottom-0 left-0 right-0 h-1.5" style={{background:"rgba(0,0,0,0.5)"}}>
+              <div className="h-full transition-all duration-200"
+                style={{width:`${scanPct}%`,background:"linear-gradient(90deg,#b8960c,#D4AF37,#F5C842)"}}/>
+            </div>
+          )}
+        </div>
+        <canvas ref={canvasRef} className="hidden"/>
+
+        {/* Buttons */}
+        <div className="flex-shrink-0 mt-3 space-y-2">
+          <button onClick={captureAndScan} disabled={scanning}
+            className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+            style={scanning
+              ?{background:"rgba(212,175,55,0.15)",color:"#D4AF37"}
+              :{background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}}>
+            {scanning
+              ?<><Loader size={20} className="animate-spin"/>Scan Kar Raha Hai... {Math.round(scanPct)}%</>
+              :<><Camera size={20}/>{isFront?"Aagla Hissa Scan Karo":"Peechla Hissa Scan Karo"}</>}
+          </button>
+
+          {!isFront && (
+            <button onClick={()=>setStep(S.REVIEW)}
+              className="w-full py-3 rounded-2xl card text-gray-500 text-sm font-medium">
+              Skip — Seedha Details Bharo
+            </button>
+          )}
+          {isFront && (
+            <button onClick={()=>setStep(S.REVIEW)}
+              className="w-full py-3 rounded-2xl card text-gray-500 text-sm font-medium">
+              Manual Fill Karo
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── REVIEW / EDIT DETAILS ── */
+  if (step===S.REVIEW) {
+    const g = guests[curGuest];
+    const isLast = curGuest===guests.length-1;
+    const gLabel = guestCount>1 ? `Guest ${curGuest+1} Details` : "Guest Details";
+    return (
+      <div className="h-full flex flex-col px-3 py-2">
+        <div className="flex items-center gap-3 mb-2 flex-shrink-0">
+          <button onClick={()=>setStep(S.SCAN_BACK)}
+            className="w-9 h-9 card rounded-xl flex items-center justify-center">
+            <ChevronLeft size={18} className="text-gray-400"/>
+          </button>
+          <h2 className="font-bold text-lg" style={{color:"#D4AF37"}}>{gLabel}</h2>
+          {(g.frontScanned||g.backScanned)&&(
+            <span className="ml-auto text-xs px-2 py-1 rounded-full font-semibold"
+              style={{background:"rgba(34,197,94,0.12)",color:"#22c55e"}}>
+              ✓ AI Filled
+            </span>
+          )}
+        </div>
+
+        {/* Scan status + rescan */}
+        <div className="flex gap-2 mb-3 flex-shrink-0">
+          {[
+            {label:"Front",done:g.frontScanned,step:S.SCAN_FRONT},
+            {label:"Back", done:g.backScanned,  step:S.SCAN_BACK},
+          ].map((b,i)=>(
+            <button key={i} onClick={()=>setStep(b.step)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={b.done
+                ?{background:"rgba(34,197,94,0.12)",border:"1px solid rgba(34,197,94,0.3)",color:"#22c55e"}
+                :{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#555"}}>
+              {b.done?<Check size={10}/>:<Camera size={10}/>}
+              {b.label} {b.done?"✓":"Scan"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 scroll-y space-y-3 pb-4">
+          <Section title="👤 Guest Info">
+            <FI icon={<User size={13}/>}    label="Naam *"       value={g.guestName}    onChange={v=>updG("guestName",v)}    ph="Guest ka poora naam"/>
+            <FI icon={<Phone size={13}/>}   label="Mobile *"     value={g.guestPhone}   onChange={v=>updG("guestPhone",v)}   ph="+91 9999999999" type="tel"/>
+            <FI                             label="Email"        value={g.email||""}    onChange={v=>updG("email",v)}        ph="email@example.com" type="email"/>
+            <FI icon={<MapPin size={13}/>}  label="Address *"    value={g.address}      onChange={v=>updG("address",v)}      ph="Ghar ka pura address"/>
+            <FI                             label="Nationality"  value={g.nationality||"Indian"} onChange={v=>updG("nationality",v)} ph="Indian"/>
+          </Section>
+
+          <Section title="🏢 Company Info (Optional)">
+            <FI label="Company Name" value={g.companyName||""} onChange={v=>updG("companyName",v)} ph="Company ka naam"/>
+            <FI label="GST No."      value={g.gstNo||""}       onChange={v=>updG("gstNo",v)}       ph="GST number"/>
+          </Section>
+
+          <Section title="✈️ Travel Details">
+            <FI label="Arrival From"      value={g.arrivalFrom||""}    onChange={v=>updG("arrivalFrom",v)}    ph="Kahan se aa rahe ho"/>
+            <FI label="Proceeding To"     value={g.proceedingTo||""}   onChange={v=>updG("proceedingTo",v)}   ph="Kahan jaoge aage"/>
+            <div>
+              <label className="text-gray-600 text-xs mb-1.5 block">Purpose of Visit</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {["Leisure","Business","Medical","Education","Other"].map(p=>(
+                  <button key={p} onClick={()=>updG("purposeOfVisit",p)}
+                    className="py-2 rounded-xl text-xs font-semibold"
+                    style={g.purposeOfVisit===p
+                      ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                      :{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#666"}}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Section>
+
+          {/* ID Image Preview */}
+          {(g.idImageFront || g.idImageBack) && (
+            <div className="card rounded-2xl p-3">
+              <p className="text-gray-600 text-xs uppercase tracking-widest font-semibold mb-2">
+                📸 ID Document Images
+              </p>
+              <div className="flex gap-2">
+                {g.idImageFront && (
+                  <div className="flex-1">
+                    <p className="text-gray-700 text-xs mb-1 text-center">Front</p>
+                    <img src={g.idImageFront} alt="ID Front"
+                      className="w-full rounded-xl object-cover"
+                      style={{height:80, border:"1px solid rgba(34,197,94,0.3)"}}/>
+                  </div>
+                )}
+                {g.idImageBack && (
+                  <div className="flex-1">
+                    <p className="text-gray-700 text-xs mb-1 text-center">Back</p>
+                    <img src={g.idImageBack} alt="ID Back"
+                      className="w-full rounded-xl object-cover"
+                      style={{height:80, border:"1px solid rgba(212,175,55,0.3)"}}/>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Section title="🪪 ID Details">
+            <div>
+              <label className="text-gray-600 text-xs mb-1.5 block">ID Type</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {["Aadhaar","Passport","DL","Voter ID","PAN"].map(t=>(
+                  <button key={t} onClick={()=>updG("idType",t)}
+                    className="py-2 rounded-xl text-xs font-semibold transition-all"
+                    style={g.idType===t
+                      ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                      :{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#666"}}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <FI icon={<CreditCard size={13}/>} label="ID Number" value={g.idNumber} onChange={v=>updG("idNumber",v)} ph="ID number"/>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-gray-600 text-xs mb-1 block">Gender</label>
+                <div className="flex gap-1">
+                  {["M","F","Other"].map(gn=>(
+                    <button key={gn} onClick={()=>updG("gender",gn)}
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                      style={g.gender===gn
+                        ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                        :{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#555"}}>
+                      {gn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <FI label="DOB" value={g.dob} onChange={v=>updG("dob",v)} ph="DD/MM/YYYY"/>
+            </div>
+            {/* Passport extra fields */}
+            {g.idType==="Passport" && (
+              <div className="space-y-2 pt-2" style={{borderTop:"1px solid rgba(255,255,255,0.08)"}}>
+                <p className="text-gray-700 text-xs">🛂 Foreign Guest - Passport Details</p>
+                <FI label="Passport No."          value={g.passportNo||""}           onChange={v=>updG("passportNo",v)}           ph="A1234567"/>
+                <div className="grid grid-cols-2 gap-2">
+                  <FI label="Issue Date"          value={g.passportIssueDate||""}    onChange={v=>updG("passportIssueDate",v)}    ph="DD/MM/YYYY"/>
+                  <FI label="Expiry"              value={g.passportExpiry||""}       onChange={v=>updG("passportExpiry",v)}       ph="DD/MM/YYYY"/>
+                </div>
+                <FI label="Place of Issue"        value={g.passportPlaceOfIssue||""} onChange={v=>updG("passportPlaceOfIssue",v)} ph="Delhi"/>
+                <FI label="Visa No."              value={g.visaNo||""}               onChange={v=>updG("visaNo",v)}               ph="Visa number"/>
+                <div className="grid grid-cols-2 gap-2">
+                  <FI label="Visa Date"           value={g.visaIssueDate||""}        onChange={v=>updG("visaIssueDate",v)}        ph="DD/MM/YYYY"/>
+                  <FI label="Visa Place"          value={g.visaPlaceOfIssue||""}     onChange={v=>updG("visaPlaceOfIssue",v)}     ph="Embassy city"/>
+                </div>
+                <FI label="Arrival India Date"    value={g.dateOfArrivalIndia||""}   onChange={v=>updG("dateOfArrivalIndia",v)}   ph="DD/MM/YYYY"/>
+                <FI label="Proposed Stay"         value={g.proposedStayDuration||""} onChange={v=>updG("proposedStayDuration",v)} ph="e.g. 7 days"/>
+              </div>
+            )}
+          </Section>
+
+          <div className="flex gap-2">
+            <button onClick={()=>setStep(S.SCAN_FRONT)}
+              className="flex-1 py-2.5 rounded-xl card text-xs font-semibold text-gray-400 flex items-center justify-center gap-1.5">
+              <RefreshCw size={12}/> Front Rescan
+            </button>
+            <button onClick={()=>setStep(S.SCAN_BACK)}
+              className="flex-1 py-2.5 rounded-xl card text-xs font-semibold text-gray-400 flex items-center justify-center gap-1.5">
+              <RefreshCw size={12}/> Back Rescan
+            </button>
           </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          {/* Side toggle */}
-          {(step === "idle" || step === "done") && (
-            <div style={{ display:"flex", background:"rgba(255,255,255,0.04)", borderRadius:8, overflow:"hidden", border:"1px solid rgba(255,255,255,0.08)" }}>
-              {["front","back"].map(s => (
-                <button key={s} onClick={() => { setScanSide(s); if(step==="done") setStep("idle"); }}
-                  style={{ padding:"5px 10px", background:scanSide===s?"rgba(0,140,255,0.2)":"transparent", border:"none", color:scanSide===s?"#60b8ff":"rgba(255,255,255,0.3)", fontSize:10, fontWeight:700, cursor:"pointer", textTransform:"capitalize" }}>
-                  {s}
+
+        <div className="flex-shrink-0 pt-2 space-y-2">
+          {!g.guestName&&(
+            <p className="text-center text-red-400 text-xs">⚠ Naam zaroori hai</p>
+          )}
+          {!isLast ? (
+            <button onClick={()=>{setCurGuest(curGuest+1);setStep(S.SCAN_FRONT);}}
+              disabled={!g.guestName}
+              className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+              style={g.guestName
+                ?{background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}
+                :{background:"rgba(255,255,255,0.05)",color:"#444"}}>
+              <Camera size={18}/>Guest {curGuest+2} Scan Karo<ArrowRight size={18}/>
+            </button>
+          ) : (
+            <button onClick={()=>setStep(S.BOOKING)}
+              disabled={!g.guestName}
+              className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+              style={g.guestName
+                ?{background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}
+                :{background:"rgba(255,255,255,0.05)",color:"#444"}}>
+              <Check size={18}/>Room Booking Karo<ArrowRight size={18}/>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── BOOKING ── */
+  if (step===S.BOOKING) return (
+    <div className="h-full flex flex-col px-3 py-2">
+      <div className="flex items-center gap-3 mb-2 flex-shrink-0">
+        <button onClick={()=>{setCurGuest(guests.length-1);setStep(S.REVIEW);}}
+          className="w-9 h-9 card rounded-xl flex items-center justify-center">
+          <ChevronLeft size={18} className="text-gray-400"/>
+        </button>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-lg" style={{color:"#D4AF37"}}>Room Booking</h2>
+          <p className="text-gray-600 text-xs truncate">
+            {guests.map(g=>g.guestName||"Guest").join(", ")}
+          </p>
+        </div>
+      </div>
+
+      {/* Guest edit chips */}
+      <div className="flex gap-1.5 mb-2 flex-wrap flex-shrink-0">
+        {guests.map((g,i)=>(
+          <button key={i} onClick={()=>{setCurGuest(i);setStep(S.REVIEW);}}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#888"}}>
+            <User size={9}/>{g.guestName||`Guest ${i+1}`}
+            <Edit3 size={8} className="text-gray-600"/>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 scroll-y space-y-3 pb-4">
+        {/* Room */}
+        <Section title="🛏 Room Chuniye">
+          {vacantRooms.length===0
+            ?<p className="text-gray-500 text-sm text-center py-2">Koi vacant room nahi</p>
+            :<div className="grid grid-cols-5 gap-1.5">
+              {vacantRooms.map(room=>(
+                <button key={room.id} onClick={()=>updB("roomId",room.id)}
+                  className="py-2.5 rounded-xl text-xs font-mono font-bold transition-all"
+                  style={booking.roomId===room.id
+                    ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                    :{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.25)",color:"#22c55e"}}>
+                  {room.number}
                 </button>
               ))}
             </div>
-          )}
-          {onClose && (
-            <button onClick={() => { stopCamera(); onClose(); }}
-              style={{ width:28, height:28, borderRadius:6, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.4)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <X size={13} />
-            </button>
-          )}
-        </div>
-      </div>
+          }
+        </Section>
 
-      <div style={S.body}>
-
-        {/* ── IDLE ── */}
-        {step === "idle" && (
-          <div style={{ animation:"fadeUp 0.3s ease" }}>
-            <div style={{ textAlign:"center", padding:"20px 0 16px" }}>
-              <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(0,140,255,0.08)", border:"1px solid rgba(0,140,255,0.2)", margin:"0 auto 12px", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <Camera size={26} style={{ color:"#60b8ff" }} />
-              </div>
-              <p style={{ fontSize:13, fontWeight:700, color:"#fff", marginBottom:4 }}>
-                {scanSide === "front" ? "ID Ka Front Side Scan Karo" : "ID Ka Back Side Scan Karo"}
-              </p>
-              <p style={{ fontSize:11, color:"rgba(255,255,255,0.35)", lineHeight:1.5 }}>
-                Camera se scan karo ya file upload karo.<br/>
-                Base64 image DB mein save hogi (police records compliance).
-              </p>
+        {/* Dates */}
+        <Section title="📅 Dates">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-gray-600 text-xs mb-1 block">Check-in</label>
+              <input type="date" value={booking.checkInDate}
+                onChange={e=>updB("checkInDate",e.target.value)}
+                className="inp w-full px-3 py-2.5 text-sm" style={{colorScheme:"dark"}}/>
             </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              <button onClick={() => startCamera("environment")} style={S.btn("linear-gradient(135deg,#0050c8,#0080ff)")}>
-                <Camera size={14} /> Camera Se Scan Karo
-              </button>
-              <button onClick={() => fileRef.current?.click()} style={S.btn("rgba(255,255,255,0.05)","rgba(255,255,255,0.7)","1px solid rgba(255,255,255,0.1)")}>
-                <Upload size={14} /> File Upload Karo
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display:"none" }} />
-            </div>
-            {/* Side guidance */}
-            <div style={{ marginTop:12, padding:"10px 12px", borderRadius:10, background:"rgba(0,140,255,0.04)", border:"1px solid rgba(0,140,255,0.1)" }}>
-              <p style={{ fontSize:10, color:"rgba(0,140,255,0.6)", lineHeight:1.6 }}>
-                {scanSide === "front"
-                  ? "📋 Front scan se: Naam, DOB, Address, ID Number, Gender automatically fill hoga."
-                  : "📋 Back scan se: Father's name, Address (Aadhaar), Place of Birth (Passport) fill hoga."}
-              </p>
+            <div>
+              <label className="text-gray-600 text-xs mb-1 block">Check-out</label>
+              <input type="date" value={booking.checkOutDate}
+                onChange={e=>updB("checkOutDate",e.target.value)}
+                className="inp w-full px-3 py-2.5 text-sm" style={{colorScheme:"dark"}}/>
             </div>
           </div>
-        )}
-
-        {/* ── CAMERA LIVE VIEW ── */}
-        {step === "camera" && (
-          <div style={{ animation:"fadeUp 0.25s ease" }}>
-            {/* Video frame */}
-            <div style={{ position:"relative", borderRadius:14, overflow:"hidden", background:"#000", marginBottom:12, border:"1px solid rgba(0,140,255,0.3)" }}>
-              <video ref={videoRef} autoPlay playsInline muted
-                style={{ width:"100%", maxHeight:240, objectFit:"cover", display:"block" }} />
-              <canvas ref={canvasRef} style={{ display:"none" }} />
-
-              {/* Corner brackets */}
-              {["tl","tr","bl","br"].map(pos => (
-                <div key={pos} style={{
-                  position:"absolute", width:22, height:22,
-                  top:    pos.includes("t") ? 10 : "auto",
-                  bottom: pos.includes("b") ? 10 : "auto",
-                  left:   pos.includes("l") ? 10 : "auto",
-                  right:  pos.includes("r") ? 10 : "auto",
-                  borderTop:    pos.includes("t") ? "2px solid #60b8ff" : "none",
-                  borderBottom: pos.includes("b") ? "2px solid #60b8ff" : "none",
-                  borderLeft:   pos.includes("l") ? "2px solid #60b8ff" : "none",
-                  borderRight:  pos.includes("r") ? "2px solid #60b8ff" : "none",
-                }} />
-              ))}
-
-              {/* Scan line animation */}
-              <div style={{
-                position:"absolute", left:"5%", right:"5%", height:2,
-                background:"linear-gradient(90deg,transparent,rgba(0,140,255,0.8),transparent)",
-                animation:"scanLine 2s ease-in-out infinite alternate",
-                pointerEvents:"none",
-              }} />
-
-              {/* Instructions overlay */}
-              <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"8px 12px", background:"linear-gradient(transparent,rgba(0,0,0,0.85))" }}>
-                <p style={{ fontSize:10, color:"#60b8ff", textAlign:"center", fontWeight:600, animation:"pulse 2s ease-in-out infinite" }}>
-                  ID ko frame ke andar rakho — ache light mein
-                </p>
-              </div>
+          <div className="flex items-center justify-between card rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Moon size={14} className="text-gray-500"/>
+              <span className="text-gray-400 text-sm">Raatein</span>
             </div>
-
-            {/* Camera controls */}
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={handleCapture}
-                style={{ ...S.btn("linear-gradient(135deg,#0050c8,#0080ff)"), flex:1, padding:"12px" }}>
-                <Camera size={15} /> Scan Karo
+            <div className="flex items-center gap-3">
+              <button onClick={()=>updB("nights",Math.max(1,booking.nights-1))}
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{background:"rgba(255,255,255,0.08)"}}>
+                <Minus size={12} className="text-white"/>
               </button>
-              <button onClick={() => startCamera(cameraFacing === "environment" ? "user" : "environment")}
-                style={{ ...S.btn("rgba(255,255,255,0.06)","rgba(255,255,255,0.5)","1px solid rgba(255,255,255,0.1)"), width:44, padding:"12px 0" }}
-                title="Camera flip">
-                🔄
-              </button>
-              <button onClick={() => { stopCamera(); setStep("idle"); }}
-                style={{ ...S.btn("rgba(239,68,68,0.08)","#ef4444","1px solid rgba(239,68,68,0.2)"), width:44, padding:"12px 0" }}>
-                <X size={14} />
+              <span className="text-white font-bold w-5 text-center">{booking.nights}</span>
+              <button onClick={()=>updB("nights",booking.nights+1)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{background:"rgba(255,255,255,0.08)"}}>
+                <Plus size={12} className="text-white"/>
               </button>
             </div>
-            <button onClick={() => { stopCamera(); fileRef.current?.click(); }}
-              style={{ ...S.btn("rgba(255,255,255,0.03)","rgba(255,255,255,0.35)","1px solid rgba(255,255,255,0.07)"), width:"100%", marginTop:6, fontSize:11 }}>
-              <Upload size={11} /> File Upload Use Karo
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display:"none" }} />
           </div>
-        )}
+        </Section>
 
-        {/* ── SCANNING ── */}
-        {step === "scanning" && (
-          <div style={{ animation:"fadeUp 0.3s ease", textAlign:"center", padding:"20px 0" }}>
-            <div style={{ width:64, height:64, borderRadius:"50%", margin:"0 auto 14px", border:"2px solid rgba(0,140,255,0.2)", borderTop:"2px solid #008cff", animation:"spin 0.9s linear infinite" }} />
-            <p style={{ fontSize:14, fontWeight:800, color:"#60b8ff", marginBottom:6 }}>AI Scan Ho Raha Hai...</p>
-            <p style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginBottom:16 }}>
-              {scanSide === "front"
-                ? "Naam, DOB, ID Number extract kiya ja raha hai..."
-                : "Back side process ho raha hai..."}
-            </p>
-            <div style={{ height:5, background:"rgba(0,140,255,0.1)", borderRadius:5, overflow:"hidden", maxWidth:220, margin:"0 auto" }}>
-              <div style={{ height:"100%", width:`${progress}%`, background:"linear-gradient(90deg,#008cff,#60b8ff)", borderRadius:5, transition:"width 0.35s ease" }} />
-            </div>
-            <p style={{ fontSize:9, color:"rgba(0,140,255,0.45)", marginTop:8 }}>
-              Base64 ID image police compliance ke liye save ho rahi hai...
-            </p>
-          </div>
-        )}
-
-        {/* ── DONE ── */}
-        {step === "done" && (
-          <div style={{ animation:"fadeUp 0.3s ease" }}>
-            {/* Success banner */}
-            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px", borderRadius:12, background:"rgba(34,197,94,0.08)", border:"1px solid rgba(34,197,94,0.25)", marginBottom:14 }}>
-              <CheckCircle size={18} style={{ color:"#22c55e", flexShrink:0 }} />
-              <div>
-                <p style={{ fontSize:12, fontWeight:800, color:"#22c55e" }}>ID Scan Successful ✓</p>
-                <p style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>
-                  {scanSide === "front" ? "Front" : "Back"} scan done · Base64 saved{bookingId ? " in DB" : " locally"}
-                </p>
-              </div>
-            </div>
-
-            {/* Thumbnails */}
-            <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-              {frontThumb && (
-                <div style={{ flex:1 }}>
-                  <p style={{ ...S.label, textAlign:"center" }}>Front</p>
-                  <div style={{ position:"relative", cursor:"pointer" }} onClick={() => setPreviewImg(frontThumb)}>
-                    <img src={frontThumb} alt="ID Front" style={{ width:"100%", height:70, objectFit:"cover", borderRadius:8, border:"1px solid rgba(34,197,94,0.3)" }} />
-                    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0)", borderRadius:8, transition:"background 0.2s" }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.3)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0)"}>
-                      <ZoomIn size={16} style={{ color:"#fff", opacity:0.7 }} />
-                    </div>
-                  </div>
-                </div>
-              )}
-              {backThumb && (
-                <div style={{ flex:1 }}>
-                  <p style={{ ...S.label, textAlign:"center" }}>Back</p>
-                  <div style={{ position:"relative", cursor:"pointer" }} onClick={() => setPreviewImg(backThumb)}>
-                    <img src={backThumb} alt="ID Back" style={{ width:"100%", height:70, objectFit:"cover", borderRadius:8, border:"1px solid rgba(212,175,55,0.3)" }} />
-                    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0)", borderRadius:8, transition:"background 0.2s" }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.3)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0)"}>
-                      <ZoomIn size={16} style={{ color:"#fff", opacity:0.7 }} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Extracted fields — editable */}
-            <p style={{ ...S.label, marginBottom:10 }}>Extracted Fields (Edit if needed)</p>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              <div style={gridTwo}>
-                <div>
-                  <label style={S.label}>Guest Name</label>
-                  <input style={S.inp} value={extracted.guestName} onChange={e => setExtracted(p => ({...p, guestName:e.target.value}))} placeholder="Full Name" />
-                </div>
-                <div>
-                  <label style={S.label}>Date of Birth</label>
-                  <input type="date" style={S.inp} value={extracted.dob} onChange={e => setExtracted(p => ({...p, dob:e.target.value}))} />
-                </div>
-              </div>
-              <div style={gridTwo}>
-                <div>
-                  <label style={S.label}>ID Type</label>
-                  <select style={S.inp} value={extracted.idType} onChange={e => setExtracted(p => ({...p, idType:e.target.value}))}>
-                    {["Aadhaar","PAN","Passport","Driving License","Voter ID"].map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={S.label}>ID Number</label>
-                  <input style={S.inp} value={extracted.idNumber} onChange={e => setExtracted(p => ({...p, idNumber:e.target.value}))} placeholder="XXXX XXXX XXXX" />
-                </div>
-              </div>
-              <div style={gridTwo}>
-                <div>
-                  <label style={S.label}>Gender</label>
-                  <select style={S.inp} value={extracted.gender} onChange={e => setExtracted(p => ({...p, gender:e.target.value}))}>
-                    <option value="">Select</option><option>Male</option><option>Female</option><option>Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={S.label}>Father's Name</label>
-                  <input style={S.inp} value={extracted.fatherName} onChange={e => setExtracted(p => ({...p, fatherName:e.target.value}))} placeholder="Father's name" />
-                </div>
-              </div>
-              <div>
-                <label style={S.label}>Address</label>
-                <textarea rows={2} style={{ ...S.inp, resize:"none", lineHeight:1.5 }}
-                  value={extracted.address} onChange={e => setExtracted(p => ({...p, address:e.target.value}))}
-                  placeholder="Full address..." />
-              </div>
-            </div>
-
-            {/* DB storage indicator */}
-            <div style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 10px", borderRadius:8, background:"rgba(34,197,94,0.04)", border:"1px solid rgba(34,197,94,0.12)", marginTop:10, marginBottom:12 }}>
-              <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e", flexShrink:0 }} />
-              <p style={{ fontSize:9, color:"rgba(34,197,94,0.7)", lineHeight:1.4 }}>
-                id_image_base64 {bookingId ? `Supabase booking record (#${bookingId?.slice(-6)}) mein save ho gayi` : "booking object mein save hogi when submitted"} — police records compliance ✓
-              </p>
-            </div>
-
-            {/* Back side prompt */}
-            {!backThumb && scanSide === "front" && (
-              <button onClick={() => { setScanSide("back"); setStep("idle"); }}
-                style={{ ...S.btn("rgba(212,175,55,0.08)","#D4AF37","1px solid rgba(212,175,55,0.25)"), width:"100%", marginBottom:8 }}>
-                📷 Back Side Bhi Scan Karo (Recommended)
-              </button>
+        {/* Rate Lock */}
+        <div className="rounded-2xl p-4 space-y-3 transition-all"
+          style={rateLocked
+            ?{background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.3)"}
+            :{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
+          <div className="flex items-center justify-between">
+            <p className="text-gray-500 text-xs uppercase tracking-widest font-semibold">💰 Rate Tay Karo</p>
+            {rateLocked&&(
+              <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{background:"rgba(212,175,55,0.15)",color:"#D4AF37"}}>
+                <Lock size={10}/> Locked
+              </span>
             )}
-
-            {/* Action buttons */}
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={handleConfirm}
-                style={{ ...S.btn("linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)","#000"), flex:1 }}>
-                <CheckCircle size={14} /> Form Mein Apply Karo ✓
-              </button>
-              <button onClick={handleReset}
-                style={{ ...S.btn("rgba(255,255,255,0.05)","rgba(255,255,255,0.5)","1px solid rgba(255,255,255,0.1)"), padding:"10px 14px" }}>
-                <RefreshCw size={13} />
-              </button>
-            </div>
           </div>
-        )}
-
-        {/* ── ERROR ── */}
-        {step === "error" && (
-          <div style={{ animation:"fadeUp 0.3s ease", textAlign:"center", padding:"16px 0" }}>
-            <div style={{ fontSize:36, marginBottom:12 }}>⚠️</div>
-            <p style={{ fontSize:13, fontWeight:700, color:"#ef4444", marginBottom:6 }}>Scan Nahi Hua</p>
-            <p style={{ fontSize:11, color:"rgba(255,255,255,0.4)", lineHeight:1.5, marginBottom:16, maxWidth:260, margin:"0 auto 16px" }}>{error}</p>
-            <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
-              <button onClick={() => startCamera()} style={S.btn("rgba(0,140,255,0.12)","#60b8ff","1px solid rgba(0,140,255,0.3)")}>
-                <Camera size={13} /> Dobara Try Karo
-              </button>
-              <button onClick={() => { fileRef.current?.click(); setStep("idle"); }}
-                style={S.btn("rgba(255,255,255,0.05)","rgba(255,255,255,0.5)","1px solid rgba(255,255,255,0.1)")}>
-                <Upload size={13} /> File Upload
-              </button>
-              <button onClick={handleReset}
-                style={S.btn("rgba(255,255,255,0.04)","rgba(255,255,255,0.3)","1px solid rgba(255,255,255,0.08)")}>
-                Skip
-              </button>
+          <div>
+            {/* Manual rate input + slider together */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-gray-600 text-xs">₹</span>
+              <input type="number" min="100" max="99999" step="100"
+                value={booking.ratePerNight} disabled={rateLocked}
+                onChange={e=>updB("ratePerNight",Math.max(100,Number(e.target.value)||100))}
+                className="flex-1 px-3 py-2 rounded-xl text-center font-black text-xl disabled:opacity-40"
+                style={{background:"rgba(212,175,55,0.1)",border:"1px solid rgba(212,175,55,0.3)",color:"#D4AF37",outline:"none",colorScheme:"dark"}}/>
+              <span className="text-gray-600 text-xs">/raat</span>
             </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display:"none" }} />
+            <div className="flex justify-between text-xs text-gray-600 mb-1">
+              <span>₹500</span>
+              <span>₹10,000</span>
+            </div>
+            <input type="range" min="500" max="10000" step="100"
+              value={Math.min(10000,Math.max(500,booking.ratePerNight))} disabled={rateLocked}
+              onChange={e=>updB("ratePerNight",Number(e.target.value))}
+              className="w-full disabled:opacity-40" style={{accentColor:"#D4AF37"}}/>
           </div>
-        )}
+          <div className="grid grid-cols-3 gap-1.5">
+            {["Cash","UPI","Card"].map(m=>(
+              <button key={m} onClick={()=>!rateLocked&&updB("paymentMode",m)}
+                disabled={rateLocked}
+                className="py-2 rounded-xl text-xs font-semibold transition-all"
+                style={booking.paymentMode===m
+                  ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                  :{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#555"}}>
+                {m==="Cash"?"💵 Cash":m==="UPI"?"📱 UPI":"💳 Card"}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between items-center py-2 border-t border-white/10">
+            <span className="text-gray-400 text-sm">Total</span>
+            <span className="font-black text-2xl text-white">
+              ₹{booking.totalAmount.toLocaleString("en-IN")}
+            </span>
+          </div>
+          {!rateLocked?(
+            <button onClick={lockRate} disabled={lockAnim}
+              className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+              style={lockAnim
+                ?{background:"rgba(212,175,55,0.1)",color:"#D4AF37"}
+                :{background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}}>
+              {lockAnim
+                ?<><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"/>Lock Ho Raha Hai...</>
+                :<><Lock size={16}/>Rate Lock Karo ✓</>}
+            </button>
+          ):(
+            <div className="w-full py-3 rounded-xl text-center"
+              style={{background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.3)"}}>
+              <p className="font-bold text-sm flex items-center justify-center gap-2" style={{color:"#D4AF37"}}>
+                🔐 Rate Lock Ho Gaya
+              </p>
+              <p className="text-gray-600 text-xs mt-0.5">Ab ye change nahi ho sakta</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* IMAGE PREVIEW MODAL */}
-      {previewImg && (
-        <div onClick={() => setPreviewImg(null)} style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
-          <img src={previewImg} alt="ID Preview" style={{ maxWidth:"100%", maxHeight:"80vh", borderRadius:12, border:"1px solid rgba(255,255,255,0.1)" }} />
-          <button onClick={() => setPreviewImg(null)} style={{ position:"absolute", top:20, right:20, width:36, height:36, borderRadius:8, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <X size={16} />
-          </button>
-        </div>
-      )}
+      {/* Final submit */}
+      <div className="flex-shrink-0 pt-2">
+        {(!booking.roomId||!rateLocked)&&(
+          <p className="text-center text-xs text-gray-600 mb-2">
+            {!booking.roomId?"⚠ Room select karo":"⚠ Pehle rate lock karo"}
+          </p>
+        )}
+        <button onClick={handleSubmit}
+          disabled={!booking.roomId||!guests[0].guestName||!rateLocked||submitting}
+          className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+          style={booking.roomId&&guests[0].guestName&&rateLocked&&!submitting
+            ?{background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}
+            :{background:"rgba(255,255,255,0.05)",color:"#444"}}>
+          {submitting
+            ?<><Loader size={20} className="animate-spin"/>Check-in Ho Raha Hai...</>
+            :<><Check size={20}/>{guests.length>1?`${guests.length} Guests Check-in Karo ✓`:"Guest Check-in Karo ✓"}</>}
+        </button>
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
+/* ─── SHARED SUB-COMPONENTS ────────────────────────────────── */
+function Section({ title, children }) {
+  return (
+    <div className="card rounded-2xl p-4 space-y-3">
+      <p className="text-gray-600 text-xs uppercase tracking-widest font-semibold">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function FI({ icon, label, value, onChange, ph, type="text" }) {
+  return (
+    <div>
+      <label className="flex items-center gap-1 text-gray-600 text-xs mb-1">
+        {icon&&<span className="text-gray-700">{icon}</span>}{label}
+      </label>
+      <input type={type} value={value} onChange={e=>onChange(e.target.value)}
+        placeholder={ph} className="inp w-full px-3 py-2.5 text-sm"/>
     </div>
   );
 }
