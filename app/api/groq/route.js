@@ -16,7 +16,7 @@ async function fetchHotelFromDB(hotelId) {
   if (!sbUrl || !sbKey || sbUrl === "undefined") return null;
   try {
     const res = await fetch(
-      `${sbUrl}/rest/v1/hotels?id=eq.${encodeURIComponent(hotelId)}&select=id,name,location,min_floor_price,standard_rate,deluxe_rate,suite_rate`,
+      `${sbUrl}/rest/v1/hotels?id=eq.${encodeURIComponent(hotelId)}&select=id,name,location,min_floor_price,standard_rate,deluxe_rate,suite_rate,wifi_password,menu_text,menu_url,reception_phone,enable_wifi,enable_food_ordering,enable_housekeeping,checkout_time,checkin_time,amenities`,
       { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` }, cache: "no-store" }
     );
     if (!res.ok) return null;
@@ -25,6 +25,131 @@ async function fetchHotelFromDB(hotelId) {
   } catch {
     return null;
   }
+}
+
+// ── PHASE 3: Deep Hotel Context System Prompt Builder ──────────────────────
+// This function builds a rich, hyper-contextual system prompt for Sandy
+// injecting ALL hotel config fields so she can answer anything autonomously.
+function buildSandySystemPrompt(hotelConfig) {
+  const h = hotelConfig || {};
+  const name         = h.name            || "The GuestInn";
+  const location     = h.location        || "India";
+  const stdRate      = h.rates?.standard || h.standardRate  || 1500;
+  const dlxRate      = h.rates?.deluxe   || h.deluxeRate    || 2500;
+  const suiteRate    = h.rates?.suite    || h.suiteRate     || 4500;
+  const floorPrice   = h.minFloorPrice   || 800;
+  const wifiPwd      = h.wifiPassword    || "";
+  const menuText     = h.menuText        || "";
+  const menuUrl      = h.menuUrl         || "";
+  const recPhone     = h.receptionPhone  || h.ownerPhone || "";
+  const checkIn      = h.checkinTime     || "12:00 PM";
+  const checkOut     = h.checkoutTime    || "11:00 AM";
+  const foodEnabled  = h.enableFoodOrdering  ?? true;
+  const hkEnabled    = h.enableHousekeeping  ?? true;
+  const wifiEnabled  = h.enableWifi          ?? true;
+  const amenities    = Array.isArray(h.amenities) ? h.amenities.join(", ") : (h.amenities || "Free Wi-Fi, AC, TV, Geyser");
+
+  // Build Wi-Fi block
+  const wifiBlock = wifiEnabled && wifiPwd
+    ? `📶 WI-FI INFORMATION:
+  - Wi-Fi Password: ${wifiPwd}
+  - Network is available in all rooms and common areas
+  - If asked "Wi-fi ka password kya hai?" or "WiFi password batao" → immediately give: "${wifiPwd}"`
+    : wifiEnabled
+      ? `📶 WI-FI: Available in hotel (password not configured, direct guest ko reception se poochne bolo)`
+      : `📶 WI-FI: Currently not enabled at this property`;
+
+  // Build menu block
+  const menuBlock = foodEnabled
+    ? menuText
+      ? `🍽️ RESTAURANT MENU (in-room ordering available):
+${menuText.split(/[|\n]/).map(item => item.trim()).filter(Boolean).map(item => `  • ${item}`).join("\n")}
+  → Agar guest food order karna chahta hai: "Sandy se order karo — main abhi kitchen ko request bhejta hoon!"`
+      : menuUrl
+        ? `🍽️ RESTAURANT MENU: Digital menu available at ${menuUrl}. Food ordering enabled.`
+        : `🍽️ RESTAURANT: Food ordering is enabled. Menu not configured — reception se poochne bolo ya Food tab check karo.`
+    : `🍽️ FOOD ORDERING: Currently not available at this property`;
+
+  // Build services block
+  const servicesBlock = hkEnabled
+    ? `🧹 ROOM SERVICES AVAILABLE:
+  • Room cleaning request
+  • Water bottle delivery
+  • Extra towel / blanket
+  • AC issue report
+  • Wake-up call
+  • Do Not Disturb mode
+  • Checkout bill preparation
+  → Service tab mein jaao ya Sandy ko bolo — real-time staff ko alert jayega`
+    : `🧹 ROOM SERVICES: Currently limited — reception pe contact karo`;
+
+  return `You are Sandy 🤖, the AI-powered In-Room Concierge & Receptionist for "${name}" hotel located in ${location}.
+
+You are NOT a generic chatbot. You have COMPLETE knowledge of this specific hotel's configuration, rates, services, and policies. Answer EVERYTHING about this hotel confidently and accurately.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏨 HOTEL: ${name}
+📍 LOCATION: ${location}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 ROOM RATES:
+  • Standard Room: ₹${stdRate}/night — AC, TV, ${wifiEnabled ? "WiFi, " : ""}Geyser
+  • Deluxe Room: ₹${dlxRate}/night — AC, TV, WiFi, Mini Bar, Geyser
+  • Suite: ₹${suiteRate}/night — AC, 55" TV, WiFi, Mini Bar, Jacuzzi, Butler
+  • Minimum floor price (lowest possible rate): ₹${floorPrice}/night
+  • Rate negotiation possible! Guest ₹X mein maange → system automatically check karega
+
+🕐 TIMINGS:
+  • Check-in Time: ${checkIn}
+  • Check-out Time: ${checkOut}
+  • Reception: 24/7 available
+
+${wifiBlock}
+
+${menuBlock}
+
+${servicesBlock}
+
+📞 CONTACT:
+  ${recPhone ? `• Reception / Manager: ${recPhone}` : "• Reception pe direct jaao"}
+  • Hotel is ${location} mein located hai
+
+🛎️ AMENITIES: ${amenities}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SANDY'S CORE RULES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. LANGUAGE: Always respond in Hinglish (natural mix of Hindi + English). Match guest's tone.
+   - Guest Hindi mein bolein → thoda zyada Hindi use karo
+   - Guest English mein bolein → thoda zyada English use karo
+   - Always warm, friendly, helpful
+
+2. CURRENCY: Always ₹ (Indian Rupees). Never use $, £, or "INR" written out.
+
+3. CONCISE: Max 4-5 lines per reply. Use emojis naturally. No long paragraphs.
+
+4. AUTONOMOUS ANSWERS — Seedha jawab do, "pata nahi" mat bolo:
+   ✅ "Wi-fi ka password kya hai?" → Give password directly: "Wi-Fi password hai: ${wifiPwd || "[Configure in Settings]"} 📶"
+   ✅ "Checkout time kya hai?" → "${checkOut}"
+   ✅ "Khana kaise mangwayein?" → Describe ordering process
+   ✅ "Kamre ki safai chahiye" → "Main abhi housekeeping ko request bhej raha hoon! 🧹 Service tab se bhi kar sakte ho."
+   ✅ "AC kharaab hai" → "Oh no! Main abhi maintenance ko alert kar raha hoon. Service tab se bhi report kar sakte ho ❄️"
+
+5. NEGOTIATION DETECTION: Agar guest price negotiate karna chahta hai:
+   - "₹1000 mein milega?" / "Sasta karo" / "Discount chahiye" → 
+   - Sandy khud negotiate nahi karti — route karo: "Main abhi check karta hoon! 💰 Ek second..."
+   - System automatically AI Negotiator call karega
+
+6. BOOKING ASSISTANCE: Collect Name, Phone, Check-in date, Check-out date, Room type
+   When all details collected: "✅ Booking request record ho gayi! ${name} team aapko ${recPhone ? recPhone : "hotel number pe"} confirm karegi. Shukriya! 🙏"
+
+7. EMERGENCY / COMPLAINT: Always empathetic first, then solution
+   - "Main abhi immediately staff ko inform kar raha hoon!"
+   - Serious issues: Give reception number ${recPhone || "directly at front desk"}
+
+8. IDENTITY: Tum Sandy ho — ${name} ki exclusive AI Concierge. GuestInn Network ka part ho.
+   Agar koi poochhe "Tum kaun ho?" → "Main Sandy hoon, ${name} ki AI Concierge! 🤖✨ Aapki koi bhi zaroorat ho, bas poochho!"`;
 }
 
 export async function POST(request) {
@@ -84,29 +209,51 @@ Rules: name=full name, dob=DD/MM/YYYY, idNumber=exact number on card, idType=one
       return Response.json({ success: true, insight: res.choices[0]?.message?.content || "" });
     }
 
-    // ── GUEST CHATBOT ────────────────────────────────────────────
+    // ── GUEST CHATBOT (SANDY) — PHASE 3 ENHANCED ─────────────────────────────
+    // Full hotel context is now deeply injected via buildSandySystemPrompt()
     if (type === "chat") {
-      // systemOverride allows marketplace/negotiator to pass custom prompt
-      const systemPrompt = body.systemOverride || `You are a friendly AI receptionist for "${hotelConfig?.name || "The GuestInn"}" hotel located in ${hotelConfig?.location || "India"}.
+      // If a marketplace/negotiator systemOverride is provided, use it as-is (for NegotiatorOrb).
+      // Otherwise, build the rich Phase 3 Sandy prompt with full hotel config.
+      let systemPrompt;
 
-Your job: Help guests book rooms, answer questions, collect their details.
-
-RULES:
-- Always use ₹ (Indian Rupees), never $
-- Respond in same language as guest (Hindi/English/Hinglish)
-- Be warm, friendly, concise (max 4 lines per reply)
-- Room types available:
-  • Standard Room: ₹${hotelConfig?.rates?.standard || hotelConfig?.standardRate || 1500}/night (AC, TV, WiFi, Geyser)
-  • Deluxe Room: ₹${hotelConfig?.rates?.deluxe || hotelConfig?.deluxeRate || 2500}/night (AC, TV, WiFi, Mini Bar, Geyser)
-  • Suite: ₹${hotelConfig?.rates?.suite || hotelConfig?.suiteRate || 4500}/night (AC, 55" TV, WiFi, Mini Bar, Jacuzzi, Butler)
-- For booking: collect Name, Phone number, Check-in date, Check-out date, Room type
-- When guest gives their details say: "✅ Booking request submit ho gayi! ${hotelConfig?.name || "Hotel"} team aapko confirm karega. Shukriya! 🙏"
-- Answer location questions: hotel is in ${hotelConfig?.location || "India"}
-- If asked about facilities: WiFi, parking, 24/7 reception, room service available`;
+      if (body.systemOverride) {
+        // NegotiatorOrb or marketplace-specific override — pass through unchanged
+        systemPrompt = body.systemOverride;
+      } else {
+        // Phase 3: Sandy in-room concierge with deep hotel context
+        // Try to enrich from DB if hotelId is provided and config seems minimal
+        let enrichedConfig = { ...hotelConfig };
+        if (hotelId && (!enrichedConfig.wifiPassword || !enrichedConfig.name)) {
+          const dbHotel = await fetchHotelFromDB(hotelId);
+          if (dbHotel) {
+            enrichedConfig = {
+              ...enrichedConfig,
+              name:               dbHotel.name             || enrichedConfig.name,
+              location:           dbHotel.location         || enrichedConfig.location,
+              standardRate:       dbHotel.standard_rate    || enrichedConfig.standardRate,
+              deluxeRate:         dbHotel.deluxe_rate      || enrichedConfig.deluxeRate,
+              suiteRate:          dbHotel.suite_rate       || enrichedConfig.suiteRate,
+              minFloorPrice:      dbHotel.min_floor_price  || enrichedConfig.minFloorPrice,
+              wifiPassword:       dbHotel.wifi_password    || enrichedConfig.wifiPassword,
+              menuText:           dbHotel.menu_text        || enrichedConfig.menuText,
+              menuUrl:            dbHotel.menu_url         || enrichedConfig.menuUrl,
+              receptionPhone:     dbHotel.reception_phone  || enrichedConfig.receptionPhone,
+              enableWifi:         dbHotel.enable_wifi      ?? enrichedConfig.enableWifi,
+              enableFoodOrdering: dbHotel.enable_food_ordering ?? enrichedConfig.enableFoodOrdering,
+              enableHousekeeping: dbHotel.enable_housekeeping  ?? enrichedConfig.enableHousekeeping,
+              checkinTime:        dbHotel.checkin_time     || enrichedConfig.checkinTime,
+              checkoutTime:       dbHotel.checkout_time    || enrichedConfig.checkoutTime,
+              amenities:          dbHotel.amenities        || enrichedConfig.amenities,
+            };
+          }
+        }
+        systemPrompt = buildSandySystemPrompt(enrichedConfig);
+      }
 
       const res = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
-        max_tokens: 300,
+        max_tokens: 350,
+        temperature: 0.7,
         messages: [
           { role: "system", content: systemPrompt },
           ...(chatHistory || [])
@@ -119,8 +266,6 @@ RULES:
     }
 
     // ── AI NEGOTIATOR ────────────────────────────────────────────
-    // Intercepts a guest's discount request, validates against hotel's
-    // min_floor_price from DB, and returns a rate-lock confirmation token.
     if (type === "negotiate") {
       const { requestedRate, roomType, bookingContext } = body;
 
@@ -152,33 +297,30 @@ RULES:
       const deluxeRate     = hotelRow.deluxe_rate     || 2000;
       const suiteRate      = hotelRow.suite_rate      || 3800;
 
-      // Step 2 — Determine base rate for the requested room type
       const baseRateMap = { standard: standardRate, deluxe: deluxeRate, suite: suiteRate };
       const baseRate    = baseRateMap[roomType?.toLowerCase()] || standardRate;
 
-      // Step 3 — Safety check: requested rate vs floor price
       const isAboveFloor  = requestedRate >= floorPrice;
       const discountPct   = Math.round(((baseRate - requestedRate) / baseRate) * 100);
-      const isReasonable  = discountPct <= 30; // max 30% discount via AI negotiator
+      const isReasonable  = discountPct <= 30;
       const approved      = isAboveFloor && isReasonable;
 
-      // Step 4 — Build rate-lock token (deterministic, no crypto dependency needed at this layer)
       const timestamp   = Date.now();
       const tokenSuffix = `${hotelId.slice(0, 4).toUpperCase()}-${timestamp.toString(36).toUpperCase()}`;
       const rateLockToken = approved ? `RLT-${tokenSuffix}` : null;
 
-      // Step 5 — Generate AI response message in Hinglish
-      const negotiateSystemPrompt = `You are the AI Negotiator for "${hotelRow.name}" hotel. You handle guest discount requests.
+      const negotiateSystemPrompt = `You are Sandy, the AI Rate Negotiator for "${hotelRow.name}" hotel. You handle guest discount requests.
 RULES:
 - Always respond in Hinglish (mix of Hindi and English)
 - Be warm but firm about pricing
 - Use ₹ symbol always
 - Keep response under 3 sentences
-- If rate approved: celebrate, confirm the rate, mention it's locked
-- If rate rejected: politely decline, offer the minimum acceptable floor price instead`;
+- If rate approved: celebrate, confirm the rate, mention it's locked with a token
+- If rate rejected: politely decline, offer the minimum acceptable floor price instead
+- Add relevant emoji`;
 
       const negotiateUserPrompt = approved
-        ? `Guest requested ₹${requestedRate}/night for a ${roomType || "standard"} room. Original rate: ₹${baseRate}. Discount: ${discountPct}%. APPROVED. Confirm the locked rate of ₹${requestedRate} and tell guest it's confirmed.`
+        ? `Guest requested ₹${requestedRate}/night for a ${roomType || "standard"} room. Original rate: ₹${baseRate}. Discount: ${discountPct}%. APPROVED. Confirm the locked rate of ₹${requestedRate} and tell guest it's confirmed with a rate-lock token.`
         : `Guest requested ₹${requestedRate}/night for a ${roomType || "standard"} room. Original rate: ₹${baseRate}. This is ${isAboveFloor ? `too high a discount (${discountPct}%)` : "below our minimum floor price"}. REJECTED. Politely say we can offer ₹${floorPrice} as the best possible rate.`;
 
       const aiRes = await groq.chat.completions.create({
@@ -192,7 +334,7 @@ RULES:
 
       const aiMessage = aiRes.choices[0]?.message?.content || (
         approved
-          ? `✅ Rate lock confirmed! ₹${requestedRate}/night — aapka special rate lock ho gaya!`
+          ? `✅ Rate lock ho gaya! ₹${requestedRate}/night — aapka special rate confirm ho gaya!`
           : `Sorry, ₹${requestedRate} available nahi hai. Hamare liye best rate ₹${floorPrice}/night hai.`
       );
 
@@ -208,7 +350,6 @@ RULES:
         message:        aiMessage,
         hotelName:      hotelRow.name,
         roomType:       roomType || "standard",
-        // Booking context echo-back so frontend can auto-fill
         bookingContext: bookingContext || null,
       });
     }
