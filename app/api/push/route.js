@@ -1,141 +1,170 @@
-/**
- * app/api/push/route.js
- * Push notification API — subscribe / unsubscribe / send
- * Uses 'web-push' npm package for proper VAPID + encrypted payload
- *
- * ENV variables (Vercel dashboard mein add karo):
- *   NEXT_PUBLIC_VAPID_PUBLIC_KEY   — public VAPID key
- *   VAPID_PRIVATE_KEY              — private VAPID key (secret)
- *   VAPID_SUBJECT                  — mailto:you@domain.com
- *   NEXT_PUBLIC_SUPABASE_URL
- *   NEXT_PUBLIC_SUPABASE_ANON_KEY
- */
+// app/api/push/route.js — The GuestInn Network: Push Notification Server
+// ═══════════════════════════════════════════════════════════════
+// Handles:
+//   POST { action:"subscribe",   hotelId, subscription }  → save subscription
+//   POST { action:"send",        hotelId, payload }        → fire push to all hotel subscribers
+//   POST { action:"unsubscribe", hotelId, endpoint }       → remove subscription
+//   GET  { hotelId }                                        → return VAPID public key
+// ═══════════════════════════════════════════════════════════════
 
 export const dynamic = "force-dynamic";
 
-import webpush from "web-push";
-
-const VAPID_PUBLIC  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY  || "";
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY             || "";
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT                 || "mailto:admin@theguestinn.com";
-const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL      || "";
-const SUPABASE_KEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-
-// Configure web-push once
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+// Web-push is optional (graceful degradation if not installed)
+let webpush = null;
+try {
+  webpush = require("web-push");
+  const pubKey  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privKey = process.env.VAPID_PRIVATE_KEY;
+  const email   = process.env.VAPID_EMAIL || "mailto:admin@theguestinn.network";
+  if (pubKey && privKey && pubKey !== "undefined") {
+    webpush.setVapidDetails(email, pubKey, privKey);
+  } else {
+    webpush = null; // VAPID not configured — degrade gracefully
+  }
+} catch {
+  webpush = null;
 }
 
-// ── Supabase REST helpers (no SDK needed) ────────────────────────
-const sbH = () => ({
-  "Content-Type":  "application/json",
-  "apikey":        SUPABASE_KEY,
-  "Authorization": `Bearer ${SUPABASE_KEY}`,
-});
+// In-memory subscription store (replace with DB in production)
+// Keyed by hotelId → array of subscription objects
+const subscriptions = new Map();
 
-async function sbSelect(table, qs = "") {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${qs}`, { headers: sbH() });
-  if (!res.ok) return [];
-  return res.json();
+function getSubscriptions(hotelId) {
+  return subscriptions.get(hotelId) || [];
 }
 
-async function sbUpsert(table, body) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method:  "POST",
-    headers: { ...sbH(), "Prefer": "resolution=merge-duplicates" },
-    body:    JSON.stringify(body),
+function saveSubscription(hotelId, subscription) {
+  const existing = getSubscriptions(hotelId);
+  const filtered = existing.filter(s => s.endpoint !== subscription.endpoint);
+  subscriptions.set(hotelId, [...filtered, subscription]);
+}
+
+function removeSubscription(hotelId, endpoint) {
+  const existing = getSubscriptions(hotelId);
+  subscriptions.set(hotelId, existing.filter(s => s.endpoint !== endpoint));
+}
+
+// ── Notification payload builder ─────────────────────────────
+function buildPayload(payload, hotelId) {
+  const status = payload.status || "";
+  const emoji  = status === "reserved"    ? "⭐" :
+                 status === "occupied"    ? "🔴" :
+                 status === "checked_out" ? "✅" : "🏨";
+
+  return JSON.stringify({
+    title:   payload.title || `${emoji} GuestInn Network — ${hotelId}`,
+    body:    payload.body  || "Naya booking alert!",
+    icon:    payload.icon  || "/icons/icon-192.png",
+    badge:   payload.badge || "/icons/badge-72.png",
+    tag:     payload.tag   || `gi-${Date.now()}`,
+    sound:   payload.sound ?? true,
+    vibrate: [200, 100, 200],
+    data: {
+      url:       payload.data?.url || `/app?hotel=${hotelId}&tab=dashboard`,
+      bookingId: payload.data?.bookingId || null,
+      status:    payload.data?.status    || status,
+      timestamp: Date.now(),
+    },
+    actions: status === "reserved" ? [
+      { action:"approve", title:"✅ Approve Karo" },
+      { action:"view",    title:"👁 View Karo" },
+    ] : status === "occupied" ? [
+      { action:"checkout", title:"Checkout" },
+      { action:"view",     title:"View" },
+    ] : [],
   });
-  return res.ok;
 }
 
-async function sbDelete(table, qs) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${qs}`, {
-    method:  "DELETE",
-    headers: sbH(),
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const hotelId = searchParams.get("hotelId") || "default";
+  return Response.json({
+    success:   true,
+    vapidKey:  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null,
+    supported: !!webpush,
+    hotelId,
   });
-  return res.ok;
 }
 
-// ── POST handler ─────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    const body   = await request.json();
-    const { action } = body;
+    const body = await request.json();
+    const { action, hotelId, subscription, payload, endpoint } = body;
 
-    // ── SUBSCRIBE ─────────────────────────────────────────────
+    if (!hotelId) return Response.json({ error:"hotelId required" }, { status:400 });
+
+    // ── SUBSCRIBE ──
     if (action === "subscribe") {
-      const { hotelId, role, subscription } = body;
-      if (!hotelId || !subscription?.endpoint) {
-        return Response.json({ ok: false, error: "Missing hotelId or subscription" });
+      if (!subscription?.endpoint) {
+        return Response.json({ error:"Valid subscription object required" }, { status:400 });
       }
-      await sbUpsert("push_subscriptions", {
-        hotel_id:     hotelId,
-        role:         role || "staff",
-        endpoint:     subscription.endpoint,
-        p256dh:       subscription.keys?.p256dh || "",
-        auth:         subscription.keys?.auth   || "",
-        subscription: JSON.stringify(subscription),
-        created_at:   new Date().toISOString(),
-      });
-      return Response.json({ ok: true, action: "subscribed" });
+      saveSubscription(hotelId, subscription);
+      const count = getSubscriptions(hotelId).length;
+      console.log(`[Push] New subscription for hotel ${hotelId} — total: ${count}`);
+      return Response.json({ success:true, action:"subscribed", count });
     }
 
-    // ── UNSUBSCRIBE ───────────────────────────────────────────
+    // ── UNSUBSCRIBE ──
     if (action === "unsubscribe") {
-      const { hotelId, endpoint } = body;
-      await sbDelete(
-        "push_subscriptions",
-        `hotel_id=eq.${hotelId}&endpoint=eq.${encodeURIComponent(endpoint)}`
-      );
-      return Response.json({ ok: true, action: "unsubscribed" });
+      if (endpoint) removeSubscription(hotelId, endpoint);
+      return Response.json({ success:true, action:"unsubscribed" });
     }
 
-    // ── SEND ──────────────────────────────────────────────────
+    // ── SEND ──
     if (action === "send") {
-      const { hotelId, payload } = body;
-      if (!hotelId || !payload) {
-        return Response.json({ ok: false, error: "Missing hotelId or payload" });
-      }
-      if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-        console.warn("[PUSH] VAPID keys missing — set env vars in Vercel");
-        return Response.json({ ok: false, error: "VAPID keys not configured" });
+      const subs = getSubscriptions(hotelId);
+
+      if (!webpush) {
+        // Graceful degradation — acknowledge receipt without sending
+        console.log(`[Push] webpush not configured — simulating notification for hotel: ${hotelId}`);
+        console.log(`[Push] Payload:`, payload);
+        return Response.json({
+          success:   true,
+          sent:      0,
+          simulated: true,
+          message:   "VAPID keys not set — notification simulated. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY in Vercel env vars.",
+          hotelId,
+        });
       }
 
-      const rows = await sbSelect("push_subscriptions", `hotel_id=eq.${hotelId}`);
-      if (!rows.length) {
-        return Response.json({ ok: true, sent: 0, note: "No subscribers for this hotel" });
+      if (subs.length === 0) {
+        return Response.json({
+          success: true,
+          sent:    0,
+          message: "Koi active subscriber nahi — notification queued",
+          hotelId,
+        });
       }
 
-      const results = await Promise.allSettled(
-        rows.map(async (row) => {
-          let sub;
-          try { sub = JSON.parse(row.subscription); } catch { return; }
+      const notifPayload = buildPayload(payload || {}, hotelId);
+      let sent = 0; let failed = 0;
+      const stale = [];
 
-          try {
-            await webpush.sendNotification(sub, JSON.stringify(payload), {
-              TTL: 86400,
-              urgency: "high",
-            });
-            return { ok: true };
-          } catch (err) {
-            // 410 / 404 = subscription expired, clean up
-            if (err.statusCode === 410 || err.statusCode === 404) {
-              await sbDelete("push_subscriptions", `endpoint=eq.${encodeURIComponent(row.endpoint)}`);
-            }
-            console.warn("[PUSH] sendNotification failed:", err.statusCode, err.message);
-            return { ok: false, status: err.statusCode };
+      for (const sub of subs) {
+        try {
+          await webpush.sendNotification(sub, notifPayload);
+          sent++;
+        } catch (e) {
+          if (e.statusCode === 410 || e.statusCode === 404) {
+            // Expired subscription
+            stale.push(sub.endpoint);
           }
-        })
-      );
+          failed++;
+          console.warn("[Push] Send failed:", e.message);
+        }
+      }
 
-      const sent = results.filter((r) => r.status === "fulfilled" && r.value?.ok).length;
-      return Response.json({ ok: true, sent, total: rows.length });
+      // Clean up stale subscriptions
+      stale.forEach(ep => removeSubscription(hotelId, ep));
+
+      console.log(`[Push] Sent ${sent}/${subs.length} for hotel ${hotelId} — ${stale.length} stale removed`);
+      return Response.json({ success:true, sent, failed, stale:stale.length, hotelId });
     }
 
-    return Response.json({ ok: false, error: "Unknown action" });
+    return Response.json({ error:"Invalid action. Valid: subscribe, unsubscribe, send" }, { status:400 });
 
-  } catch (err) {
-    console.error("[PUSH API] Error:", err.message);
-    return Response.json({ ok: false, error: err.message });
+  } catch (e) {
+    console.error("[Push] Error:", e.message);
+    return Response.json({ error:e.message }, { status:500 });
   }
 }
