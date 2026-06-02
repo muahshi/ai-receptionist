@@ -24,7 +24,12 @@ export default function GuestsView({ hotelId, hotel, user }) {
     setRefreshing(false);
   };
 
-  useEffect(() => { load(); }, [hotelId]);
+  useEffect(() => {
+    load();
+    // Auto-refresh every 20s so marketplace bookings appear without manual refresh
+    const iv = setInterval(() => load(), 20000);
+    return () => clearInterval(iv);
+  }, [hotelId]);
 
   const filtered = guests.filter(g =>
     filter === "all" ? true :
