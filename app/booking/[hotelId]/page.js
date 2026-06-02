@@ -114,13 +114,27 @@ function getRooms(hotelId, total) {
    SAVE BOOKING
 ═══════════════════════════════════════════ */
 async function saveBooking(booking, hotelId) {
+  const now  = booking.createdAt || new Date().toISOString();
   const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // ── 1. Always write to localStorage FIRST (instant, scoped key) ──
+  // Key MUST match what db.js uses: air_${hotelId}_bookings
+  try {
+    const key  = `air_${hotelId}_bookings`;
+    const list = JSON.parse(localStorage.getItem(key) || "[]");
+    // Prepend so newest appears first — same order as Supabase DESC
+    if (!list.find(b => b.id === booking.id)) {
+      localStorage.setItem(key, JSON.stringify([booking, ...list]));
+    }
+  } catch {}
+
+  // ── 2. Sync to Supabase (background, non-blocking) ──
   if (sbUrl && sbKey && sbUrl !== "undefined") {
     try {
       const row = {
         id:              booking.id,
-        hotel_id:        hotelId,
+        hotel_id:        hotelId,                               // scoped to this hotel
         guest_name:      booking.guestName     || "",
         guest_phone:     booking.guestPhone    || "",
         address:         booking.address       || "",
@@ -141,24 +155,41 @@ async function saveBooking(booking, hotelId) {
         negotiated:      booking.negotiated    || false,
         negotiated_from: booking.negotiatedFrom || 0,
         source:          "marketplace",
+        created_at:      now,                                   // ← was missing — causes NULL in DB
       };
       const res = await fetch(`${sbUrl}/rest/v1/bookings`, {
         method: "POST",
         headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
         body: JSON.stringify(row),
       });
-      if (res.ok || res.status === 201) return { success: true };
-    } catch {}
+      if (!res.ok && res.status !== 201) {
+        console.warn("[saveBooking] Supabase insert failed:", res.status);
+      }
+    } catch (e) {
+      console.warn("[saveBooking] Supabase error:", e.message);
+    }
   }
+
+  // ── 3. Fire push event so staff dashboard refreshes instantly ──
   try {
-    const key  = `air_${hotelId}_bookings`;
-    const list = JSON.parse(localStorage.getItem(key) || "[]");
-    list.push(booking);
-    localStorage.setItem(key, JSON.stringify(list));
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
+    await fetch("/api/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action:     "send",
+        hotelId,
+        type:       "new_booking",
+        title:      `🛎️ New Booking — ${booking.guestName || "Guest"}`,
+        body:       `Room ${booking.roomNumber || booking.roomId} · ₹${booking.totalAmount} · ${booking.nights} night(s)`,
+        actionId:   "new_booking",
+        roomNumber: booking.roomNumber || null,
+        guestName:  booking.guestName  || "Guest",
+        timestamp:  now,
+      }),
+    });
+  } catch {}
+
+  return { success: true };
 }
 
 /* ═══════════════════════════════════════════
@@ -834,10 +865,25 @@ export default function BookingPage() {
       source:         "marketplace",
       createdAt:      new Date().toISOString(),
     };
-    const result = await saveBooking(booking, hotelId);
+    await saveBooking(booking, hotelId);
+
+    // Update room status in localStorage so staff dashboard reflects it immediately
     if (selectedRoom) {
+      try {
+        const roomsKey = `air_${hotelId}_rooms`;
+        const storedRooms = JSON.parse(localStorage.getItem(roomsKey) || "[]");
+        if (storedRooms.length > 0) {
+          const updated = storedRooms.map(r =>
+            r.id === selectedRoom.id
+              ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName }
+              : r
+          );
+          localStorage.setItem(roomsKey, JSON.stringify(updated));
+        }
+      } catch {}
       setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, status: "reserved", currentBookingId: bid } : r));
     }
+
     try {
       const { sendBookingAlerts } = await import("../../../lib/alerts");
       await sendBookingAlerts(booking);
