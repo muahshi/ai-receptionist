@@ -126,6 +126,13 @@ async function saveBooking(booking, hotelId) {
     if (!list.find(b => b.id === booking.id)) {
       localStorage.setItem(key, JSON.stringify([booking, ...list]));
     }
+    // Broadcast to dashboard/guests/reports tabs for instant refresh
+    try {
+      const bc = new BroadcastChannel("air_hotel_sync");
+      bc.postMessage({ type: "new_booking", hotelId, ts: Date.now() });
+      bc.close();
+    } catch {}
+    localStorage.setItem(`air_sync_${hotelId}`, Date.now().toString());
   } catch {}
 
   // ── 2. Sync to Supabase (background, non-blocking) ──
@@ -398,10 +405,11 @@ function ServiceTab({ hotel, bookingResult, onRequestSent }) {
     if (sentRequests.includes(action.id)) return;
     setLoading(action.id);
     try {
-      await fetch("/api/push/send", {
+      await fetch("/api/push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action:      "send",
           hotelId:     hotel?.id,
           type:        "room_service",
           title:       `🔔 Room ${bookingResult?.roomNumber || "?"} — Service Request`,
