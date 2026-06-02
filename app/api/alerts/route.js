@@ -1,87 +1,70 @@
-/**
- * app/api/alerts/route.js
- * Email alerts via Resend (free: 100 emails/day)
- * Setup: resend.com signup → API key → Vercel env: RESEND_API_KEY
- */
+// app/api/alerts/route.js — The GuestInn Network: Alerts Proxy
+// Server-side WhatsApp Cloud API sender + booking confirmation handler
+
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
   try {
-    const { type, to, subject, text, booking } = await request.json();
-    if (type !== "email") return Response.json({ ok:false, error:"Unknown type" });
+    const body = await request.json();
+    const { action, booking } = body;
 
-    const apiKey = process.env.RESEND_API_KEY;
+    if (action === "whatsapp") {
+      if (!booking) return Response.json({ error:"booking required" }, { status:400 });
 
-    if (!apiKey) {
-      console.log("[EMAIL] No RESEND_API_KEY. Would send to:", to, "| Subject:", subject);
-      return Response.json({ ok:true, mode:"logged_only",
-        note:"Add RESEND_API_KEY in Vercel env to enable emails" });
+      const token  = process.env.WHATSAPP_ACCESS_TOKEN;
+      const fromId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+      const phoneRaw = booking.ownerPhone || booking.managerPhone || process.env.NEXT_PUBLIC_HOTEL_OWNER_PHONE;
+
+      if (!token || !fromId || !phoneRaw) {
+        return Response.json({
+          success: false,
+          reason:  "WhatsApp credentials not configured. Set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID in Vercel.",
+          simulate: true,
+        });
+      }
+
+      const phone = phoneRaw.replace(/\D/g,"").replace(/^0/,"").replace(/^(?!91)/,"91");
+      const statusText = booking.status === "reserved"   ? "New Reservation — Approval Pending (GOLD)"
+                       : booking.status === "occupied"   ? "Guest Checked In — OCCUPIED"
+                       : booking.status === "checked_out"? "Guest Checked Out"
+                       : "Booking Update";
+      const checkInFmt = booking.checkInDate
+        ? new Date(booking.checkInDate).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})
+        : "—";
+
+      const payload = {
+        messaging_product: "whatsapp",
+        to:   phone,
+        type: "template",
+        template: {
+          name:     "guestinn_booking_alert",
+          language: { code:"en" },
+          components: [{
+            type:       "body",
+            parameters: [
+              { type:"text", text:statusText },
+              { type:"text", text:booking.guestName   || "—" },
+              { type:"text", text:booking.roomId      || "—" },
+              { type:"text", text:checkInFmt },
+              { type:"text", text:`₹${Number(booking.totalAmount||0).toLocaleString("en-IN")}` },
+              { type:"text", text:booking.id?.slice(-10).toUpperCase() || "—" },
+            ],
+          }],
+        },
+      };
+
+      const res = await fetch(`https://graph.facebook.com/v20.0/${fromId}/messages`, {
+        method:  "POST",
+        headers: { Authorization:`Bearer ${token}`, "Content-Type":"application/json" },
+        body:    JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) return Response.json({ success:true, messageId:data.messages?.[0]?.id });
+      return Response.json({ success:false, error:data?.error?.message || "WA send failed" });
     }
 
-    const b = booking || {};
-    const fmtNum = v => Number(v||0).toLocaleString("en-IN");
-    const fmtDate = d => { try { return new Date(d).toLocaleDateString("en-IN"); } catch { return d||"—"; } };
-
-    const html = `<!DOCTYPE html><html><head><style>
-      body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
-      .card{background:#fff;border-radius:12px;padding:28px;max-width:520px;margin:0 auto;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
-      .hdr{background:linear-gradient(135deg,#1a1200,#D4AF37);padding:20px 24px;border-radius:8px 8px 0 0;margin:-28px -28px 20px}
-      .hn{font-size:20px;font-weight:900;color:#000}
-      .hs{font-size:10px;color:rgba(0,0,0,0.6);margin-top:2px;letter-spacing:1px}
-      .badge{display:inline-block;background:#22c55e;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:14px}
-      .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0}
-      .lbl{color:#888;font-size:12px}.val{font-size:13px;font-weight:600;color:#111}
-      .tot{background:#fdf9e8;border:2px solid #D4AF37;border-radius:10px;padding:14px;margin-top:16px;text-align:center}
-      .amt{font-size:28px;font-weight:900;color:#b8960c}
-      .ft{text-align:center;margin-top:18px;font-size:10px;color:#bbb}
-    </style></head><body><div class="card">
-      <div class="hdr">
-        <div class="hn">${b.hotelName||"The GuestInn"}</div>
-        <div class="hs">AI-POWERED HOTEL MANAGEMENT</div>
-      </div>
-      <div class="badge">✓ NEW CHECK-IN</div>
-      ${[
-        ["Guest",     b.guestName||"—"],
-        ["Phone",     b.guestPhone||"—"],
-        ["ID",        `${b.idType||"—"} · ${b.idNumber||"—"}`],
-        ["Room",      `${b.roomId||"—"} (${b.roomType||"standard"})`],
-        ["Check-in",  fmtDate(b.checkInDate)],
-        ["Check-out", fmtDate(b.checkOutDate)],
-        ["Nights",    String(b.nights||1)],
-        ["Rate/Night",`₹${fmtNum(b.ratePerNight)}`],
-        ["Payment",   b.paymentMode||"—"],
-        ["Booking ID",b.id?.slice(-8)||"—"],
-      ].map(([l,v])=>`<div class="row"><span class="lbl">${l}</span><span class="val">${v}</span></div>`).join("")}
-      <div class="tot">
-        <div style="font-size:11px;color:#888;margin-bottom:4px">TOTAL AMOUNT</div>
-        <div class="amt">₹${fmtNum(b.totalAmount)}</div>
-        <div style="font-size:11px;color:#888;margin-top:4px">🔒 Rate Locked</div>
-      </div>
-      <div class="ft">The GuestInn AI • ${new Date().toLocaleString("en-IN")}</div>
-    </div></body></html>`;
-
-    const res = await fetch("https://api.resend.com/emails", {
-      method:"POST",
-      headers:{ "Authorization":`Bearer ${apiKey}`, "Content-Type":"application/json" },
-      body: JSON.stringify({
-        from:    "The GuestInn <alerts@theguestinn.com>",
-        to:      Array.isArray(to) ? to : [to],
-        subject: subject || "New Check-in Alert",
-        text:    text || "",
-        html,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("[EMAIL] Resend error:", err);
-      return Response.json({ ok:false, error:err });
-    }
-    const data = await res.json();
-    return Response.json({ ok:true, id:data.id });
-
-  } catch(e) {
-    console.error("[EMAIL] Error:", e.message);
-    return Response.json({ ok:false, error:e.message });
+    return Response.json({ error:"Invalid action" }, { status:400 });
+  } catch (e) {
+    return Response.json({ error:e.message }, { status:500 });
   }
 }
