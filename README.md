@@ -1,438 +1,718 @@
 <div align="center">
 
 # 🏨 The GuestInn Network
-### India ka Smart Hotel Network
 
-**AI Powered · Secure · Commission Free**
+### India ka AI-Powered, Commission-Free Smart Hotel Operating System
+
+**AI Powered · Offline-First · Commission Free · PWA Ready**
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=nextdotjs)](https://nextjs.org)
 [![Groq AI](https://img.shields.io/badge/Groq-Llama_3.3_70b-orange)](https://groq.com)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green?logo=supabase)](https://supabase.com)
 [![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
 [![PWA](https://img.shields.io/badge/PWA-Installable-blue)](https://web.dev/progressive-web-apps)
+[![License](https://img.shields.io/badge/License-Private-red)](/)
 
-[Live Demo](https://ai-receptionist-sandy-six.vercel.app) · [Booking Page](https://ai-receptionist-sandy-six.vercel.app/booking/cherry-bhopal) · [Staff Login](https://ai-receptionist-sandy-six.vercel.app)
+[🌐 Live Demo](https://ai-receptionist-sandy-six.vercel.app) · [📱 Guest Companion](https://ai-receptionist-sandy-six.vercel.app/booking/cherry-bhopal) · [🔐 Staff Login](https://ai-receptionist-sandy-six.vercel.app)
 
 </div>
 
 ---
 
-## ✨ Kya Hai Yeh?
+## 📖 Table of Contents
 
-The GuestInn Network India ka **commission-free smart hotel platform** hai — do layers mein:
-
-### 🌐 Marketplace Layer (Guest-facing)
-Koi bhi guest aake hotels search kar sakta hai, AI Negotiator se baat kar sakta hai, aur seedha book kar sakta hai — koi OTA nahi, koi commission nahi.
-
-### 🏨 Hotel Management Layer (Staff-facing)
-Har registered hotel ko milta hai — AI ID Scanner, Room Grid Dashboard, Push Notifications, GRC Compliance, Revenue Tracking.
+- [Kya Hai Yeh?](#-kya-hai-yeh)
+- [Architecture Overview](#-architecture-overview)
+- [Feature Phases](#-feature-phases)
+- [Project Structure](#-project-structure)
+- [Tech Stack](#-tech-stack)
+- [Database Schema](#-database-schema)
+- [Environment Variables](#-environment-variables)
+- [Local Setup](#-local-setup)
+- [Deployment (Vercel)](#-deployment-vercel)
+- [Data Flow](#-data-flow)
+- [API Reference](#-api-reference)
+- [Multi-Tenant Architecture](#-multi-tenant-architecture)
+- [PWA & Push Notifications](#-pwa--push-notifications)
+- [Demo Hotels](#-demo-hotels)
 
 ---
 
-## 🗂️ Project Structure
+## ✨ Kya Hai Yeh?
+
+**The GuestInn Network** ek dual-layer platform hai jo hotels ke liye India-first experience deliver karta hai — bina kisi OTA commission ke.
+
+### 🌐 Layer 1 — Marketplace (Guest-Facing)
+Koi bhi traveler hotels browse kar sakta hai, **Sandy AI Negotiator** se rate negotiate kar sakta hai, aur seedha book kar sakta hai. Koi Booking.com nahi, koi MakeMyTrip nahi — hotel apna full revenue rakhta hai.
+
+### 🏨 Layer 2 — Hotel Management System (Staff-Facing)
+Har registered hotel ko milta hai ek complete PMS — AI-powered ID scanner, real-time room grid, push notifications, GRC-compliant guest records, revenue analytics, aur ab ek fully automated **Guest Digital Companion**.
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                 THE GUESTINN NETWORK                    │
+├────────────────────┬────────────────────────────────────┤
+│  MARKETPLACE LAYER │      HOTEL MANAGEMENT LAYER        │
+│  (Guest-Facing)    │      (Staff-Facing)                │
+│                    │                                    │
+│  app/page.js       │  app/dashboard/page.js             │
+│  ↓                 │  ↓                                 │
+│  HeroSearchSection │  LoginScreen → DashboardView       │
+│  MarketplaceHotels │  ScannerView (AI ID Scan)          │
+│  NegotiatorOrb     │  GuestsView (GRC Records)          │
+│  (Sandy AI)        │  SettingsView (Hotel Config)       │
+├────────────────────┴────────────────────────────────────┤
+│              SHARED INFRASTRUCTURE                      │
+│                                                         │
+│  lib/db.js          — localStorage + Supabase hybrid   │
+│  lib/alerts.js      — WhatsApp + Email + Push           │
+│  app/api/groq/      — Groq Llama 3.3 70b               │
+│  app/api/push/      — Web Push (VAPID)                  │
+│  app/api/alerts/    — Resend Email                      │
+├─────────────────────────────────────────────────────────┤
+│              GUEST DIGITAL COMPANION                    │
+│                                                         │
+│  app/booking/[hotelId]/page.js                          │
+│  ↓ Tabs: Sandy AI · Food Order · Room Service · Call    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Offline-First Hybrid Pattern
+
+```
+User Action
+    │
+    ▼
+localStorage (instant, always works)
+    │
+    ▼ (background, non-blocking)
+Supabase PostgreSQL (cloud sync)
+```
+
+Data localStorage mein pehle save hota hai — internet nahi hai tab bhi kaam karta hai. Supabase mein background sync hoti hai.
+
+---
+
+## 🚀 Feature Phases
+
+Yeh project 5 phases mein build kiya gaya hai:
+
+### ✅ Phase 1 — Dynamic Hotel Configurations
+**`components/SettingsView.js` · `lib/db.js` · `lib/db.supabase.js`**
+
+Hotel owners ab in-app configure kar sakte hain:
+- 📶 **Wi-Fi Password** — guests ko automatically share hota hai
+- 🍽️ **Digital Menu** — URL ya plain-text menu items
+- 📞 **Reception Contact Number** — Call Desk ke liye
+- 🔧 **Service Toggles** — Housekeeping, Food Ordering, Call Desk enable/disable
+
+Sab kuch `hotelConfig` object mein store hota hai (`air_[hotelId]_config` localStorage key + Supabase `hotels` table sync).
+
+---
+
+### ✅ Phase 2 — In-Room Guest Digital Companion
+**`app/booking/[hotelId]/page.js`**
+
+Guest booking page ab ek premium **In-Room Digital Companion** hai — 4 tabs:
+
+| Tab | Feature |
+|-----|---------|
+| 🤖 **Sandy** | Groq-powered AI chat — Hinglish mein baat karo |
+| 🍽️ **Food** | Restaurant menu browse karo + Sandy se order karo |
+| 🧹 **Service** | Quick buttons — Clean Room, Water Bottle, AC Issue, etc. |
+| 📞 **Call Desk** | `tel:` link se seedha reception ko call karo |
+
+Wi-Fi password ek tap se copy hota hai. Service requests real-time staff dashboard pe push hote hain.
+
+---
+
+### ✅ Phase 3 — Groq AI System Context Injection
+**`app/api/groq/route.js` · `components/NegotiatorOrb.js`**
+
+Sandy ab hotel-specific queries handle karti hai:
+
+- *"Wi-Fi ka password kya hai?"* → Turant answer
+- *"Khana kaise order karein?"* → Menu items suggest karta hai
+- *"Checkout time kya hai?"* → Hotel policy batata hai
+- *"Room clean karwa sakte hain?"* → Service request trigger karta hai
+
+`hotelConfig` (Wi-Fi, menu, rates, policy, amenities) Groq `systemOverride` prompt mein deep-inject hota hai. Sandy natural Hinglish mein respond karti hai.
+
+---
+
+### ✅ Phase 4 — Real-Time Service Alerts & Staff Dashboard
+**`components/DashboardView.js` · `app/api/push/route.js`**
+
+Guest koi bhi service request kare — staff ko turant pata chalta hai:
+
+- **Web Push Notification** — staff ke browser/phone pe
+- **Audio Chime** — Web Audio API se distinctive alert sound
+- **Live Alert Modal** — Dashboard pe flashing "Live Service Alert"
+- **Room Grid Color Change** — Indigo (Cleaning) / Amber (Alert) state
+
+Request types: `housekeeping` · `food_order` · `maintenance` · `water` · `ac_issue`
+
+---
+
+### ✅ Phase 5 — Automated Welcome Kit (Current)
+**`lib/alerts.js` · `app/api/alerts/route.js` · `components/ScannerView.js`**
+
+Check-in complete hote hi guest ko automatically milta hai:
+
+**WhatsApp Welcome Message** (`wa.me` deep link):
+- Room number + stay dates
+- Digital Companion direct URL
+- Wi-Fi password
+- Reception contact
+
+**Email Welcome Kit** (Resend via `/api/alerts`):
+- Premium dark-gold HTML design
+- Clickable "Open Room Companion →" button
+- Wi-Fi password block
+- Service icons grid (Food / Housekeeping / Sandy AI / Call Desk)
+- Only agar `RESEND_API_KEY` configured ho
+
+**`sendWelcomeKit(booking, cfgOverride)`** — `lib/alerts.js` se export, `ScannerView.js` mein check-in ke baad call hota hai (non-blocking).
+
+---
+
+## 📁 Project Structure
 
 ```
 ai-receptionist/
+│
 ├── app/
-│   ├── page.js                      # Marketplace homepage — hero, hotels, AI orb
+│   ├── page.js                      # Marketplace homepage
+│   │                                # HeroSearchSection + MarketplaceHotels + NegotiatorOrb
 │   ├── layout.js                    # Root layout — PWA meta, fonts, apple-touch-icon
 │   ├── globals.css                  # Global styles — scroll architecture, animations
-│   ├── booking/[hotelId]/page.js    # Public guest booking page (standalone)
-│   ├── h/[hotelId]/page.js          # Staff direct login shortcut
-│   ├── dashboard/page.js            # Hotel staff dashboard
+│   │
+│   ├── booking/[hotelId]/page.js    # 🌟 Guest Digital Companion (Phases 2+3+5)
+│   │                                # Tabs: Sandy · Food · Service · Call Desk
+│   │                                # Standalone — does NOT import lib/db.js
+│   │
+│   ├── dashboard/page.js            # Staff hotel management app
+│   ├── h/[hotelId]/page.js          # Staff direct login shortcut URL
+│   │
 │   └── api/
-│       ├── groq/route.js            # AI: id_scan | ai_insight | chat | negotiate
-│       ├── alerts/route.js          # Email via Resend
-│       └── push/route.js            # Push: subscribe | send | unsubscribe
+│       ├── groq/route.js            # AI Engine — id_scan | chat | negotiate | ai_insight
+│       ├── alerts/route.js          # Email via Resend (email + welcome-kit types)
+│       ├── push/route.js            # Push notifications — subscribe | send | unsubscribe
+│       ├── insight/route.js         # AI revenue insights endpoint
+│       └── marketplace/
+│           └── search/route.js      # Marketplace hotel search API
 │
 ├── components/
-│   ├── HeroSearchSection.js         # Marketplace hero — live network canvas, voice search
-│   ├── NegotiatorOrb.js             # Floating AI chat panel — Groq powered, Hinglish
-│   ├── MarketplaceHotels.js         # Hotel cards grid with room type selector
-│   ├── AdvantageGrid.js             # Feature benefits cards
-│   ├── DashboardView.js             # Staff dashboard — room grid, revenue, AI insight
-│   ├── ScannerView.js               # AI ID scanner + booking form
-│   ├── GuestsView.js                # Guest list + GRC print
-│   ├── ReportsView.js               # Revenue charts + booking history
-│   ├── SettingsView.js              # Hotel settings + rates slider
-│   └── LoginScreen.js               # Hotel selector + PIN login
+│   ├── NegotiatorOrb.js             # 🤖 Sandy AI floating chat panel (Groq, Hinglish)
+│   ├── HeroSearchSection.js         # Marketplace hero — live neural canvas, voice search
+│   ├── MarketplaceHotels.js         # Hotel listing cards → /booking/[hotelId]
+│   ├── AdvantageGrid.js             # Feature benefits section
+│   ├── DashboardView.js             # 📊 Staff dashboard — room grid, revenue, push alerts
+│   ├── ScannerView.js               # 📷 AI ID scanner + booking form + welcome kit trigger
+│   ├── GuestsView.js                # Guest list + GRC-compliant print records
+│   ├── ReportsView.js               # Revenue charts (Recharts) + history
+│   ├── SettingsView.js              # Hotel settings — rates, Wi-Fi, menu, toggles
+│   └── LoginScreen.js               # Hotel selector + PIN authentication
 │
 ├── lib/
-│   ├── db.js                        # Data layer: Supabase + localStorage hybrid
-│   ├── db.supabase.js               # Supabase-only data functions
-│   ├── hotelConfig.js               # Hotel config helpers
-│   ├── alerts.js                    # WhatsApp + Email + Push alert system
-│   └── usePushNotifications.js      # React hook — push subscribe/unsubscribe
+│   ├── db.js                        # 🗄️ SINGLE SOURCE OF TRUTH — all data operations
+│   │                                # localStorage primary + Supabase background sync
+│   ├── db.supabase.js               # Supabase-specific helpers
+│   ├── hotelConfig.js               # Hotel config read/write helpers
+│   ├── alerts.js                    # 📢 sendBookingAlerts() + sendWelcomeKit()
+│   └── usePushNotifications.js      # React hook — VAPID subscribe/unsubscribe + audio
 │
 ├── public/
-│   ├── branding/logo-main.png       # 1200×400 brand logo
-│   ├── icons/
-│   │   ├── apple-touch-icon.png     # 180×180 — iOS home screen
-│   │   ├── icon-192.png             # 192×192 — Android PWA
-│   │   └── icon-512.png             # 512×512 — PWA splash
-│   ├── sw-push.js                   # Service Worker — push handler + sound
+│   ├── sw-push.js                   # Service Worker — push event handler
 │   ├── manifest.json                # PWA manifest
-│   ├── sitemap.xml                  # SEO sitemap
-│   ├── contact.html                 # Contact page
-│   ├── landing.html                 # Marketing landing page
-│   └── blogs/                      # Blog HTML files
+│   └── icons/                       # PWA icons (192px, 512px, apple-touch)
 │
-├── supabase_schema.sql              # Database setup — run in SQL Editor
-├── vercel.json                      # Vercel config — Mumbai region (bom1)
-├── next.config.js                   # Next.js + PWA config
-├── tailwind.config.js               # Tailwind CSS config
-└── package.json                     # Dependencies
-```
-
----
-
-## 🚀 Quick Start
-
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/YOUR_USERNAME/ai-receptionist.git
-cd ai-receptionist
-npm install
-```
-
-### 2. Environment Variables
-
-`.env.local` file banao project root mein:
-
-```env
-# ── Required ─────────────────────────────────────────────────────
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxxx...
-MY_GROQ_KEY=gsk_xxxx...
-
-# ── Push Notifications (VAPID) ───────────────────────────────────
-# Generate once:
-# node -e "const c=require('crypto');const e=c.createECDH('prime256v1');e.generateKeys();console.log('PUBLIC='+e.getPublicKey('base64url'));console.log('PRIVATE='+e.getPrivateKey('base64url'))"
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=BD5bPQrz...
-VAPID_PRIVATE_KEY=5UwETRnu...
-VAPID_SUBJECT=mailto:admin@yourhotel.com
-
-# ── Optional ─────────────────────────────────────────────────────
-RESEND_API_KEY=re_xxxx...       # Email alerts (free tier: 100/day)
-```
-
-### 3. Supabase Setup
-
-Supabase dashboard → SQL Editor → `supabase_schema.sql` ka content paste → Run.
-
-Tables banti hain:
-- `hotels` — hotel registry
-- `bookings` — GRC records
-- `push_subscriptions` — PWA notification subscribers
-
-### 4. Local Dev
-
-```bash
-npm run dev
-# → http://localhost:3000
-```
-
-### 5. Deploy to Vercel
-
-```bash
-npm i -g vercel
-vercel --prod
-# Ya GitHub connect karo → auto-deploy on push
-```
-
-Environment variables Vercel dashboard → Project → Settings → Environment Variables mein add karo.
-
----
-
-## 🌐 Marketplace Features
-
-### Live Network Canvas (HeroSearchSection.js)
-Hero section ka pura background ek animated canvas hai jo real-time network activity dikhata hai:
-
-- **👤 GUEST nodes** — green, slow drift, ping rings
-- **🏨 HOTEL nodes** — gold, steady movement
-- **⬡ AI·AGENT nodes** — blue, fast activity
-- Nodes ke beech **animated dashed lines** — color-coded by type
-- **Data packets** flow karte hain lines pe — glowing dot + tail trail
-- **Ping rings** — random intervals pe nodes se pulse, connection simulation
-- Retina-ready: `devicePixelRatio` aware canvas rendering
-
-### Hinglish AI Search (HeroSearchSection.js)
-```
-Typewriter placeholder → user kuch type kare → Enter ya "Dhundo" → NegotiatorOrb opens instantly
-```
-- Real `<input>` — focusable, keyboard navigable
-- Placeholder typewriter rotate karta hai jab user type nahi kar raha
-- Submit karne pe query seedha NegotiatorOrb mein inject hoti hai
-
-### Voice Search — Web Speech API (HeroSearchSection.js)
-```js
-// lang: "hi-IN" — Hindi + English dono samajhta hai
-// interimResults: true — real-time transcript dikhta hai input mein
-// isFinal → auto-submit to NegotiatorOrb
-```
-- 🎙️ Mic button tap → `SpeechRecognition` start
-- Bolte waqt text real-time dikhta hai search box mein
-- Bol ke band karo → automatic search trigger
-- Error handling: mic denied, no-speech, browser unsupported — sab Hinglish mein
-
-### AI Negotiator Orb (NegotiatorOrb.js)
-
-**State-Sync Architecture:**
-```
-HeroSearchSection
-    ↓ onSearch(queryString)
-page.js (pendingSearchQuery state)
-    ↓ prop: pendingQuery + forceOpen
-NegotiatorOrb
-    ↓ consumedRef.current check (no double-fire)
-    ↓ setMessages([userMsg]) + callGroq() immediately
-    → AI responds with matching hotels, NO generic questions
-```
-
-**Groq Integration:**
-```js
-POST /api/groq
-{
-  type: "chat",
-  systemOverride: MARKETPLACE_SYSTEM,   // Custom hotel catalog + Hinglish rules
-  messages: conversationHistory          // Full context maintained per session
-}
-```
-
-- Hotel catalog inject hai system prompt mein — AI jaanta hai kaunse hotels hain
-- Agar user ne city mention ki → seedha wahan ke hotels suggest karta hai
-- Quick reply chips — fresh session pe common queries
-- Thinking dots animation — jab AI process kar raha ho
-- Full conversation history — multi-turn context maintained
-
-### Hotel Cards (MarketplaceHotels.js)
-- Room type selector per card (Standard/Deluxe/Premium/Suite)
-- AI Verified badge
-- AI Rate Locked pricing
-- **"View Hotel" button** → `/booking/[hotelId]` pe navigate karta hai (`useRouter`)
-
----
-
-## 🏨 Hotel Management Features
-
-### Staff Dashboard (DashboardView.js)
-- **Floor-by-floor room grid** — color-coded: Vacant (green), Occupied (red), Reserved (gold), Cleaning (indigo), OOO (gray)
-- **Live Revenue Widget** — aaj ka total + 7-day sparkline
-- **AI Insight Card** — Groq se Hinglish revenue tip
-- **Room click modal** — guest details, check-out, approve check-in
-- **Push notification bell** — header mein, gold glow jab subscribed
-
-### AI ID Scanner (ScannerView.js)
-```
-Camera → Base64 → POST /api/groq {type:"id_scan"} → Groq Llama 4 Vision
-→ { name, dob, address, idNumber, idType, gender } → Auto-fill form
-```
-
-**Supported IDs:** Aadhaar · PAN · Passport · Driving License · Voter ID · Foreign Passports
-
-### Push Notifications
-- Service Worker (`sw-push.js`) — background push
-- Hotel bell chime — Web Audio API (D5→G5→B5, no external file)
-- Vibration: `[200, 100, 200, 100, 400]`
-- Action buttons: "Details Dekho" · "Dismiss"
-
-### Settings — Sab Configurable
-| Setting | Effect |
-|---|---|
-| Hotel Name, Location | Dashboard, booking page, alerts |
-| Total Rooms | Room grid reinitialize |
-| GST % | Billing calculations |
-| Standard / Deluxe / Suite Rates | Slider + manual input + presets |
-| Checkout Time | Policy display |
-| Owner / Manager Phone | WhatsApp alert destination |
-| Owner / Manager PIN | Login authentication |
-
----
-
-## 🤖 AI / API Routes
-
-| Route | Type | Input | Output |
-|---|---|---|---|
-| `POST /api/groq` | `id_scan` | `imageBase64` | Name, DOB, Address, ID details |
-| `POST /api/groq` | `ai_insight` | `stats, hotelName` | Hinglish revenue tip |
-| `POST /api/groq` | `chat` | `messages[], hotelConfig, systemOverride?` | Hinglish conversation |
-| `POST /api/groq` | `negotiate` | `requestedRate, roomType` | Rate-lock confirmation |
-| `POST /api/alerts` | — | `emails[], subject, html` | Email via Resend |
-| `POST /api/push` | `subscribe` | `hotelId, subscription` | Save subscription |
-| `POST /api/push` | `send` | `hotelId, payload` | Push to all subscribers |
-| `POST /api/push` | `unsubscribe` | `hotelId, endpoint` | Remove subscription |
-
-### `systemOverride` in Chat
-NegotiatorOrb marketplace-specific system prompt bhejta hai:
-```js
-{
-  type: "chat",
-  systemOverride: "You are AI Negotiator for The GuestInn Network...\nHotel Catalog:\n• Hotel Cherry...",
-  messages: [...]
-}
-```
-Route.js mein: `const systemPrompt = body.systemOverride || defaultHotelPrompt`
-
----
-
-## 💾 Data Layer
-
-### localStorage Keys
-```
-air_[hotelId]_config     → hotel settings (rates dono formats mein)
-air_[hotelId]_rooms      → room array with status + guest info
-air_[hotelId]_bookings   → all booking records
-gi_hotel_registry        → registered hotels list
-air_current_user         → active session
-```
-
-### Rate Format Normalization (db.js)
-```js
-// saveHotelConfig() dono save karta hai — KABHI manual setItem mat karo:
-{
-  rates: { standard: 1200, deluxe: 2000, suite: 3800 },
-  standardRate: 1200,   // booking page + rooms read karte hain
-  deluxeRate: 2000,
-  suiteRate: 3800,
-}
-```
-
-### Offline-First Pattern
-```
-Write: localStorage (instant) → Supabase (background)
-Read:  Supabase (fresh) → localStorage fallback
-→ App works even when Supabase is down
-```
-
----
-
-## 🗃️ Supabase Schema
-
-```sql
-hotels (
-  id, name, location, total_rooms, plan, emoji,
-  owner_pin, manager_pin, owner_phone, created_at, updated_at
-)
-
-bookings (
-  id, hotel_id, guest_name, guest_phone, address,
-  id_type, id_number, gender, dob, room_id, room_type,
-  check_in_date, check_out_date, nights, rate_per_night,
-  total_amount, payment_mode, status, rate_locked, created_at
-)
-
-push_subscriptions (
-  id, hotel_id, role, endpoint UNIQUE,
-  p256dh, auth, subscription JSONB, created_at
-)
-```
-
-All tables: RLS enabled, open policies (app PIN se authenticate karta hai).
-
----
-
-## 🎨 Design System
-
-### Colors
-```css
---bg:          #07090E   /* Deep space black */
---gold:        #D4AF37   /* Liquid gold — primary accent */
---blue:        #008cff   /* Neon cyber blue */
---blue-soft:   #38bdf8   /* AI agent nodes */
---green:       #22c55e   /* Network online / vacant */
---red:         #ef4444   /* Occupied / error */
---amber:       #f59e0b   /* Reserved */
---indigo:      #818cf8   /* Cleaning */
-```
-
-### Canvas Node Colors
-```
-👤 GUEST    → #22c55e  (green)
-🏨 HOTEL    → #D4AF37  (gold)
-⬡ AI·AGENT → #38bdf8  (sky blue)
-```
-
----
-
-## 📱 PWA Installation
-
-**Android (Chrome):** Browser menu → "Add to Home Screen" → Install
-
-**iOS (Safari):** Share → "Add to Home Screen" → Add
-
-**Icon files (exact filenames — manifest.json se match karna zaroori):**
-```
-/public/icons/apple-touch-icon.png  → 180×180
-/public/icons/icon-192.png          → 192×192
-/public/icons/icon-512.png          → 512×512
+├── supabase_schema.sql              # 🗃️ Complete DB schema — run in Supabase SQL Editor
+├── next.config.js                   # Next.js + next-pwa config
+├── vercel.json                      # Vercel deployment config (region: bom1)
+├── tailwind.config.js
+└── package.json
 ```
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Tech |
-|---|---|
-| Framework | Next.js 14.2 (App Router) |
-| UI | React 18 + Tailwind CSS + inline styles |
-| AI Chat | Groq SDK — llama-3.3-70b-versatile |
-| AI Vision | Groq — meta-llama/llama-4-scout-17b (ID scan) |
-| Database | Supabase (PostgreSQL) |
-| Offline | localStorage hybrid |
-| Charts | Recharts (AreaChart) |
-| Icons | Lucide React |
-| Push | web-push (VAPID) + Service Worker |
-| Email | Resend API |
-| Voice | Web Speech API (hi-IN) |
-| Canvas | HTML5 Canvas 2D (live network animation) |
-| PWA | next-pwa |
-| Deploy | Vercel — bom1 (Mumbai) |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Frontend** | Next.js 14 App Router | Full-stack React framework |
+| **Styling** | TailwindCSS 3 | Utility-first CSS |
+| **UI Icons** | Lucide React | Consistent icon set |
+| **Charts** | Recharts | Revenue visualization |
+| **AI** | Groq (Llama 3.3 70b) | Sandy AI — chat, ID scan, negotiation |
+| **Database** | Supabase (PostgreSQL) | Cloud persistence + RLS |
+| **Local DB** | localStorage | Offline-first primary store |
+| **Email** | Resend | Booking alerts + welcome kit |
+| **Push** | Web Push (VAPID) + web-push npm | Real-time staff notifications |
+| **PWA** | next-pwa | Installable mobile app |
+| **Hosting** | Vercel (region: bom1) | Edge deployment, Mumbai region |
 
 ---
 
-## 🐛 Common Issues
+## 🗃️ Database Schema
 
-| Error | Fix |
-|---|---|
-| AI chat "Network issue" | `MY_GROQ_KEY` Vercel mein set karo |
-| Voice search kaam nahi karta | Chrome use karo + mic permission allow karo |
-| Hotel cards kuch nahi dikhte | `MarketplaceHotels.js` ka latest version use karo |
-| "View Hotel" page nahi khulta | `MarketplaceHotels.js` mein `useRouter` + `hotel.id` check karo |
-| NegotiatorOrb "Kaunsi city?" poochhta hai | `page.js` ka latest version — `pendingSearchQuery` state |
-| Rates Settings se match nahi | `db.js` — `normalizeConfig()` dono formats save karta hai |
-| Push notification nahi aati | `web-push` npm + VAPID keys in Vercel |
-| Booking page scroll nahi hoti | `globals.css` — `app-locked` class pattern follow karo |
-| `Module not found: web-push` | `npm install` dobara run karo |
-| PWA icon nahi dikh raha | `manifest.json` mein exact filenames check karo |
+Supabase mein 3 tables hain. `supabase_schema.sql` run karo Supabase SQL Editor mein.
+
+### `hotels` Table
+```sql
+id                TEXT PRIMARY KEY        -- slug: "cherry-bhopal"
+name              TEXT                    -- "Hotel Cherry"
+location          TEXT                    -- "Bhopal, Madhya Pradesh"
+total_rooms       INTEGER DEFAULT 20
+plan              TEXT                    -- starter | pro | enterprise
+owner_pin         TEXT                    -- staff login PIN
+manager_pin       TEXT
+owner_phone       TEXT                    -- WhatsApp alerts
+manager_phone     TEXT
+owner_email       TEXT
+standard_rate     INTEGER DEFAULT 1200
+deluxe_rate       INTEGER DEFAULT 2000
+suite_rate        INTEGER DEFAULT 3800
+
+-- Phase 1: Guest Services fields
+wifi_password        TEXT DEFAULT ''
+menu_url             TEXT DEFAULT ''
+menu_text            TEXT DEFAULT ''
+reception_phone      TEXT DEFAULT ''
+enable_wifi          BOOLEAN DEFAULT TRUE
+enable_food_ordering BOOLEAN DEFAULT TRUE
+enable_housekeeping  BOOLEAN DEFAULT TRUE
+enable_call_desk     BOOLEAN DEFAULT TRUE
+
+-- Marketplace fields
+city_slug         TEXT                    -- "bhopal" — URL routing
+min_floor_price   INTEGER DEFAULT 800    -- AI negotiator hard floor
+is_featured       BOOLEAN DEFAULT FALSE
+address_line      TEXT
+distance_tag      TEXT                    -- "900m from Bus Stand"
+amenities         TEXT[]
+avg_rating        NUMERIC(3,2)
+latitude          NUMERIC(10,7)
+longitude         NUMERIC(10,7)
+is_active         BOOLEAN DEFAULT TRUE
+```
+
+### `bookings` Table
+```sql
+id               TEXT PRIMARY KEY
+hotel_id         TEXT → hotels(id)
+guest_name       TEXT
+guest_phone      TEXT
+id_type          TEXT    -- Aadhaar | Passport | DL
+id_number        TEXT    -- stored as "[Redacted]" in audit logs
+room_id          TEXT
+room_type        TEXT    -- standard | deluxe | suite
+check_in_date    TEXT
+check_out_date   TEXT
+nights           INTEGER
+rate_per_night   NUMERIC
+total_amount     NUMERIC
+payment_mode     TEXT    -- Cash | Card | UPI
+status           TEXT    -- active | checked_out | cancelled
+rate_locked      BOOLEAN DEFAULT TRUE
+negotiated       BOOLEAN -- TRUE = Sandy AI ne rate set kiya
+negotiated_from  NUMERIC -- original rate before negotiation
+extra_guests     JSONB   -- [{guestName, idType, ...}]
+source           TEXT    -- direct | marketplace | walkin
+```
+
+### `push_subscriptions` Table
+```sql
+id           BIGSERIAL PRIMARY KEY
+hotel_id     TEXT
+role         TEXT DEFAULT 'staff'
+endpoint     TEXT UNIQUE           -- browser push endpoint
+p256dh       TEXT
+auth         TEXT
+subscription TEXT                  -- full JSON subscription object
+```
 
 ---
 
-## 🚀 Deployment Checklist
+## 🔐 Environment Variables
+
+`.env.local` file create karo project root mein:
+
+```env
+# ── Groq AI (Required) ─────────────────────────────────────────
+MY_GROQ_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
+# Get from: https://console.groq.com
+
+# ── Supabase (Required for cloud sync) ─────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# Get from: Supabase Dashboard → Project Settings → API
+
+# ── Resend Email (Optional — Phase 5 Welcome Kit) ──────────────
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
+# Get from: https://resend.com → Free: 100 emails/day
+# Without this key: emails are logged to console (app still works)
+
+# ── Web Push / PWA Notifications (Required for Push) ───────────
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=Bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+VAPID_PRIVATE_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+VAPID_SUBJECT=mailto:admin@theguestinn.com
+# Generate VAPID keys: npx web-push generate-vapid-keys
+
+# ── Single-Hotel Mode (Optional) ───────────────────────────────
+# Sirf tab use karo agar ek hi hotel hai system mein
+NEXT_PUBLIC_HOTEL_NAME=Hotel Cherry
+NEXT_PUBLIC_HOTEL_TOTAL_ROOMS=20
+NEXT_PUBLIC_OWNER_PHONE=919009109108
+NEXT_PUBLIC_OWNER_PIN=4567
+NEXT_PUBLIC_MANAGER_PIN=8901
+```
+
+> **Note:** `NEXT_PUBLIC_` prefix wale variables browser mein expose hote hain. Secret keys (Groq, Resend, VAPID Private) ko kabhie `NEXT_PUBLIC_` mat karo.
+
+---
+
+## 💻 Local Setup
+
+### Prerequisites
+- Node.js 18+
+- npm / yarn
+
+### Steps
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/your-org/ai-receptionist.git
+cd ai-receptionist
+
+# 2. Install dependencies
+npm install
+
+# 3. Environment setup
+cp .env.example .env.local
+# .env.local mein apni keys fill karo (above table dekho)
+
+# 4. Supabase schema setup (optional but recommended)
+# Supabase Dashboard → SQL Editor → supabase_schema.sql paste karo → Run
+
+# 5. VAPID keys generate karo (agar push notifications chahiye)
+npx web-push generate-vapid-keys
+# Output ko .env.local mein paste karo
+
+# 6. Dev server start karo
+npm run dev
+# → http://localhost:3000
+```
+
+### Supabase ke Bina (Offline Mode)
+Supabase configure nahi hai? App fully functional hai — sab kuch localStorage mein store hota hai. Supabase keys nahi hain to cloud sync disable ho jaata hai, baaki sab kaam karta hai.
+
+---
+
+## 🚀 Deployment (Vercel)
+
+### One-Click Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-org/ai-receptionist)
+
+### Manual Deploy
+
+```bash
+# Vercel CLI se deploy
+npm i -g vercel
+vercel --prod
+```
+
+### Vercel Environment Variables
+
+Vercel Dashboard → Project → Settings → Environment Variables mein yeh sab add karo:
+
+| Variable | Required | Notes |
+|----------|---------|-------|
+| `MY_GROQ_KEY` | ✅ Yes | Sandy AI ke liye |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ Yes | Cloud sync |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ Yes | Cloud sync |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | ✅ Yes | Push notifications |
+| `VAPID_PRIVATE_KEY` | ✅ Yes | Push notifications |
+| `VAPID_SUBJECT` | ✅ Yes | Push notifications |
+| `RESEND_API_KEY` | ⚡ Optional | Welcome kit emails |
+
+`vercel.json` mein region `bom1` (Mumbai) set hai — Indian users ke liye fastest latency.
+
+---
+
+## 🔄 Data Flow
+
+### Check-In Flow (ScannerView → Alerts)
 
 ```
-□ .env.local — sab required vars set hain
-□ supabase_schema.sql — SQL Editor mein run ho gaya
-□ Vercel — environment variables add ki hain
-□ package.json — web-push: "^3.6.7" hai
-□ manifest.json — correct icon filenames
-□ layout.js — apple-touch-icon sahi path
-□ globals.css — overflow:hidden nahi, sirf body.app-locked mein
-□ VAPID keys — generate ho gayi, Vercel mein set hain
+Staff scans Guest ID (Camera → Groq Vision API)
+    ↓
+Form review + Room selection + Rate lock
+    ↓
+createBooking() → lib/db.js
+    ├── localStorage (instant)
+    └── Supabase (background sync)
+    ↓
+sendBookingAlerts(booking)          ← lib/alerts.js
+    ├── Owner WhatsApp (wa.me)
+    ├── Manager WhatsApp (wa.me)
+    ├── Guest WhatsApp (booking confirmation)
+    ├── Push Notification (staff PWA)
+    └── Owner + Manager Email (Resend)
+    ↓
+sendWelcomeKit(booking)             ← Phase 5
+    ├── Guest WhatsApp (companion link + Wi-Fi)
+    └── Guest Email (HTML welcome kit via Resend)
+```
+
+### Guest Service Request Flow (Phase 4)
+
+```
+Guest taps "Clean My Room" (booking/[hotelId]/page.js)
+    ↓
+POST /api/push { action: "send", hotelId, payload }
+    ↓
+web-push → Staff browser Service Worker
+    ↓
+DashboardView.js:
+    ├── Audio chime (Web Audio API)
+    ├── Live Alert Modal flash
+    └── Room grid cell → Indigo (cleaning) state
+```
+
+### AI Chat Flow (Phase 3)
+
+```
+Guest types in Sandy chat (NegotiatorOrb.js)
+    ↓
+POST /api/groq { type: "chat", messages, systemOverride, hotelId }
+    ↓
+groq/route.js:
+    ├── Fetch hotelConfig (Wi-Fi, menu, policy, rates)
+    ├── Build system prompt with hotel context
+    └── Groq Llama 3.3 70b → Hinglish response
+    ↓
+Response rendered in chat UI
 ```
 
 ---
 
-## 📞 Support
+## 📡 API Reference
 
-**Platform:** The GuestInn Network v2.0
-**Stack:** Groq AI · Supabase · Vercel · Next.js
-**Deploy Region:** bom1 (Mumbai)
+### `POST /api/groq`
+
+Sandy AI aur ID scan ke liye.
+
+```json
+// Chat request
+{
+  "type": "chat",
+  "messages": [{ "role": "user", "content": "Wi-Fi password kya hai?" }],
+  "hotelId": "cherry-bhopal",
+  "systemOverride": "Optional custom system prompt"
+}
+
+// ID Scan request
+{
+  "type": "id_scan",
+  "imageBase64": "data:image/jpeg;base64,...",
+  "side": "front"
+}
+
+// Rate Negotiation
+{
+  "type": "negotiate",
+  "askingRate": 1500,
+  "floorPrice": 900,
+  "hotelId": "cherry-bhopal"
+}
+```
+
+---
+
+### `POST /api/alerts`
+
+Email bhejne ke liye (Resend).
+
+```json
+// Standard check-in alert (to staff/owner)
+{
+  "type": "email",
+  "to": ["owner@hotel.com"],
+  "subject": "New Check-in Alert",
+  "booking": { ...bookingObject }
+}
+
+// Phase 5: Welcome Kit (to guest)
+{
+  "type": "welcome-kit",
+  "to": ["guest@email.com"],
+  "subject": "Aapka Digital Companion Ready Hai!",
+  "booking": {
+    "guestName": "Rahul Sharma",
+    "roomId": "cherry-bhopal_R001",
+    "companionUrl": "https://theguestinn.com/booking/cherry-bhopal?room=cherry-bhopal_R001",
+    "wifiPassword": "cherry@2024",
+    "receptionPhone": "919009109108",
+    "enableWifi": true,
+    "enableFoodOrdering": true,
+    "enableHousekeeping": true
+  }
+}
+```
+
+---
+
+### `POST /api/push`
+
+PWA push notifications ke liye.
+
+```json
+// Subscribe
+{ "action": "subscribe", "hotelId": "cherry-bhopal", "role": "staff", "subscription": {...} }
+
+// Send notification
+{
+  "action": "send",
+  "hotelId": "cherry-bhopal",
+  "payload": {
+    "title": "🧹 Room Service Request",
+    "body": "Room 101 — Clean My Room",
+    "tag": "service-request-001",
+    "sound": true
+  }
+}
+
+// Unsubscribe
+{ "action": "unsubscribe", "hotelId": "cherry-bhopal", "endpoint": "https://..." }
+```
+
+---
+
+## 🏢 Multi-Tenant Architecture
+
+Har hotel completely isolated hai:
+
+### localStorage Keys (per hotel)
+```
+air_{hotelId}_config     → Hotel settings, Wi-Fi, menu, rates
+air_{hotelId}_rooms      → Room grid state
+air_{hotelId}_bookings   → Booking records
+air_hotel_registry       → Registered hotels list
+air_active_hotel         → Currently logged-in hotel
+```
+
+### Supabase Isolation
+- `hotels` table: `id` = hotel slug (primary key)
+- `bookings` table: `hotel_id` foreign key — all queries scoped
+- `push_subscriptions`: `hotel_id` se filter — sirf apni hotel ke notifications
+
+### Staff Authentication
+PIN-based login — `ownerPin` ya `managerPin` from hotel config. Production mein JWT claims se RLS tighten karo.
+
+### `sendBookingAlerts` Safety
+```js
+// hotelId verify hota hai PEHLE
+const cfg = getHotelConfig(hid);  // strictly scoped to hotelId
+
+// Phone numbers validate hote hain — Indian format only
+const ownerPhone = sanitizeIndianNumber(cfg?.ownerPhone);
+// → 91XXXXXXXXXX format ya null
+```
+
+Cross-hotel data routing **impossible** hai by design.
+
+---
+
+## 📱 PWA & Push Notifications
+
+App ek fully installable PWA hai.
+
+### Install Karo (Mobile)
+- Android Chrome: "Add to Home Screen" banner automatically aata hai
+- iOS Safari: Share → "Add to Home Screen"
+
+### Push Notifications Setup
+```bash
+# VAPID keys generate karo (ek baar)
+npx web-push generate-vapid-keys
+
+# Output:
+# Public Key: Bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Private Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Dono keys .env.local + Vercel environment mein add karo
+```
+
+### Service Worker
+`public/sw-push.js` — push events handle karta hai. next-pwa automatically register karta hai.
+
+Staff dashboard mein 🔔 bell icon se push subscribe/unsubscribe hota hai.
+
+---
+
+## 🏨 Demo Hotels
+
+In hotels se instantly test kar sakte ho:
+
+| Hotel | ID | Location | Owner PIN | Manager PIN | Wi-Fi Password |
+|-------|-----|---------|-----------|-------------|----------------|
+| 🍒 Hotel Cherry | `cherry-bhopal` | Bhopal, MP | `4567` | `8901` | `cherry@2024` |
+| 🌅 Hotel Sunrise Palace | `sunrise-jaipur` | Jaipur, RJ | `1234` | `5678` | `sunrise#jaipur` |
+| 🏙️ Hotel Midtown | `midtown-indore` | Indore, MP | `2233` | `4455` | `midtown@456` |
+| 🏨 City Comforts | `comforts-nagpur` | Nagpur, MH | `6677` | `8899` | `comforts2024` |
+| 🏩 The Grand Inn | `grand-mumbai` | Mumbai, MH | `2345` | `6789` | `GrandMumbai#9` |
+
+**Guest Companion URLs:**
+```
+https://ai-receptionist-sandy-six.vercel.app/booking/cherry-bhopal
+https://ai-receptionist-sandy-six.vercel.app/booking/sunrise-jaipur
+https://ai-receptionist-sandy-six.vercel.app/booking/grand-mumbai
+```
+
+**Staff Login Shortcut:**
+```
+https://ai-receptionist-sandy-six.vercel.app/h/cherry-bhopal
+```
+
+---
+
+## 🗺️ Upcoming / Roadmap
+
+- [ ] **Supabase Auth** — JWT-based staff login (PIN replace karo)
+- [ ] **WhatsApp Business API** — Official integration (Twilio / Meta)
+- [ ] **Multi-language** — Hindi, Gujarati, Marathi UI
+- [ ] **Revenue Reports PDF** — Export + share
+- [ ] **Marketplace Reviews** — Guest rating system
+- [ ] **QR Code Check-in** — Room-specific QR for self check-in
+
+---
+
+## 🤝 Contributing
+
+1. Fork karo
+2. Feature branch banao (`git checkout -b feature/new-thing`)
+3. Commit karo (`git commit -m 'Add new thing'`)
+4. Push karo (`git push origin feature/new-thing`)
+5. Pull Request open karo
+
+---
+
+## 📄 License
+
+Private — The GuestInn Network. All rights reserved.
 
 ---
 
 <div align="center">
-<strong>Made with ❤️ for Independent Indian Hotels</strong><br/>
-<em>No OTA commission. No monthly fees. Your hotel, your data.</em>
+
+**Built with ❤️ for Indian Hotels**
+
+[The GuestInn Network](https://theguestinn.com) · Powered by Groq AI + Supabase + Next.js
+
 </div>
