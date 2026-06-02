@@ -1,736 +1,861 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, ExternalLink, Check, Brain } from "lucide-react";
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
+/**
+ * components/DashboardView.js — The GuestInn Network
+ * ═══════════════════════════════════════════════════════════════
+ * Frontdesk Terminal — Real-time Room Grid Interceptor
+ *
+ * Features:
+ * • Floor-by-floor room matrix with correct color tokens:
+ *     VACANT  → #22c55e (Green)
+ *     RESERVED → #D4AF37 (Gold) ← Marketplace pending bookings
+ *     OCCUPIED → #ef4444 (Red)
+ *     CLEANING → #818cf8 (Purple)
+ * • Gold (Reserved) bookings show Approve button → transitions to Occupied
+ * • GRC Print Modal — single click to print full populated GRC form
+ * • Comprehensive CSV export via lib/db.js exportComprehensiveCSV()
+ * • Realtime Supabase subscription for live updates
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  getTodayStats, getRooms, getBookingById, checkoutBooking,
-  getTodayBookings, getWeeklyRevenue, initializeRooms
+  Users, TrendingUp, BedDouble, Coffee, Download,
+  RefreshCw, Printer, CheckCircle, X, Eye, ChevronDown,
+  ChevronUp, AlertTriangle, Zap, Crown
+} from "lucide-react";
+import {
+  getHotelConfig, getRooms, getTodayStats, getTodayBookings,
+  getBookingsSync, checkoutBooking, updateRoomStatus,
+  approveReservation, getBookingsByStatus, exportCSV,
+  exportComprehensiveCSV, getActiveHotelId,
 } from "../lib/db";
 
-function greeting() {
-  const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-}
+// ── Color tokens ─────────────────────────────────────────────
+const STATUS_COLOR = {
+  vacant:   "#22c55e",
+  reserved: "#D4AF37",   // Gold — marketplace pending approval
+  occupied: "#ef4444",
+  cleaning: "#818cf8",
+};
+const STATUS_LABEL = {
+  vacant:   "Vacant",
+  reserved: "Reserved",
+  occupied: "Occupied",
+  cleaning: "Cleaning",
+};
+const STATUS_BG = {
+  vacant:   "rgba(34,197,94,0.08)",
+  reserved: "rgba(212,175,55,0.1)",
+  occupied: "rgba(239,68,68,0.08)",
+  cleaning: "rgba(129,140,248,0.08)",
+};
 
-/* ─── Hologram Building SVG ──────────────────────────── */
-function HologramBuilding() {
-  return (
-    <svg viewBox="0 0 160 180" className="holo-svg" style={{ width:130, height:150, filter:"drop-shadow(0 0 16px #008cff) drop-shadow(0 0 32px rgba(0,140,255,0.35))" }}>
-      <ellipse cx="80" cy="160" rx="62" ry="10" fill="none" stroke="rgba(212,175,55,0.9)" strokeWidth="1.5"/>
-      <ellipse cx="80" cy="160" rx="50" ry="7" fill="none" stroke="rgba(212,175,55,0.55)" strokeWidth="1"/>
-      <ellipse cx="80" cy="160" rx="38" ry="5" fill="none" stroke="rgba(212,175,55,0.3)" strokeWidth="0.7"/>
-      <ellipse cx="80" cy="160" rx="62" ry="10" fill="rgba(212,175,55,0.05)"/>
-      <polygon points="80,18 122,48 122,148 80,168 38,148 38,48" fill="none" stroke="rgba(0,140,255,0.6)" strokeWidth="1.2"/>
-      <polygon points="80,18 38,48 38,148 80,168" fill="rgba(0,50,110,0.12)" stroke="rgba(0,140,255,0.55)" strokeWidth="0.8"/>
-      <polygon points="80,18 122,48 122,148 80,168" fill="rgba(0,70,140,0.08)" stroke="rgba(0,140,255,0.45)" strokeWidth="0.8"/>
-      <polygon points="80,18 122,48 80,78 38,48" fill="rgba(0,90,180,0.18)" stroke="rgba(0,140,255,0.8)" strokeWidth="1.2"/>
-      {[70,90,110,130].map(y=>(<line key={`l${y}`} x1="38" y1={y} x2="80" y2={y+20} stroke="rgba(0,140,255,0.25)" strokeWidth="0.5"/>))}
-      {[70,90,110,130].map(y=>(<line key={`r${y}`} x1="80" y1={y+20} x2="122" y2={y} stroke="rgba(0,140,255,0.2)" strokeWidth="0.5"/>))}
-      {[[48,78],[48,98],[48,118],[60,78],[60,98],[60,118],[72,78],[72,98],[72,118]].map(([x,y],i)=>(
-        <rect key={`wl${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%3===0?"rgba(0,200,255,0.7)":"rgba(0,160,220,0.4)"}/>
-      ))}
-      {[[88,78],[88,98],[88,118],[100,78],[100,98],[100,118],[112,78],[112,98],[112,118]].map(([x,y],i)=>(
-        <rect key={`wr${i}`} x={x-3} y={y-4} width="5" height="7" rx="0.5" fill={i%2===0?"rgba(0,180,255,0.6)":"rgba(0,140,200,0.35)"}/>
-      ))}
-      <line x1="80" y1="18" x2="80" y2="2" stroke="rgba(0,140,255,0.9)" strokeWidth="1.5"/>
-      <circle cx="80" cy="2" r="2.5" fill="#008cff"/>
-      <circle cx="80" cy="2" r="4" fill="none" stroke="rgba(0,140,255,0.4)" strokeWidth="0.8"/>
-    </svg>
-  );
-}
+// ══════════════════════════════════════════════════════════════
+// GRC PRINT MODAL
+// Full populated GRC (Guest Registration Card) layout.
+// All sensitive ID fields show [Aadhaar Redacted] placeholder.
+// ══════════════════════════════════════════════════════════════
+function GRCPrintModal({ booking, hotel, onClose }) {
+  const printRef = useRef(null);
+  if (!booking) return null;
 
-/* ─── AI Scan Reactor ─────────────────────────────────── */
-function AiScanReactor({ onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      position:"relative", width:130, height:130,
-      background:"transparent", border:"none", cursor:"pointer",
-      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
-    }}>
-      {[{sz:-10,color:"rgba(0,140,255,0.65)",dash:"6,4",spd:"3s",dir:"normal"},{sz:4,color:"rgba(212,175,55,0.5)",dash:"4,6",spd:"5s",dir:"reverse"},{sz:16,color:"rgba(0,140,255,0.3)",dash:"8,8",spd:"7s",dir:"normal"}].map((r,i)=>(
-        <div key={i} style={{
-          position:"absolute", inset:r.sz, borderRadius:"50%",
-          border:`1.5px dashed ${r.color}`,
-          animation:`spinRingCW ${r.spd} linear infinite ${r.dir==="reverse"?"reverse":""}`
-        }}/>
-      ))}
-      {[0,45,90,135,180,225,270,315].map(deg=>(
-        <div key={deg} style={{
-          position:"absolute", width:1, bottom:"50%", left:"50%",
-          height:"42%", transformOrigin:"50% 100%",
-          transform:`translateX(-50%) rotate(${deg}deg)`,
-          background:`linear-gradient(to bottom,rgba(0,140,255,${deg%90===0?0.6:0.2}),transparent)`
-        }}/>
-      ))}
-      <div style={{ position:"absolute", left:"50%", top:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to top,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite" }}/>
-      <div style={{ position:"absolute", left:"50%", bottom:-14, width:2, height:28, transform:"translateX(-50%)", background:"linear-gradient(to bottom,rgba(0,140,255,0.9),transparent)", filter:"blur(1.5px)", animation:"laserPulse 2s ease-in-out infinite 0.6s" }}/>
-      <div style={{ position:"absolute", bottom:20, left:"50%", transform:"translateX(-50%)", width:70, height:3, background:"linear-gradient(90deg,transparent,rgba(212,175,55,0.9),transparent)", filter:"blur(2px)" }}/>
-      <div style={{
-        position:"absolute", inset:18, borderRadius:"50%",
-        background:"radial-gradient(circle,rgba(0,20,60,0.97) 0%,rgba(0,5,18,0.99) 100%)",
-        border:"2px solid rgba(0,140,255,0.55)",
-        boxShadow:"0 0 28px rgba(0,140,255,0.5),0 0 55px rgba(0,140,255,0.2),inset 0 0 24px rgba(0,140,255,0.12)"
-      }}/>
-      <div style={{ position:"relative", zIndex:2, textAlign:"center", pointerEvents:"none" }}>
-        <p style={{ fontSize:20, fontWeight:900, letterSpacing:"0.08em", color:"#fff", textShadow:"0 0 18px #008cff,0 0 36px rgba(0,140,255,0.7)", lineHeight:1, fontFamily:"'Courier New',monospace" }}>AI</p>
-        <p style={{ fontSize:9, fontWeight:800, letterSpacing:"0.28em", color:"#60b8ff", textShadow:"0 0 8px #008cff", marginTop:3 }}>SCAN</p>
-      </div>
-    </button>
-  );
-}
+  const bid        = booking.id?.slice(-10).toUpperCase();
+  const checkInFmt = booking.checkInDate  ? new Date(booking.checkInDate).toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"}) : "—";
+  const checkOutFmt= booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"}) : "—";
+  const today      = new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"});
 
-/* ── Dynamic grid sizing ──────────────────────────────────── */
-function getRoomGridLayout(totalRooms) {
-  if (totalRooms <= 10)  return { cols:5,  gap:6, numSz:10, badgeSz:15, depth:7  };
-  if (totalRooms <= 20)  return { cols:5,  gap:5, numSz:9,  badgeSz:13, depth:6  };
-  if (totalRooms <= 32)  return { cols:8,  gap:4, numSz:8,  badgeSz:12, depth:5  };
-  if (totalRooms <= 48)  return { cols:8,  gap:3, numSz:7,  badgeSz:11, depth:5  };
-  if (totalRooms <= 64)  return { cols:10, gap:3, numSz:6,  badgeSz:10, depth:4  };
-  if (totalRooms <= 80)  return { cols:10, gap:2, numSz:6,  badgeSz:9,  depth:4  };
-  return                        { cols:10, gap:2, numSz:5,  badgeSz:8,  depth:3  };
-}
+  const handlePrint = () => {
+    if (!printRef.current) return;
+    const w = window.open("","_blank","width=794,height=1123");
+    if (!w) return;
+    w.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GRC — ${hotel?.name} — ${booking.guestName}</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:"Times New Roman",serif; font-size:11pt; color:#000; background:#fff; padding:20px; }
+    .page { width:754px; min-height:1063px; border:1px solid #999; padding:20px; }
+    .header { text-align:center; border-bottom:2px solid #000; padding-bottom:12px; margin-bottom:14px; }
+    .hotel-name { font-size:20pt; font-weight:bold; text-transform:uppercase; letter-spacing:1px; }
+    .hotel-sub  { font-size:10pt; color:#555; margin-top:4px; }
+    .grc-title  { font-size:14pt; font-weight:bold; text-transform:uppercase; letter-spacing:3px; margin:10px 0; border:1px solid #000; padding:5px; display:inline-block; }
+    .ref-row    { display:flex; justify-content:space-between; font-size:9pt; color:#333; margin-bottom:10px; }
+    .section    { margin-bottom:12px; }
+    .sec-title  { font-size:9pt; font-weight:bold; text-transform:uppercase; letter-spacing:1px; color:#333; border-bottom:1px solid #ddd; padding-bottom:3px; margin-bottom:8px; }
+    .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+    .field-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; }
+    .field      { border:1px solid #ccc; padding:5px 8px; min-height:30px; }
+    .field-label{ font-size:7pt; color:#777; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:2px; }
+    .field-val  { font-size:10pt; font-weight:600; color:#000; min-height:14px; }
+    .id-section { border:1px dashed #999; padding:10px; margin-bottom:12px; }
+    .id-note    { font-size:8pt; color:#888; font-style:italic; }
+    .photo-box  { width:100px; height:80px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; font-size:8pt; color:#999; text-align:center; }
+    .fin-grid   { display:grid; grid-template-columns:1fr 1fr 1fr; }
+    .total-row  { border-top:2px solid #000; display:flex; justify-content:space-between; padding:6px 8px; font-weight:bold; font-size:12pt; }
+    .sig-section{ display:grid; grid-template-columns:1fr 1fr; gap:30px; margin-top:20px; }
+    .sig-box    { border-top:1px solid #000; padding-top:5px; text-align:center; font-size:8pt; color:#555; }
+    .footer     { margin-top:16px; padding-top:8px; border-top:1px solid #ddd; display:flex; justify-content:space-between; font-size:8pt; color:#888; }
+    .badge      { display:inline-block; padding:2px 8px; border:1px solid; font-size:8pt; font-weight:bold; text-transform:uppercase; border-radius:3px; }
+    .badge-reserved { color:#7a6200; border-color:#D4AF37; background:#fffbea; }
+    .badge-occupied { color:#7f0000; border-color:#ef4444; background:#fff0f0; }
+    .badge-active   { color:#005a0e; border-color:#22c55e; background:#f0fff4; }
+    @media print {
+      body { padding:0; }
+      .page { border:none; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="hotel-name">${hotel?.emoji || "🏨"} ${hotel?.name || "Hotel"}</div>
+    <div class="hotel-sub">${hotel?.addressLine || hotel?.location || ""}</div>
+    ${hotel?.ownerPhone ? `<div class="hotel-sub">📞 ${hotel.ownerPhone}</div>` : ""}
+    <div class="grc-title">Guest Registration Card</div>
+  </div>
 
-/* ── Status config ────────────────────────────────────────── */
-function getRoomCfg(status) {
-  return {
-    occupied:    { face:"linear-gradient(160deg,#1d5c1d 0%,#0d360d 60%,#082208 100%)", right:"linear-gradient(180deg,#0d360d,#051405)", bottom:"#041004", glow:"#22c55e", glowA:"rgba(34,197,94,0.7)",  border:"rgba(34,197,94,0.8)",  badgeC:"#22c55e", numC:"#86efac",  label:"Occupied",    icon:"👤" },
-    reserved:    { face:"linear-gradient(160deg,#4a3500 0%,#2e2000 60%,#1a1200 100%)", right:"linear-gradient(180deg,#2e2000,#100b00)", bottom:"#0c0800", glow:"#D4AF37", glowA:"rgba(212,175,55,0.7)", border:"rgba(212,175,55,0.8)", badgeC:"#D4AF37", numC:"#fde68a",  label:"Reserved",    icon:"📌" },
-    cleaning:    { face:"linear-gradient(160deg,#1e1e5a 0%,#111138 60%,#08082a 100%)", right:"linear-gradient(180deg,#111138,#060618)", bottom:"#040412", glow:"#818cf8", glowA:"rgba(129,140,248,0.7)",border:"rgba(129,140,248,0.8)",badgeC:"#818cf8", numC:"#c7d2fe",  label:"Cleaning",    icon:"🧹" },
-    out_of_order:{ face:"linear-gradient(160deg,#1a1a1e 0%,#111113 60%,#090909 100%)", right:"linear-gradient(180deg,#111113,#060606)", bottom:"#040404", glow:"#6b7280", glowA:"rgba(107,114,128,0.4)",border:"rgba(107,114,128,0.5)",badgeC:"#4b5563", numC:"#9ca3af",  label:"Out of Order", icon:"🔧" },
-    vacant:      { face:"linear-gradient(160deg,#4a0d0d 0%,#2e0808 60%,#1a0404 100%)", right:"linear-gradient(180deg,#2e0808,#100303)", bottom:"#0c0202", glow:"#ef4444", glowA:"rgba(239,68,68,0.7)", border:"rgba(239,68,68,0.8)", badgeC:"#ef4444", numC:"#fca5a5",  label:"Vacant",      icon:"" },
-  }[status] || { face:"linear-gradient(160deg,#0d3520,#072212,#041209)", right:"linear-gradient(180deg,#072212,#021008)", bottom:"#020a05", glow:"#10b981", glowA:"rgba(16,185,129,0.7)", border:"rgba(16,185,129,0.8)", badgeC:"#10b981", numC:"#6ee7b7", label:"Vacant", icon:"" };
-}
+  <div class="ref-row">
+    <span><strong>GRC No:</strong> GRC-${bid}</span>
+    <span><strong>Status:</strong>
+      <span class="badge ${booking.status === "reserved" ? "badge-reserved" : booking.status === "occupied" ? "badge-occupied" : "badge-active"}">
+        ${booking.status?.toUpperCase()}
+      </span>
+    </span>
+    <span><strong>Date:</strong> ${today}</span>
+  </div>
 
-/* ── 3D Isometric Room Block ──────────────────────────────── */
-function RoomBlock({ room, onClick, layout }) {
-  const cfg = getRoomCfg(room.status);
-  const { numSz=9, badgeSz=13, depth=6 } = layout || {};
-  const hasImg = room.imageUrl;
+  <!-- GUEST DETAILS -->
+  <div class="section">
+    <div class="sec-title">📋 Guest Personal Information</div>
+    <div class="field-grid">
+      <div class="field"><span class="field-label">Full Name</span><div class="field-val">${booking.guestName || "—"}</div></div>
+      <div class="field"><span class="field-label">Mobile Number</span><div class="field-val">${booking.guestPhone || "—"}</div></div>
+      <div class="field"><span class="field-label">Gender</span><div class="field-val">${booking.gender || "—"}</div></div>
+      <div class="field"><span class="field-label">Date of Birth</span><div class="field-val">${booking.dob ? new Date(booking.dob).toLocaleDateString("en-IN") : "—"}</div></div>
+      <div class="field"><span class="field-label">Nationality</span><div class="field-val">${booking.nationality || "Indian"}</div></div>
+      <div class="field"><span class="field-label">Email</span><div class="field-val">${booking.email || "—"}</div></div>
+    </div>
+    <div class="field"><span class="field-label">Complete Address</span><div class="field-val" style="min-height:20px">${booking.address || "—"}</div></div>
+  </div>
 
-  return (
-    <button
-      onClick={()=>onClick(room)}
-      style={{
-        width:"100%", aspectRatio:"1/1.05",
-        position:"relative", background:"transparent",
-        border:"none", cursor:"pointer", padding:0,
-        transform:"perspective(400px) rotateX(20deg) rotateZ(0deg)",
-        transformOrigin:"center 90%",
-        transition:"transform 0.15s ease, filter 0.15s ease",
-        filter:`drop-shadow(0 ${depth+2}px ${depth*2}px rgba(0,0,0,0.7)) drop-shadow(0 0 ${depth*2}px ${cfg.glowA})`,
-      }}
-    >
-      <div style={{
-        position:"absolute", inset:0, top:`${depth}px`,
-        borderRadius:"6px 6px 8px 8px",
-        background:cfg.bottom,
-        boxShadow:`0 4px 12px rgba(0,0,0,0.9), 0 0 ${depth*3}px ${cfg.glowA}`,
-      }}/>
+  <!-- TRAVEL DETAILS -->
+  <div class="section">
+    <div class="sec-title">✈️ Travel Information</div>
+    <div class="field-grid">
+      <div class="field"><span class="field-label">Arrival From</span><div class="field-val">${booking.arrivalFrom || "—"}</div></div>
+      <div class="field"><span class="field-label">Proceeding To</span><div class="field-val">${booking.proceedingTo || "—"}</div></div>
+      <div class="field"><span class="field-label">Purpose of Visit</span><div class="field-val">${booking.purposeOfVisit || "—"}</div></div>
+      <div class="field"><span class="field-label">Total Guests</span><div class="field-val">${booking.totalGuests || 1}</div></div>
+    </div>
+  </div>
 
-      <div style={{
-        position:"absolute",
-        top:`${depth}px`, right:0, bottom:0,
-        width:`${depth+1}px`,
-        background:cfg.right,
-        borderRadius:"0 2px 4px 0",
-        opacity:0.9,
-      }}/>
-
-      <div style={{
-        position:"absolute", inset:0, bottom:`${depth}px`,
-        borderRadius:"7px 7px 5px 5px",
-        background: hasImg ? "transparent" : cfg.face,
-        border:`1.5px solid ${cfg.border}`,
-        boxShadow:`inset 0 0 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12)`,
-        overflow:"hidden",
-        display:"flex", flexDirection:"column",
-        alignItems:"center", justifyContent:"center",
-        gap:2, padding:"3px 2px",
-      }}>
-        {hasImg && (
-          <img src={room.imageUrl} alt={`Room ${room.number}`} style={{
-            position:"absolute", inset:0, width:"100%", height:"100%",
-            objectFit:"cover", opacity:0.55,
-          }}/>
-        )}
-
-        <div style={{
-          position:"absolute", top:0, left:"6%", right:"6%", height:"35%",
-          background:"linear-gradient(180deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.02) 100%)",
-          borderRadius:"6px 6px 50% 50%", pointerEvents:"none",
-          zIndex:2,
-        }}/>
-
-        <div style={{
-          position:"absolute", bottom:1, left:"8%", right:"8%", height:2,
-          background:cfg.badgeC, filter:"blur(3px)", opacity:0.95,
-          zIndex:2,
-        }}/>
-
-        <div style={{
-          position:"absolute", top:"10%", left:1, bottom:"10%", width:1.5,
-          background:`linear-gradient(180deg,transparent,${cfg.badgeC},transparent)`,
-          opacity:0.5, zIndex:2,
-        }}/>
-
-        <div style={{
-          width:badgeSz, height:badgeSz, borderRadius:"50%",
-          background:`radial-gradient(circle, ${cfg.badgeC} 0%, ${cfg.badgeC}cc 100%)`,
-          display:"flex", alignItems:"center", justifyContent:"center",
-          boxShadow:`0 0 8px ${cfg.badgeC}, 0 0 16px ${cfg.glowA}`,
-          position:"relative", zIndex:3, flexShrink:0,
-          border:`1px solid ${cfg.badgeC}90`,
-        }}>
-          <svg viewBox="0 0 10 10" style={{width:badgeSz*0.6, height:badgeSz*0.6}}>
-            <circle cx="5" cy="3.2" r="1.8" fill="white" opacity="0.95"/>
-            <path d="M1.5,9 Q1.5,6.2 5,6.2 Q8.5,6.2 8.5,9Z" fill="white" opacity="0.95"/>
-          </svg>
+  <!-- ID DOCUMENT -->
+  <div class="section">
+    <div class="sec-title">🪪 Identity Document (Police Records Compliance)</div>
+    <div class="id-section">
+      <div class="field-grid">
+        <div>
+          <div class="field"><span class="field-label">ID Type</span><div class="field-val">${booking.idType || "Aadhaar"}</div></div>
+          <div class="field"><span class="field-label">ID Number</span><div class="field-val">[Aadhaar Redacted]</div></div>
+          <div class="id-note">⚠ Sensitive identification data is redacted per privacy policy. Original data stored securely in encrypted format for authorized police access only.</div>
         </div>
-
-        <span style={{
-          fontSize:numSz, color:cfg.numC, fontWeight:900,
-          fontFamily:"'Courier New',monospace",
-          letterSpacing:"0.01em", lineHeight:1,
-          position:"relative", zIndex:3,
-          textShadow:`0 0 6px ${cfg.badgeC}, 0 1px 0 rgba(0,0,0,0.8)`,
-        }}>
-          {room.number}
-        </span>
+        <div style="display:flex;align-items:center;justify-content:center">
+          ${booking.idImageBase64
+            ? `<img src="data:image/jpeg;base64,${booking.idImageBase64}" style="max-width:180px;max-height:100px;border:1px solid #ccc;border-radius:4px" alt="ID Document" />`
+            : '<div class="photo-box">📷 ID Image<br/>(Not Available)</div>'
+          }
+        </div>
       </div>
+      ${booking.companyName ? `<div class="field-grid" style="margin-top:6px"><div class="field"><span class="field-label">Company Name</span><div class="field-val">${booking.companyName}</div></div><div class="field"><span class="field-label">GST Number</span><div class="field-val">${booking.gstNo || "—"}</div></div></div>` : ""}
+    </div>
+  </div>
 
-      <div style={{
-        position:"absolute", inset:-2, bottom:depth-2,
-        borderRadius:"9px 9px 7px 7px",
-        border:`1px solid ${cfg.border}`,
-        opacity:0.4, pointerEvents:"none",
-      }}/>
-    </button>
-  );
-}
+  <!-- ROOM & STAY -->
+  <div class="section">
+    <div class="sec-title">🛏 Room & Stay Details</div>
+    <div class="field-grid-3">
+      <div class="field"><span class="field-label">Room Number</span><div class="field-val" style="font-size:14pt;color:#000">${booking.roomId || "—"}</div></div>
+      <div class="field"><span class="field-label">Room Type</span><div class="field-val">${(booking.roomType||"Standard").charAt(0).toUpperCase()+(booking.roomType||"Standard").slice(1)}</div></div>
+      <div class="field"><span class="field-label">No. of Nights</span><div class="field-val" style="font-size:14pt">${booking.nights || 1}</div></div>
+      <div class="field"><span class="field-label">Check-In Date</span><div class="field-val">${checkInFmt}</div></div>
+      <div class="field"><span class="field-label">Check-Out Date</span><div class="field-val">${checkOutFmt}</div></div>
+      <div class="field"><span class="field-label">Payment Mode</span><div class="field-val">${booking.paymentMode || "Cash"}</div></div>
+    </div>
+  </div>
 
-/* ─── Main ────────────────────────────────────────────── */
-export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewBooking }) {
-  const [stats,      setStats]   = useState(null);
-  const [rooms,      setRooms]   = useState([]);
-  const [insight,    setInsight] = useState("Aaj ki demand analysis ho rahi hai...");
-  const [iLoad,      setILoad]   = useState(false);
-  const [selRoom,    setSelRoom] = useState(null);
-  const [revData,    setRevData] = useState([]);
-  const [refreshing, setRefresh] = useState(false);
-  const [copied,     setCopied]  = useState(false);
+  <!-- FINANCIALS -->
+  <div class="section">
+    <div class="sec-title">💰 Financial Summary</div>
+    <div class="fin-grid">
+      <div class="field"><span class="field-label">Rate / Night</span><div class="field-val">₹${Number(booking.ratePerNight||0).toLocaleString("en-IN")}</div></div>
+      <div class="field"><span class="field-label">AI Negotiated</span><div class="field-val">${booking.negotiated ? `Yes (from ₹${Number(booking.negotiatedFrom||0).toLocaleString("en-IN")})` : "No"}</div></div>
+      <div class="field"><span class="field-label">Rate Lock Token</span><div class="field-val" style="font-size:8pt;font-family:monospace">${booking.rateLockToken || "—"}</div></div>
+    </div>
+    <div class="total-row">
+      <span>TOTAL AMOUNT</span>
+      <span>₹${Number(booking.totalAmount||0).toLocaleString("en-IN")}</span>
+    </div>
+  </div>
 
-  const load = useCallback(() => {
-    if (!hotelId) return;
-    initializeRooms(hotelId, hotel?.totalRooms || 20);
-    setStats(getTodayStats(hotelId));
-    setRooms(getRooms(hotelId));
-    setRevData(getWeeklyRevenue(hotelId));
-  }, [hotelId, hotel?.totalRooms]);
+  <!-- SIGNATURES -->
+  <div class="sig-section">
+    <div>
+      <div style="height:50px"></div>
+      <div class="sig-box">Guest Signature & Date</div>
+    </div>
+    <div>
+      <div style="height:50px"></div>
+      <div class="sig-box">Authorised Staff Signature</div>
+    </div>
+  </div>
 
-  useEffect(() => { load(); fetchInsight(); const iv=setInterval(load,30000); return ()=>clearInterval(iv); }, [load]);
-
-  const fetchInsight = async () => {
-    setILoad(true);
-    try {
-      const s = getTodayStats(hotelId);
-      const r = await fetch("/api/groq",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"ai_insight",stats:s,hotelName:hotel?.name}) });
-      const d = await r.json();
-      setInsight(d.insight || localInsight(s));
-    } catch { setInsight(localInsight(getTodayStats(hotelId))); }
-    setILoad(false);
+  <div class="footer">
+    <span>GRC-${bid} • ${hotel?.name} • The GuestInn Network</span>
+    <span>Printed: ${today} • Commission-Free Booking Platform</span>
+  </div>
+</div>
+</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 500);
   };
 
-  const handleRefresh = async () => { setRefresh(true); load(); await fetchInsight(); setRefresh(false); };
-  const copyLink = () => { navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }); };
-  const handleRoomClick = (room) => { const booking=room.currentBookingId?getBookingById(hotelId,room.currentBookingId):null; setSelRoom({...room,booking}); };
-  const handleCheckout = async (bookingId) => { await checkoutBooking(hotelId,bookingId); load(); setSelRoom(null); if(navigator.vibrate)navigator.vibrate(50); };
-
-  if (!stats) return <Skeleton />;
-
-  const pct = (Math.random()*20+5).toFixed(1);
-  const byFloor={};
-  rooms.forEach(r=>{ if(!byFloor[r.floor])byFloor[r.floor]=[]; byFloor[r.floor].push(r); });
-
-  const occupied  =rooms.filter(r=>r.status==="occupied").length;
-  const vacant    =rooms.filter(r=>r.status==="vacant").length;
-  const reserved  =rooms.filter(r=>r.status==="reserved").length;
-  const cleaning  =rooms.filter(r=>r.status==="cleaning").length;
-  const outOfOrder=rooms.filter(r=>r.status==="out_of_order").length;
-  const total     =rooms.length;
-
-  const todayBookings=getTodayBookings(hotelId);
-  const pendingCI=todayBookings.filter(b=>b.status==="active").length;
-
-  const Tip=({active,payload})=>active&&payload?.length?(<div style={{background:"rgba(0,0,0,0.92)",border:"1px solid rgba(212,175,55,0.4)",borderRadius:8,padding:"5px 9px"}}><p style={{color:"#D4AF37",fontSize:11,fontWeight:800}}>₹{payload[0].value.toLocaleString("en-IN")}</p></div>):null;
-
   return (
-    <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden",background:"#07090E"}}>
-      <style>{`
-        @keyframes spinRingCW  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes laserPulse  { 0%,100%{opacity:0.4;transform:translateX(-50%) scaleY(0.5)} 50%{opacity:1;transform:translateX(-50%) scaleY(1)} }
-        @keyframes dotBounce   { 0%,60%,100%{transform:translateY(0);opacity:.35} 30%{transform:translateY(-7px);opacity:1} }
-        @keyframes holoPulse   { 0%,100%{filter:drop-shadow(0 0 12px #008cff) drop-shadow(0 0 28px rgba(0,140,255,0.4))} 50%{filter:drop-shadow(0 0 22px #00aaff) drop-shadow(0 0 55px rgba(0,160,255,0.65))} }
-        @keyframes pulseDot    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.6)} }
-        @keyframes audioBar    { 0%,100%{transform:scaleY(.3)} 50%{transform:scaleY(1)} }
-        .holo-svg { animation: holoPulse 3s ease-in-out infinite; }
-      `}</style>
-      <div className="scroll-y" style={{flex:1,paddingBottom:28}}>
-
-        {/* ── AI RECEPTIONIST ── */}
-        <div style={{padding:"12px 14px 0"}}>
-          <div style={{background:"linear-gradient(135deg,rgba(8,12,22,0.98),rgba(4,6,14,0.98))",border:"1px solid rgba(0,140,255,0.18)",borderRadius:18,padding:"14px",display:"flex",alignItems:"center",gap:14,boxShadow:"0 4px 28px rgba(0,140,255,0.07),inset 0 1px 0 rgba(255,255,255,0.04)"}}>
-            <div style={{position:"relative",flexShrink:0}}>
-              <div style={{position:"absolute",inset:-9,borderRadius:"50%",background:"conic-gradient(from 0deg,rgba(212,175,55,0.9),rgba(0,140,255,0.7),rgba(212,175,55,0),rgba(0,140,255,0.6),rgba(212,175,55,0.9))",animation:"spinRingCW 3s linear infinite"}}>
-                <div style={{position:"absolute",inset:2,borderRadius:"50%",background:"#07090E"}}/>
-              </div>
-              <div style={{position:"absolute",inset:-3,borderRadius:"50%",border:"1.5px solid rgba(212,175,55,0.35)",boxShadow:"0 0 10px rgba(212,175,55,0.25)"}}/>
-              <div style={{width:58,height:58,borderRadius:"50%",overflow:"hidden",position:"relative",boxShadow:"0 0 18px rgba(0,140,255,0.3)"}}>
-                <svg viewBox="0 0 60 60" style={{width:58,height:58}}>
-                  <defs>
-                    <radialGradient id="sk" cx="50%" cy="35%" r="55%"><stop offset="0%" stopColor="#dba882"/><stop offset="100%" stopColor="#bf7a50"/></radialGradient>
-                    <linearGradient id="hr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#120600"/><stop offset="100%" stopColor="#060200"/></linearGradient>
-                    <linearGradient id="ub" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#12142a"/><stop offset="100%" stopColor="#070810"/></linearGradient>
-                  </defs>
-                  <rect width="60" height="60" fill="url(#ub)"/>
-                  <path d="M5,60 Q5,42 30,40 Q55,42 55,60Z" fill="#08081a"/>
-                  <path d="M14,60 Q14,45 30,43 Q46,45 46,60Z" fill="#12143a"/>
-                  <path d="M24,46 Q30,50 36,46" fill="none" stroke="#D4AF37" strokeWidth="1.5"/>
-                  <rect x="25" y="36" width="10" height="8" rx="4" fill="url(#sk)"/>
-                  <ellipse cx="30" cy="25" rx="13.5" ry="14.5" fill="url(#sk)"/>
-                  <path d="M17,21 Q17,8 30,8 Q43,8 43,21 Q39,13 30,13 Q21,13 17,21Z" fill="url(#hr)"/>
-                  <path d="M17,21 Q14,30 16,37 Q18,31 18,24Z" fill="url(#hr)"/>
-                  <path d="M43,21 Q46,30 44,37 Q42,31 42,24Z" fill="url(#hr)"/>
-                  <ellipse cx="24" cy="26" rx="2.5" ry="2.8" fill="#110600"/>
-                  <ellipse cx="36" cy="26" rx="2.5" ry="2.8" fill="#110600"/>
-                  <circle cx="24.9" cy="25" r="0.8" fill="#fff" opacity="0.9"/>
-                  <circle cx="36.9" cy="25" r="0.8" fill="#fff" opacity="0.9"/>
-                  <path d="M21,22 Q24,21 27,22" fill="none" stroke="#2a0e00" strokeWidth="1.2" strokeLinecap="round"/>
-                  <path d="M33,22 Q36,21 39,22" fill="none" stroke="#2a0e00" strokeWidth="1.2" strokeLinecap="round"/>
-                  <path d="M29,30 Q30,32 31,30" fill="none" stroke="#aa6a40" strokeWidth="0.8"/>
-                  <path d="M25,34 Q30,38.5 35,34" fill="none" stroke="#aa6a40" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <div style={{position:"absolute",bottom:-3,left:"50%",transform:"translateX(-50%)",display:"flex",gap:1.5,alignItems:"flex-end",background:"rgba(0,140,255,0.14)",borderRadius:5,padding:"2px 5px",border:"1px solid rgba(0,140,255,0.28)"}}>
-                {[4,8,5,10,6,9,4].map((h,i)=>(<div key={i} style={{width:2,height:h,background:"#008cff",borderRadius:1,animation:`audioBar 0.8s ease-in-out infinite`,animationDelay:`${i*0.11}s`}}/>))}
-              </div>
-              <div style={{position:"absolute",top:1,right:1,width:11,height:11,borderRadius:"50%",background:"#008cff",border:"2px solid #07090E",boxShadow:"0 0 8px #008cff,0 0 16px rgba(0,140,255,0.5)",animation:"livePulse 2s infinite"}}/>
+    <div onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(0,0,0,0.88)", display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
+      <div style={{ background:"#0d0f1a", border:"1px solid rgba(255,255,255,0.1)", borderRadius:20, width:"100%", maxWidth:520, maxHeight:"92vh", overflowY:"auto" }}>
+        {/* Modal header */}
+        <div style={{ padding:"14px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, background:"#0d0f1a", zIndex:10 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <Printer size={15} style={{ color:"#D4AF37" }} />
+            <div>
+              <p style={{ fontSize:12, fontWeight:800, color:"#D4AF37" }}>GRC Print — {booking.guestName}</p>
+              <p style={{ fontSize:9, color:"rgba(255,255,255,0.3)" }}>Room {booking.roomId} · {bid}</p>
             </div>
-            <div style={{flex:1,minWidth:0}}>
-              <p style={{fontSize:14,fontWeight:800,color:"#D4AF37",marginBottom:3,textShadow:"0 0 12px rgba(212,175,55,0.4)"}}>AI Receptionist</p>
-              <p style={{fontSize:12,color:"rgba(255,255,255,0.55)",lineHeight:1.5}}>{greeting()}, {user?.role==="owner"?"Owner":"Manager"} 👋</p>
-              <p style={{fontSize:11,color:"rgba(255,255,255,0.3)"}}>Here's your operational overview.</p>
-            </div>
-            <button onClick={handleRefresh} disabled={refreshing} style={{width:33,height:33,borderRadius:10,flexShrink:0,background:"rgba(0,140,255,0.08)",border:"1px solid rgba(0,140,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <RefreshCw size={13} style={{color:"#60b8ff"}} className={refreshing?"animate-spin":""}/>
-            </button>
           </div>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.4)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <X size={13} />
+          </button>
         </div>
 
-        <div style={{padding:"0 14px"}}>
-          {/* ── LIVE REVENUE ── */}
-          <div style={{margin:"12px 0",background:"linear-gradient(135deg,rgba(14,10,1,0.99),rgba(7,5,0,0.99))",border:"1px solid rgba(212,175,55,0.22)",borderRadius:20,padding:"18px 18px 16px",position:"relative",overflow:"hidden",boxShadow:"0 6px 36px rgba(212,175,55,0.05),inset 0 1px 0 rgba(212,175,55,0.08)"}}>
-            <div style={{position:"absolute",top:-60,right:-50,width:220,height:220,background:"radial-gradient(circle,rgba(212,175,55,0.07) 0%,transparent 70%)",pointerEvents:"none"}}/>
-            <p style={{fontSize:9,letterSpacing:"0.15em",color:"rgba(212,175,55,0.5)",textTransform:"uppercase",marginBottom:6,position:"relative"}}>LIVE REVENUE</p>
-            <p style={{fontSize:33,fontWeight:900,color:"#fff",letterSpacing:"-0.03em",lineHeight:1.1,marginBottom:4,position:"relative",textShadow:"0 0 36px rgba(212,175,55,0.28)"}}>₹{stats.todayRevenue.toLocaleString("en-IN")}.00</p>
-            <p style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginBottom:10,position:"relative"}}>Today's Total Revenue</p>
-            <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(34,197,94,0.09)",border:"1px solid rgba(34,197,94,0.22)",borderRadius:8,padding:"4px 10px",position:"relative"}}>
-              <span style={{color:"#4ade80",fontSize:11,fontWeight:700}}>↑ {pct}% vs yesterday</span>
+        {/* Preview card (compact) */}
+        <div ref={printRef} style={{ padding:16 }}>
+          <div style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:12, padding:"14px", marginBottom:14 }}>
+            <p style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10, textAlign:"center" }}>GRC Preview</p>
+
+            {/* Hotel + status */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, paddingBottom:10, borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+              <p style={{ fontSize:13, fontWeight:800, color:"#fff" }}>{hotel?.name}</p>
+              <StatusBadge status={booking.status} />
             </div>
-            <div style={{marginTop:14,height:58,position:"relative"}}>
-              <ResponsiveContainer width="100%" height={58}>
-                <AreaChart data={revData} margin={{top:0,right:0,left:0,bottom:0}}>
-                  <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#D4AF37" stopOpacity={0.5}/><stop offset="100%" stopColor="#D4AF37" stopOpacity={0}/></linearGradient></defs>
-                  <Tooltip content={<Tip/>} cursor={false}/>
-                  <Area type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={2.5} fill="url(#rg)" dot={false} style={{filter:"drop-shadow(0 0 8px rgba(212,175,55,0.9)) drop-shadow(0 0 18px rgba(212,175,55,0.45))"}}/>
-                </AreaChart>
-              </ResponsiveContainer>
+
+            {/* Fields grid */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {[
+                ["GRC Ref",       `GRC-${bid}`],
+                ["Guest",         booking.guestName],
+                ["Phone",         booking.guestPhone],
+                ["Gender",        booking.gender || "—"],
+                ["Room",          booking.roomId || "—"],
+                ["Room Type",     (booking.roomType||"standard").charAt(0).toUpperCase()+(booking.roomType||"standard").slice(1)],
+                ["Check-In",      booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString("en-IN") : "—"],
+                ["Check-Out",     booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString("en-IN") : "—"],
+                ["Nights",        String(booking.nights||1)],
+                ["Rate/Night",    `₹${Number(booking.ratePerNight||0).toLocaleString("en-IN")}`],
+                ["ID Type",       booking.idType || "Aadhaar"],
+                ["ID Number",     "[Aadhaar Redacted]"],  // privacy placeholder
+              ].map(([label, val]) => (
+                <div key={label} style={{ padding:"7px 9px", background:"rgba(255,255,255,0.03)", borderRadius:6, border:"1px solid rgba(255,255,255,0.05)" }}>
+                  <p style={{ fontSize:8, color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>{label}</p>
+                  <p style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.8)", fontFamily:label==="GRC Ref"||label==="ID Number"?"monospace":"inherit" }}>{val || "—"}</p>
+                </div>
+              ))}
             </div>
+
+            {/* Address */}
+            {booking.address && (
+              <div style={{ padding:"8px 9px", background:"rgba(255,255,255,0.03)", borderRadius:6, border:"1px solid rgba(255,255,255,0.05)", marginTop:8 }}>
+                <p style={{ fontSize:8, color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>Address</p>
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.7)" }}>{booking.address}</p>
+              </div>
+            )}
+
+            {/* Total */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10, paddingTop:10, borderTop:"1px solid rgba(255,255,255,0.08)" }}>
+              <p style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>Total Amount</p>
+              <p style={{ fontSize:20, fontWeight:900, color:"#D4AF37" }}>₹{Number(booking.totalAmount||0).toLocaleString("en-IN")}</p>
+            </div>
+
+            {/* ID image indicator */}
+            {booking.idImageBase64 && (
+              <div style={{ marginTop:8, padding:"6px 9px", borderRadius:6, background:"rgba(34,197,94,0.06)", border:"1px solid rgba(34,197,94,0.15)", display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ width:5, height:5, borderRadius:"50%", background:"#22c55e" }} />
+                <p style={{ fontSize:9, color:"rgba(34,197,94,0.7)" }}>ID image (Base64) — will print in full GRC</p>
+              </div>
+            )}
           </div>
 
-          {/* ── ROOM GRID ── */}
-          {(() => {
-            const layout = getRoomGridLayout(total);
-            const gap    = layout.gap;
-            const cols   = layout.cols;
-            const allRoomsSorted = [...rooms].sort((a,b)=> b.floor!==a.floor ? b.floor-a.floor : a.number-b.number);
-            const rows = [];
-            for(let i=0; i<allRoomsSorted.length; i+=cols) rows.push(allRoomsSorted.slice(i,i+cols));
-
-            return (
-              <div style={{background:"linear-gradient(135deg,rgba(6,8,16,0.99),rgba(4,5,12,0.99))",border:"1px solid rgba(255,255,255,0.065)",borderRadius:20,padding:"16px 12px 14px",marginBottom:12,boxShadow:"0 4px 28px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.03)"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:13}}>🛏️</span>
-                    <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.45)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Room Occupancy</p>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    <span style={{fontSize:10,color:"rgba(212,175,55,0.55)",fontWeight:600}}>Tower A</span>
-                    <span style={{fontSize:10,color:"rgba(255,255,255,0.25)"}}>▼</span>
-                  </div>
-                </div>
-
-                <div style={{display:"flex",flexDirection:"column",gap:gap}}>
-                  {rows.map((rowRooms, rowIdx)=>{
-                    const floorLabel = rowRooms[0]?.floor;
-                    const padded = [...rowRooms];
-                    while(padded.length < cols) padded.push(null);
-                    return (
-                      <div key={rowIdx} style={{display:"flex",alignItems:"flex-end",gap:gap}}>
-                        <span style={{fontSize:8,color:"rgba(255,255,255,0.18)",width:16,textAlign:"right",flexShrink:0,fontWeight:700,paddingBottom:4,fontFamily:"'Courier New',monospace",lineHeight:1}}>
-                          {String(floorLabel).padStart(2,"0")}
-                        </span>
-                        <div style={{
-                          flex:1,
-                          display:"grid",
-                          gridTemplateColumns:`repeat(${cols}, 1fr)`,
-                          gap:gap
-                        }}>
-                          {padded.map((room,ci)=>
-                            room
-                              ? <RoomBlock key={room.id} room={room} onClick={handleRoomClick} layout={layout}/>
-                              : <div key={`ph-${ci}`} style={{aspectRatio:"1/1.05",borderRadius:8,background:"rgba(255,255,255,0.008)",border:"1px dashed rgba(255,255,255,0.03)"}}/>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div style={{display:"flex",flexWrap:"wrap",gap:"5px 12px",marginTop:14,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.05)"}}>
-                  {[{c:"#22c55e",l:"Occupied",v:`${occupied}`},{c:"#D4AF37",l:"Reserved",v:`${reserved}`},{c:"#ef4444",l:"Vacant",v:`${vacant}`},{c:"#6b7280",l:"Out of Order",v:`${outOfOrder}`}].map(x=>(
-                    <div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}>
-                      <div style={{width:7,height:7,borderRadius:"50%",background:x.c,boxShadow:`0 0 5px ${x.c}`}}/>
-                      <span style={{fontSize:9,color:"rgba(255,255,255,0.35)"}}>{x.l} ({x.v})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* ── QUICK TILES + AI SCAN ── */}
-          <div style={{marginBottom:12}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 130px 1fr",gap:8,marginBottom:8,alignItems:"stretch"}}>
-              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Guest Check-in</p>
-                </div>
-                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>{pendingCI}</p>
-                <p style={{fontSize:12,color:"#3B82F6",fontWeight:700,marginTop:4}}>Pending</p>
-              </div>
-
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <AiScanReactor onClick={()=>{ if(navigator.vibrate)navigator.vibrate([30,20,60]); onNavigate&&onNavigate("scanner"); }}/>
-              </div>
-
-              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Maintenance</p>
-                </div>
-                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>{outOfOrder}</p>
-                <p style={{fontSize:12,color:"#D4AF37",fontWeight:700,marginTop:4}}>Pending</p>
-              </div>
-            </div>
-
-            <div style={{display:"grid",gridTemplateColumns:"1fr 130px 1fr",gap:8}}>
-              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><path d="M3 12h18M3 6l9-3 9 3M3 18l9 3 9-3"/></svg>
-                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Housekeeping</p>
-                </div>
-                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>{cleaning}</p>
-                <p style={{fontSize:12,color:"#3B82F6",fontWeight:700,marginTop:4}}>Rooms</p>
-              </div>
-              <div/>
-              <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,padding:"14px 12px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                  <p style={{fontSize:8,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Reviews</p>
-                </div>
-                <p style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:"-0.03em"}}>4.8</p>
-                <p style={{fontSize:12,color:"#D4AF37",fontWeight:700,marginTop:4}}>Rating</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ── AI INSIGHTS + HOLOGRAM ── */}
-          <div style={{background:"linear-gradient(135deg,rgba(0,18,45,0.55),rgba(0,8,22,0.65))",border:"1px solid rgba(0,140,255,0.18)",borderRadius:20,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",boxShadow:"0 4px 28px rgba(0,140,255,0.05),inset 0 1px 0 rgba(0,140,255,0.07)"}}>
-            <div style={{position:"absolute",inset:0,opacity:0.04,backgroundImage:"linear-gradient(rgba(0,140,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(0,140,255,0.8) 1px,transparent 1px)",backgroundSize:"22px 22px",pointerEvents:"none"}}/>
-            <div style={{display:"flex",alignItems:"flex-start",position:"relative"}}>
-              <div style={{flex:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                  <div style={{width:30,height:30,borderRadius:10,background:"rgba(0,140,255,0.1)",border:"1px solid rgba(0,140,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    <Brain size={13} style={{color:"#60b8ff"}}/>
-                  </div>
-                  <p style={{fontSize:11,fontWeight:900,color:"#60b8ff",letterSpacing:"0.13em",textShadow:"0 0 10px rgba(0,140,255,0.5)"}}>AI INSIGHTS</p>
-                </div>
-                {iLoad?(
-                  <div style={{display:"flex",gap:5,alignItems:"center",height:36}}>
-                    {[0,1,2].map(i=>(<div key={i} style={{width:7,height:7,borderRadius:"50%",background:"#008cff",animation:`dotBounce 1.2s infinite`,animationDelay:`${i*0.2}s`}}/>))}
-                  </div>
-                ):(
-                  <p style={{fontSize:13,color:"rgba(255,255,255,0.65)",lineHeight:1.6,marginBottom:12}}>{insight}</p>
-                )}
-                <button onClick={fetchInsight} style={{padding:"7px 15px",borderRadius:10,background:"transparent",border:"1px solid rgba(212,175,55,0.45)",color:"#D4AF37",fontSize:11,fontWeight:800,cursor:"pointer",letterSpacing:"0.04em",boxShadow:"0 0 10px rgba(212,175,55,0.12)"}}>
-                  View Insights
-                </button>
-              </div>
-              <div style={{flexShrink:0,marginRight:-10,marginBottom:-10}}>
-                <HologramBuilding/>
-              </div>
-            </div>
-          </div>
-
-          {/* ── BOOKING LINK ── */}
-          <button onClick={copyLink} style={{width:"100%",background:"rgba(6,8,15,0.9)",border:"1px solid rgba(212,175,55,0.1)",borderRadius:13,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,cursor:"pointer"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <ExternalLink size={11} style={{color:"#D4AF37"}}/>
-              <span style={{fontSize:11,fontFamily:"monospace",color:"rgba(255,255,255,0.22)"}}>/booking/{hotelId}</span>
-            </div>
-            <span style={{fontSize:11,fontWeight:700,color:"#D4AF37",display:"flex",alignItems:"center",gap:4}}>
-              {copied?<><Check size={10}/>Copied!</>:"Share Link"}
-            </span>
+          {/* Print button */}
+          <button onClick={handlePrint}
+            style={{ width:"100%", padding:"13px", borderRadius:12, background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000", border:"none", cursor:"pointer", fontWeight:900, fontSize:13, display:"flex", alignItems:"center", justifyContent:"center", gap:8, boxShadow:"0 4px 20px rgba(212,175,55,0.3)" }}>
+            <Printer size={15} /> Full GRC Print / Download Karo
           </button>
-
-          {/* ── CHECK-INS ── */}
-          <div style={{background:"rgba(6,8,15,0.98)",border:"1px solid rgba(255,255,255,0.055)",borderRadius:20,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 16px",borderBottom:"1px solid rgba(255,255,255,0.045)"}}>
-              <p style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:"rgba(255,255,255,0.3)",textTransform:"uppercase"}}>Aaj Ke Check-ins</p>
-              <span style={{fontSize:11,fontWeight:700,color:"#D4AF37"}}>{todayBookings.filter(b=>b.status==="active").length} active</span>
-            </div>
-            {todayBookings.length===0?(
-              <div style={{padding:"28px 16px",textAlign:"center"}}>
-                <p style={{fontSize:26,marginBottom:8}}>🌙</p>
-                <p style={{fontSize:13,color:"rgba(255,255,255,0.18)"}}>Aaj koi check-in nahi hua</p>
-              </div>
-            ):todayBookings.slice(0,5).map((b,idx)=>(
-              <div key={b.id} style={{padding:"13px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:idx<Math.min(4,todayBookings.length-1)?"1px solid rgba(255,255,255,0.038)":"none"}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontSize:13,color:"#fff",fontWeight:700,marginBottom:2}}>{b.guestName}</p>
-                  <p style={{fontSize:10,color:"rgba(255,255,255,0.28)"}}>Room {b.roomId} · {b.nights} raat · {b.paymentMode}</p>
-                </div>
-                <p style={{fontSize:14,fontWeight:800,color:"#D4AF37",textShadow:"0 0 10px rgba(212,175,55,0.35)",flexShrink:0}}>₹{Number(b.totalAmount||0).toLocaleString("en-IN")}</p>
-              </div>
-            ))}
-          </div>
+          <p style={{ fontSize:9, color:"rgba(255,255,255,0.2)", textAlign:"center", marginTop:6 }}>
+            Print dialog mein "Save as PDF" select karo digital copy ke liye
+          </p>
         </div>
       </div>
-
-      {/* ── ROOM DETAIL MODAL ── */}
-      {selRoom&&(() => {
-        const cfg = getRoomCfg(selRoom.status);
-        const imgs = selRoom.images || (selRoom.imageUrl ? [selRoom.imageUrl] : []);
-        return (
-          <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",alignItems:"flex-end",background:"rgba(0,0,0,0.85)",backdropFilter:"blur(8px)"}} onClick={()=>setSelRoom(null)}>
-            <div style={{
-              width:"100%", maxHeight:"88vh", overflowY:"auto",
-              background:"linear-gradient(180deg,#0c101c,#07090E)",
-              borderRadius:"26px 26px 0 0", padding:"0 0 24px",
-              border:"1px solid rgba(255,255,255,0.07)", borderBottom:"none",
-              boxShadow:"0 -12px 60px rgba(0,0,0,0.8)"
-            }} onClick={e=>e.stopPropagation()}>
-
-              <div style={{width:40,height:4,background:"rgba(255,255,255,0.12)",borderRadius:2,margin:"12px auto 0"}}/>
-
-              <div style={{
-                background:`linear-gradient(135deg, ${cfg.glowA.replace("0.7","0.12")}, transparent)`,
-                borderBottom:`1px solid ${cfg.border.replace("0.8","0.15")}`,
-                padding:"14px 20px 14px",
-                display:"flex", alignItems:"center", gap:14,
-              }}>
-                <div style={{
-                  width:56, height:52, flexShrink:0, position:"relative",
-                  filter:`drop-shadow(0 4px 12px ${cfg.glowA})`
-                }}>
-                  <div style={{position:"absolute",inset:0,top:5,borderRadius:"7px 7px 9px 9px",background:cfg.bottom,boxShadow:`0 0 12px ${cfg.glowA}`}}/>
-                  <div style={{position:"absolute",top:5,right:0,bottom:0,width:5,background:cfg.right,borderRadius:"0 2px 4px 0"}}/>
-                  <div style={{position:"absolute",inset:0,bottom:5,borderRadius:"6px 6px 4px 4px",background:cfg.face,border:`1.5px solid ${cfg.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
-                    <div style={{width:18,height:18,borderRadius:"50%",background:cfg.badgeC,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 8px ${cfg.badgeC}`}}>
-                      <svg viewBox="0 0 10 10" style={{width:11,height:11}}>
-                        <circle cx="5" cy="3.2" r="1.8" fill="white"/>
-                        <path d="M1.5,9 Q1.5,6.2 5,6.2 Q8.5,6.2 8.5,9Z" fill="white"/>
-                      </svg>
-                    </div>
-                    <span style={{fontSize:9,color:cfg.numC,fontWeight:900,fontFamily:"monospace",textShadow:`0 0 6px ${cfg.badgeC}`}}>{selRoom.number}</span>
-                  </div>
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
-                    <p style={{fontSize:22,fontWeight:900,color:"#fff",letterSpacing:"-0.02em"}}>Room {selRoom.number}</p>
-                    <div style={{padding:"2px 8px",borderRadius:20,background:`${cfg.glowA.replace("0.7","0.15")}`,border:`1px solid ${cfg.border}`,display:"flex",alignItems:"center",gap:4}}>
-                      <div style={{width:6,height:6,borderRadius:"50%",background:cfg.badgeC,boxShadow:`0 0 5px ${cfg.badgeC}`}}/>
-                      <span style={{fontSize:10,fontWeight:700,color:cfg.numC,letterSpacing:"0.04em"}}>{cfg.label.toUpperCase()}</span>
-                    </div>
-                  </div>
-                  <p style={{fontSize:12,color:"rgba(255,255,255,0.35)"}}>
-                    {selRoom.type||"Standard Room"} · Floor {selRoom.floor} · ₹{(selRoom.baseRate||0).toLocaleString("en-IN")}/raat
-                  </p>
-                </div>
-              </div>
-
-              <div style={{padding:"16px 20px 0"}}>
-                <div style={{marginBottom:16}}>
-                  {imgs.length > 0 ? (
-                    <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
-                      {imgs.map((src,i)=>(
-                        <div key={i} style={{flexShrink:0,width:i===0?200:120,height:i===0?130:120,borderRadius:14,overflow:"hidden",border:`1px solid ${cfg.border.replace("0.8","0.3")}`,boxShadow:`0 0 16px ${cfg.glowA.replace("0.7","0.3")}`}}>
-                          <img src={src} alt={`Room ${selRoom.number} view ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{
-                      width:"100%", height:140, borderRadius:16,
-                      background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.08")},rgba(255,255,255,0.02))`,
-                      border:`1.5px dashed ${cfg.border.replace("0.8","0.3")}`,
-                      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8
-                    }}>
-                      <div style={{fontSize:32}}>🛏️</div>
-                      <p style={{fontSize:11,color:"rgba(255,255,255,0.2)",textAlign:"center",lineHeight:1.4}}>
-                        Room photos yahan aayengi<br/>
-                        <span style={{fontSize:10,color:cfg.numC,opacity:0.6}}>Tap to add images (coming soon)</span>
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-                  {[
-                    {label:"Room Type",   val:selRoom.type||"Standard",    icon:"🏠"},
-                    {label:"Floor",       val:`Floor ${selRoom.floor}`,     icon:"🏢"},
-                    {label:"Base Rate",   val:`₹${(selRoom.baseRate||0).toLocaleString("en-IN")}/raat`, icon:"💰"},
-                    {label:"Capacity",    val:selRoom.capacity||"2 Adults", icon:"👥"},
-                  ].map(item=>(
-                    <div key={item.label} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"10px 12px"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
-                        <span style={{fontSize:12}}>{item.icon}</span>
-                        <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}}>{item.label}</p>
-                      </div>
-                      <p style={{fontSize:13,color:"#fff",fontWeight:700}}>{item.val}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {selRoom.booking && (
-                  <div style={{background:`linear-gradient(135deg,${cfg.glowA.replace("0.7","0.06")},rgba(0,0,0,0.2))`,border:`1px solid ${cfg.border.replace("0.8","0.2")}`,borderRadius:16,padding:16,marginBottom:16}}>
-                    <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Current Guest</p>
-                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                      <div style={{width:40,height:40,borderRadius:"50%",background:`${cfg.glowA.replace("0.7","0.15")}`,border:`1px solid ${cfg.border.replace("0.8","0.3")}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>👤</div>
-                      <div>
-                        <p style={{fontSize:16,fontWeight:800,color:"#fff",marginBottom:2}}>{selRoom.booking.guestName}</p>
-                        <p style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>{selRoom.booking.guestPhone}</p>
-                      </div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                      {[
-                        {label:"Raatein",  val:selRoom.booking.nights},
-                        {label:"Payment",  val:selRoom.booking.paymentMode||"Cash"},
-                        {label:"Total",    val:`₹${Number(selRoom.booking.totalAmount||0).toLocaleString("en-IN")}`},
-                      ].map(x=>(
-                        <div key={x.label} style={{textAlign:"center",padding:"8px 4px",background:"rgba(255,255,255,0.025)",borderRadius:10}}>
-                          <p style={{fontSize:14,fontWeight:900,color:"#D4AF37"}}>{x.val}</p>
-                          <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:2}}>{x.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selRoom.booking ? (
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.35)"}}>
-                      ✓ Check-out Karo
-                    </button>
-                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:13,borderRadius:14,fontWeight:600,fontSize:13,background:"transparent",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer"}}>
-                      Close
-                    </button>
-                  </div>
-                ) : selRoom.status==="reserved" ? (
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.2)",borderRadius:14,padding:"12px 14px"}}>
-                      {selRoom.booking && (<div>
-                        <p style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:4}}>{selRoom.booking.guestName}</p>
-                        <p style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{selRoom.booking.guestPhone}</p>
-                        <p style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2}}>Check-in: {selRoom.booking.checkInDate}</p>
-                      </div>)}
-                    </div>
-                    <button onClick={async()=>{
-                      const {updateRoomStatus} = await import("../lib/db");
-                      updateRoomStatus(hotelId,selRoom.id,"occupied",selRoom.currentBookingId);
-                      load(); setSelRoom(null);
-                    }} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#065f46,#22c55e)",color:"#fff",border:"none",cursor:"pointer"}}>
-                      ✓ Approve Check-in
-                    </button>
-                    <button onClick={async()=>{
-                      const {updateRoomStatus} = await import("../lib/db");
-                      updateRoomStatus(hotelId,selRoom.id,"out_of_order",null);
-                      load(); setSelRoom(null);
-                    }} style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(107,114,128,0.15)",border:"1px solid rgba(107,114,128,0.3)",color:"#9ca3af",cursor:"pointer"}}>
-                      🔧 Mark Out of Order
-                    </button>
-                  </div>
-                ) : selRoom.status==="vacant" ? (
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:12,padding:"12px",textAlign:"center"}}>
-                      <p style={{fontSize:13,fontWeight:700,color:"#fca5a5"}}>🔴 Room Khali Hai</p>
-                      <p style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:3}}>Base Rate: ₹{selRoom.baseRate}/raat</p>
-                    </div>
-                    <button onClick={()=>{setSelRoom(null);onNewBooking&&onNewBooking(selRoom);}} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}}>
-                      + Nayi Booking Karo
-                    </button>
-                    <button onClick={()=>{setSelRoom(null);onNavigate&&onNavigate("scanner");}} style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(0,140,255,0.1)",border:"1px solid rgba(0,140,255,0.25)",color:"#60b8ff",cursor:"pointer"}}>
-                      📷 AI Scan Se Check-in
-                    </button>
-                    <button onClick={async()=>{
-                      const db=await import("../lib/db");
-                      db.updateRoomStatus(hotelId,selRoom.id,"out_of_order",null);
-                      load();setSelRoom(null);
-                    }} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"rgba(107,114,128,0.08)",border:"1px solid rgba(107,114,128,0.2)",color:"#9ca3af",cursor:"pointer"}}>
-                      🔧 Out of Order Mark Karo
-                    </button>
-                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"transparent",color:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.06)",cursor:"pointer"}}>
-                      Close
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{background:"rgba(107,114,128,0.08)",border:"1px solid rgba(107,114,128,0.2)",borderRadius:12,padding:"12px",textAlign:"center"}}>
-                      <p style={{fontSize:13,fontWeight:700,color:"#9ca3af"}}>🔧 Out of Order</p>
-                    </div>
-                    <button onClick={async()=>{
-                      const db=await import("../lib/db");
-                      db.updateRoomStatus(hotelId,selRoom.id,"vacant",null);
-                      load();setSelRoom(null);
-                    }} style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.25)",color:"#22c55e",cursor:"pointer"}}>
-                      ✓ Mark Vacant (Fixed)
-                    </button>
-                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"transparent",color:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.06)",cursor:"pointer"}}>
-                      Close
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
 
-function localInsight(s) {
-  if(!s) return "Data load ho raha hai...";
-  if(s.occupancyPercent>80)return`Aaj occupancy ${s.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
-  if(s.occupancyPercent>50)return`${s.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
-  return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing consider karo!";
+// ── Status badge ─────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const c = STATUS_COLOR[status] || "#888";
+  const l = STATUS_LABEL[status] || status;
+  return (
+    <span style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, background:`${c}18`, border:`1px solid ${c}44`, fontSize:10, fontWeight:800, color:c, letterSpacing:"0.06em" }}>
+      <span style={{ width:5, height:5, borderRadius:"50%", background:c, display:"inline-block" }} />
+      {l.toUpperCase()}
+    </span>
+  );
 }
 
-function Skeleton() {
-  return(
-    <div style={{height:"100%",padding:"16px 14px",display:"flex",flexDirection:"column",gap:12,background:"#07090E"}}>
-      {[80,160,280,120].map((h,i)=>(<div key={i} style={{height:h,background:"rgba(255,255,255,0.022)",borderRadius:20}}/>))}
+// ── Room cell ─────────────────────────────────────────────────
+function RoomCell({ room, onClick, isSelected }) {
+  const c = STATUS_COLOR[room.status] || "#888";
+  return (
+    <button onClick={() => onClick(room)}
+      style={{
+        aspectRatio: "1/1.15", borderRadius: 6, cursor: "pointer",
+        background:  isSelected ? `${c}22` : "rgba(255,255,255,0.03)",
+        border:      `1px solid ${isSelected ? c : "rgba(255,255,255,0.07)"}`,
+        display:     "flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2,
+        transition:  "all 0.15s ease", outline:"none", padding:2,
+        boxShadow:   isSelected ? `0 0 10px ${c}44` : "none",
+        // Gold pulse animation for reserved rooms
+        animation:   room.status === "reserved" ? "goldCellPulse 2.5s ease-in-out infinite" : "none",
+      }}
+    >
+      <div style={{ width:5, height:5, borderRadius:"50%", background:c, boxShadow:`0 0 4px ${c}` }} />
+      <span style={{ fontSize:7, color:"rgba(255,255,255,0.45)", fontFamily:"monospace", fontWeight:700 }}>
+        {String(room.number).padStart(2,"0")}
+      </span>
+    </button>
+  );
+}
+
+// ── Booking detail panel ──────────────────────────────────────
+function BookingPanel({ booking, hotel, onApprove, onCheckout, onPrint, onClose }) {
+  if (!booking) return null;
+  const bid        = booking.id?.slice(-10).toUpperCase();
+  const checkInFmt = booking.checkInDate  ? new Date(booking.checkInDate).toLocaleDateString("en-IN")  : "—";
+  const checkOutFmt= booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString("en-IN") : "—";
+
+  return (
+    <div style={{ background:"rgba(7,9,14,0.98)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, overflow:"hidden", animation:"fadeUp 0.25s ease" }}>
+      {/* Panel header */}
+      <div style={{ padding:"12px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", justifyContent:"space-between", alignItems:"center", background:STATUS_BG[booking.status] }}>
+        <div>
+          <p style={{ fontSize:12, fontWeight:800, color:STATUS_COLOR[booking.status] || "#fff" }}>
+            {booking.guestName}
+          </p>
+          <p style={{ fontSize:9, color:"rgba(255,255,255,0.4)" }}>GRC-{bid} · Room {booking.roomId}</p>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <StatusBadge status={booking.status} />
+          <button onClick={onClose} style={{ width:24, height:24, borderRadius:6, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.4)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <X size={11} />
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding:"12px 14px" }}>
+        {/* Reserved alert */}
+        {booking.status === "reserved" && (
+          <div style={{ padding:"10px 12px", borderRadius:10, background:"rgba(212,175,55,0.06)", border:"1px solid rgba(212,175,55,0.25)", marginBottom:10, display:"flex", gap:8, animation:"fadeUp 0.3s ease" }}>
+            <AlertTriangle size={14} style={{ color:"#D4AF37", flexShrink:0, marginTop:1 }} />
+            <div>
+              <p style={{ fontSize:11, fontWeight:800, color:"#D4AF37", marginBottom:2 }}>Marketplace Reservation — Approval Pending</p>
+              <p style={{ fontSize:10, color:"rgba(255,255,255,0.45)", lineHeight:1.4 }}>Guest ne online book kiya hai. Approve karo toh room OCCUPIED (Red) ho jaega.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Fields */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+          {[
+            ["Phone",     booking.guestPhone],
+            ["Room Type", (booking.roomType||"standard").charAt(0).toUpperCase()+(booking.roomType||"standard").slice(1)],
+            ["Check-In",  checkInFmt],
+            ["Check-Out", checkOutFmt],
+            ["Nights",    String(booking.nights||1)],
+            ["Payment",   booking.paymentMode || "Cash"],
+          ].map(([l,v]) => (
+            <div key={l} style={{ padding:"7px 9px", background:"rgba(255,255,255,0.03)", borderRadius:7, border:"1px solid rgba(255,255,255,0.05)" }}>
+              <p style={{ fontSize:8, color:"rgba(255,255,255,0.25)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:1 }}>{l}</p>
+              <p style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.8)" }}>{v||"—"}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Total */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", borderRadius:8, background:"rgba(212,175,55,0.06)", border:"1px solid rgba(212,175,55,0.12)", marginBottom:10 }}>
+          <span style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>Total · ₹{Number(booking.ratePerNight||0).toLocaleString("en-IN")}/raat</span>
+          <span style={{ fontSize:18, fontWeight:900, color:"#D4AF37" }}>₹{Number(booking.totalAmount||0).toLocaleString("en-IN")}</span>
+        </div>
+
+        {/* Rate lock */}
+        {booking.rateLocked && (
+          <div style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 9px", borderRadius:7, background:"rgba(34,197,94,0.05)", border:"1px solid rgba(34,197,94,0.12)", marginBottom:10 }}>
+            <Zap size={10} style={{ color:"#22c55e", flexShrink:0 }} />
+            <p style={{ fontSize:9, color:"rgba(34,197,94,0.7)" }}>Rate Locked{booking.rateLockToken ? ` · ${booking.rateLockToken.slice(-10)}` : ""}</p>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {/* APPROVE — only for reserved */}
+          {booking.status === "reserved" && (
+            <button onClick={() => onApprove(booking)}
+              style={{ width:"100%", padding:"12px", borderRadius:11, background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color:"#000", border:"none", cursor:"pointer", fontWeight:900, fontSize:13, display:"flex", alignItems:"center", justifyContent:"center", gap:7, boxShadow:"0 4px 16px rgba(212,175,55,0.3)" }}>
+              <CheckCircle size={14} /> Reservation Approve Karo → Occupied
+            </button>
+          )}
+
+          {/* CHECKOUT — only for occupied/active */}
+          {(booking.status === "occupied" || booking.status === "active") && (
+            <button onClick={() => onCheckout(booking)}
+              style={{ width:"100%", padding:"11px", borderRadius:11, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+              Checkout Karo
+            </button>
+          )}
+
+          {/* PRINT GRC — always available */}
+          <button onClick={() => onPrint(booking)}
+            style={{ width:"100%", padding:"11px", borderRadius:11, background:"rgba(212,175,55,0.06)", border:"1px solid rgba(212,175,55,0.2)", color:"#D4AF37", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+            <Printer size={13} /> GRC Print Karo (Full Form)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// STAT CARD
+// ══════════════════════════════════════════════════════════════
+function StatCard({ label, value, sub, color = "#D4AF37", icon: Icon }) {
+  return (
+    <div style={{ padding:"13px", background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:14 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+        <p style={{ fontSize:9, fontWeight:700, color:"rgba(255,255,255,0.3)", letterSpacing:"0.1em", textTransform:"uppercase" }}>{label}</p>
+        {Icon && <Icon size={13} style={{ color:"rgba(255,255,255,0.2)" }} />}
+      </div>
+      <p style={{ fontSize:22, fontWeight:900, color, lineHeight:1, marginBottom:4 }}>{value}</p>
+      {sub && <p style={{ fontSize:9, color:"rgba(255,255,255,0.3)", lineHeight:1.4 }}>{sub}</p>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAIN DASHBOARD VIEW
+// ══════════════════════════════════════════════════════════════
+export default function DashboardView({ hotelId: propHotelId }) {
+  const hotelId = propHotelId || getActiveHotelId();
+
+  const [config,       setConfig]       = useState(null);
+  const [rooms,        setRooms]        = useState([]);
+  const [stats,        setStats]        = useState(null);
+  const [todayBks,     setTodayBks]     = useState([]);
+  const [allBks,       setAllBks]       = useState([]);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [selectedBk,   setSelectedBk]   = useState(null);
+  const [printTarget,  setPrintTarget]  = useState(null);
+  const [aiInsight,    setAiInsight]    = useState("");
+  const [insightLoading,setInsightLoading] = useState(false);
+  const [lastRefresh,  setLastRefresh]  = useState(null);
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [toast,        setToast]        = useState(null);
+
+  const showToast = useCallback((msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  const loadData = useCallback(() => {
+    const cfg  = getHotelConfig(hotelId);
+    const rm   = getRooms(hotelId);
+    const st   = getTodayStats(hotelId);
+    const tbks = getTodayBookings(hotelId);
+    const abks = getBookingsSync(hotelId);
+    setConfig(cfg);
+    setRooms(rm);
+    setStats(st);
+    setTodayBks(tbks);
+    setAllBks(abks);
+    setLastRefresh(new Date());
+  }, [hotelId]);
+
+  // Initial load
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Supabase realtime subscription
+  useEffect(() => {
+    let channel = null;
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!sbUrl || sbUrl === "undefined") return;
+    try {
+      const { createClient } = require("@supabase/supabase-js");
+      const sb = createClient(sbUrl, sbKey);
+      channel = sb.channel(`dashboard_${hotelId}`)
+        .on("postgres_changes", {
+          event:  "*",
+          schema: "public",
+          table:  "bookings",
+          filter: `hotel_id=eq.${hotelId}`,
+        }, () => { loadData(); })
+        .subscribe();
+    } catch {}
+    return () => { if (channel) try { channel.unsubscribe(); } catch {} };
+  }, [hotelId, loadData]);
+
+  // Auto-refresh every 45s
+  useEffect(() => {
+    const t = setInterval(loadData, 45000);
+    return () => clearInterval(t);
+  }, [loadData]);
+
+  // AI insight
+  const fetchInsight = useCallback(async () => {
+    if (!stats) return;
+    setInsightLoading(true);
+    try {
+      const res = await fetch("/api/groq", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ type:"ai_insight", stats, hotelName:config?.name }),
+      });
+      const data = await res.json();
+      if (data.success) setAiInsight(data.insight || "");
+    } catch {}
+    setInsightLoading(false);
+  }, [stats, config]);
+
+  // Approve reservation → occupied
+  const handleApprove = useCallback(async (booking) => {
+    const updated = await approveReservation(hotelId, booking.id);
+    if (updated) {
+      loadData();
+      setSelectedBk(null);
+      setSelectedRoom(null);
+      showToast(`✅ ${booking.guestName} ka reservation approve ho gaya! Room ${booking.roomId} → OCCUPIED`, "success");
+      // Send WhatsApp confirmation
+      try {
+        const { sendBookingAlerts } = await import("../lib/alerts");
+        await sendBookingAlerts({ ...updated, status:"occupied" });
+      } catch {}
+    }
+  }, [hotelId, loadData, showToast]);
+
+  // Checkout
+  const handleCheckout = useCallback(async (booking) => {
+    if (!window.confirm(`${booking.guestName} ka checkout karna chahte ho?`)) return;
+    await checkoutBooking(hotelId, booking.id);
+    loadData();
+    setSelectedBk(null);
+    setSelectedRoom(null);
+    showToast(`${booking.guestName} checkout ho gaye. Room cleaning mein gaya.`);
+  }, [hotelId, loadData, showToast]);
+
+  // Room click → find active booking
+  const handleRoomClick = useCallback((room) => {
+    setSelectedRoom(room);
+    if (room.currentBookingId) {
+      const bk = allBks.find(b => b.id === room.currentBookingId);
+      setSelectedBk(bk || null);
+    } else {
+      setSelectedBk(null);
+    }
+  }, [allBks]);
+
+  // Filtered bookings
+  const filteredBks = activeFilter === "all"      ? allBks
+                    : activeFilter === "today"    ? todayBks
+                    : getBookingsByStatus(hotelId, activeFilter);
+
+  // Reserved bookings count (for badge)
+  const reservedCount = rooms.filter(r => r.status === "reserved").length;
+
+  // Floors
+  const byFloor = rooms.reduce((acc, r) => { (acc[r.floor]=acc[r.floor]||[]).push(r); return acc; }, {});
+  const floors  = Object.keys(byFloor).map(Number).sort((a,b) => a-b);
+
+  if (!config) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:40 }}>
+      <div style={{ width:36, height:36, borderRadius:"50%", border:"2px solid rgba(212,175,55,0.2)", borderTop:"2px solid #D4AF37", animation:"dashSpin 1s linear infinite" }} />
+      <style>{`@keyframes dashSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"0 0 80px", fontFamily:"system-ui,-apple-system,sans-serif" }}>
+      <style>{`
+        @keyframes fadeUp       { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes goldCellPulse{ 0%,100%{box-shadow:0 0 0 0 rgba(212,175,55,0.4)} 50%{box-shadow:0 0 0 5px rgba(212,175,55,0)} }
+        @keyframes dashSpin     { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes slideInToast { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
+        ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.15);border-radius:3px}
+      `}</style>
+
+      {/* TOAST */}
+      {toast && (
+        <div style={{ position:"fixed", top:16, right:16, zIndex:999, maxWidth:280, padding:"12px 14px", borderRadius:12, background:toast.type==="success"?"rgba(34,197,94,0.12)":"rgba(239,68,68,0.12)", border:`1px solid ${toast.type==="success"?"rgba(34,197,94,0.3)":"rgba(239,68,68,0.3)"}`, color:toast.type==="success"?"#22c55e":"#ef4444", fontSize:11, fontWeight:600, animation:"slideInToast 0.3s ease", boxShadow:"0 4px 20px rgba(0,0,0,0.5)" }}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* HEADER */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+        <div>
+          <p style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginBottom:2 }}>
+            {new Date().toLocaleDateString("en-IN",{weekday:"long",day:"2-digit",month:"long"})}
+          </p>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <h2 style={{ fontSize:18, fontWeight:900, color:"#fff" }}>{config.name}</h2>
+            {reservedCount > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 9px", borderRadius:10, background:"rgba(212,175,55,0.1)", border:"1px solid rgba(212,175,55,0.3)", animation:"goldCellPulse 2s infinite" }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:"#D4AF37", display:"inline-block" }} />
+                <span style={{ fontSize:9, fontWeight:800, color:"#D4AF37" }}>{reservedCount} RESERVED</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:7 }}>
+          <button onClick={loadData} style={{ width:34, height:34, borderRadius:9, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.4)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <RefreshCw size={13} />
+          </button>
+          <div style={{ position:"relative" }}>
+            <button onClick={() => setShowExportMenu(p => !p)} style={{ height:34, padding:"0 12px", borderRadius:9, background:"rgba(212,175,55,0.08)", border:"1px solid rgba(212,175,55,0.2)", color:"#D4AF37", cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:700 }}>
+              <Download size={13} /> Export {showExportMenu ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+            </button>
+            {showExportMenu && (
+              <div style={{ position:"absolute", top:"calc(100% + 6px)", right:0, background:"#0d0f1a", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:6, minWidth:190, zIndex:30, boxShadow:"0 8px 30px rgba(0,0,0,0.5)", animation:"fadeUp 0.2s ease" }}>
+                <button onClick={() => { exportCSV(hotelId); setShowExportMenu(false); }}
+                  style={{ width:"100%", padding:"9px 12px", background:"transparent", border:"none", color:"rgba(255,255,255,0.7)", fontSize:11, cursor:"pointer", textAlign:"left", borderRadius:8, display:"flex", alignItems:"center", gap:7 }}>
+                  <Download size={12} /> Basic Bookings CSV
+                </button>
+                <button onClick={() => { exportComprehensiveCSV(hotelId); setShowExportMenu(false); }}
+                  style={{ width:"100%", padding:"9px 12px", background:"rgba(212,175,55,0.05)", border:"none", color:"#D4AF37", fontSize:11, cursor:"pointer", textAlign:"left", borderRadius:8, fontWeight:700, display:"flex", alignItems:"center", gap:7 }}>
+                  <Crown size={12} /> Full GRC CSV (Sab Fields)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* STATS GRID */}
+      {stats && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, marginBottom:12, animation:"fadeUp 0.3s ease" }}>
+          <StatCard label="Occupied" value={stats.occupiedRooms} sub={`of ${stats.totalRooms} rooms`} color="#ef4444" icon={BedDouble} />
+          <StatCard label="Reserved" value={stats.reservedRooms} sub="Pending approval" color="#D4AF37" icon={Users} />
+          <StatCard label="Vacant" value={stats.vacantRooms} sub={`${stats.occupancyPercent}% occupancy`} color="#22c55e" icon={BedDouble} />
+          <StatCard label="Today Revenue" value={`₹${(stats.todayRevenue||0).toLocaleString("en-IN")}`} sub={`${stats.todayCheckIns} check-ins`} color="#D4AF37" icon={TrendingUp} />
+        </div>
+      )}
+
+      {/* AI INSIGHT */}
+      <div style={{ padding:"12px 14px", borderRadius:14, background:"rgba(212,175,55,0.04)", border:"1px solid rgba(212,175,55,0.12)", marginBottom:12, display:"flex", alignItems:"flex-start", gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:8, background:"rgba(212,175,55,0.08)", border:"1px solid rgba(212,175,55,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:15 }}>🤖</div>
+        <div style={{ flex:1 }}>
+          {aiInsight
+            ? <p style={{ fontSize:11, color:"rgba(255,255,255,0.65)", lineHeight:1.6, animation:"fadeUp 0.3s ease" }}>{aiInsight}</p>
+            : <p style={{ fontSize:11, color:"rgba(255,255,255,0.25)", lineHeight:1.6 }}>
+                {insightLoading ? "AI insight generate ho raha hai..." : "AI revenue insight ke liye tap karo →"}
+              </p>
+          }
+        </div>
+        <button onClick={fetchInsight} disabled={insightLoading}
+          style={{ padding:"6px 10px", borderRadius:8, background:"rgba(212,175,55,0.1)", border:"1px solid rgba(212,175,55,0.2)", color:"#D4AF37", fontSize:10, fontWeight:700, cursor:insightLoading?"not-allowed":"pointer", flexShrink:0, opacity:insightLoading?0.5:1 }}>
+          {insightLoading ? "..." : "Refresh"}
+        </button>
+      </div>
+
+      {/* ROOM MATRIX */}
+      <div style={{ background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.055)", borderRadius:20, padding:"14px", marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+          <p style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.45)", letterSpacing:"0.1em", textTransform:"uppercase" }}>Floor Room Matrix</p>
+          <p style={{ fontSize:9, color:"rgba(255,255,255,0.2)" }}>
+            Last refresh: {lastRefresh?.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}
+          </p>
+        </div>
+
+        {/* Legend */}
+        <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginBottom:12, paddingBottom:10, borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+          {Object.entries(STATUS_COLOR).map(([status, color]) => (
+            <div key={status} style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:7, height:7, borderRadius:"50%", background:color, boxShadow:`0 0 5px ${color}` }} />
+              <span style={{ fontSize:9, color:"rgba(255,255,255,0.4)", fontWeight:600 }}>
+                {STATUS_LABEL[status]} ({rooms.filter(r => r.status === status).length})
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Floor rows */}
+        {floors.map(floor => {
+          const fr   = byFloor[floor];
+          const cols = 6;
+          const padded = [...fr];
+          while (padded.length % cols !== 0) padded.push(null);
+          const rowArr = [];
+          for (let i = 0; i < padded.length; i += cols) rowArr.push(padded.slice(i, i + cols));
+
+          return (
+            <div key={floor} style={{ marginBottom:6 }}>
+              {rowArr.map((row, ri) => (
+                <div key={ri} style={{ display:"flex", alignItems:"flex-end", gap:4, marginBottom:4 }}>
+                  <span style={{ fontSize:7, color:"rgba(255,255,255,0.2)", width:16, textAlign:"right", flexShrink:0, fontFamily:"monospace", fontWeight:700, paddingBottom:4 }}>
+                    {ri === 0 ? `F${floor}` : ""}
+                  </span>
+                  <div style={{ flex:1, display:"grid", gridTemplateColumns:`repeat(${cols},1fr)`, gap:4 }}>
+                    {row.map((room, ci) => room
+                      ? <RoomCell key={room.id} room={room} isSelected={selectedRoom?.id === room.id} onClick={handleRoomClick} />
+                      : <div key={`p${ci}`} style={{ aspectRatio:"1/1.15", borderRadius:6, background:"rgba(255,255,255,0.005)", border:"1px dashed rgba(255,255,255,0.025)" }} />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+
+        {/* Selected room panel */}
+        {selectedRoom && (
+          <div style={{ marginTop:12, animation:"fadeUp 0.25s ease" }}>
+            {selectedBk ? (
+              <BookingPanel
+                booking={selectedBk}
+                hotel={config}
+                onApprove={handleApprove}
+                onCheckout={handleCheckout}
+                onPrint={bk => setPrintTarget(bk)}
+                onClose={() => { setSelectedRoom(null); setSelectedBk(null); }}
+              />
+            ) : (
+              <div style={{ padding:"12px 14px", borderRadius:12, background:STATUS_BG[selectedRoom.status], border:`1px solid ${STATUS_COLOR[selectedRoom.status]}33`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <p style={{ fontSize:12, fontWeight:800, color:STATUS_COLOR[selectedRoom.status] }}>
+                    Room {selectedRoom.number} — {STATUS_LABEL[selectedRoom.status]}
+                  </p>
+                  <p style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>Floor {selectedRoom.floor} · {selectedRoom.type}</p>
+                </div>
+                <button onClick={() => setSelectedRoom(null)} style={{ width:26, height:26, borderRadius:6, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.09)", color:"rgba(255,255,255,0.4)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* BOOKINGS LIST */}
+      <div style={{ background:"rgba(6,8,15,0.98)", border:"1px solid rgba(255,255,255,0.055)", borderRadius:20, padding:"14px" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+          <p style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.45)", letterSpacing:"0.1em", textTransform:"uppercase" }}>Booking Records</p>
+          <p style={{ fontSize:9, color:"rgba(255,255,255,0.2)" }}>{filteredBks.length} records</p>
+        </div>
+
+        {/* Filter tabs */}
+        <div style={{ display:"flex", gap:6, marginBottom:12, overflowX:"auto", paddingBottom:4 }}>
+          {[
+            { k:"all",      l:"All" },
+            { k:"reserved", l:`Reserved${reservedCount>0?` (${reservedCount})`:""}` },
+            { k:"occupied", l:"Occupied" },
+            { k:"today",    l:"Today" },
+            { k:"checked_out", l:"Checked Out" },
+          ].map(({ k, l }) => (
+            <button key={k} onClick={() => setActiveFilter(k)}
+              style={{ padding:"6px 12px", borderRadius:9, background:activeFilter===k?(k==="reserved"?"rgba(212,175,55,0.15)":"rgba(255,255,255,0.08)"):"rgba(255,255,255,0.03)", border:`1px solid ${activeFilter===k?(k==="reserved"?"rgba(212,175,55,0.4)":"rgba(255,255,255,0.2)"):"rgba(255,255,255,0.06)"}`, color:activeFilter===k?(k==="reserved"?"#D4AF37":"#fff"):"rgba(255,255,255,0.35)", fontSize:10, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {filteredBks.length === 0 ? (
+          <div style={{ textAlign:"center", padding:"30px 0" }}>
+            <Coffee size={26} style={{ color:"rgba(255,255,255,0.12)", margin:"0 auto 8px", display:"block" }} />
+            <p style={{ fontSize:12, color:"rgba(255,255,255,0.2)" }}>Koi booking nahi hai</p>
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            {filteredBks.slice(0, 30).map(bk => (
+              <div key={bk.id} onClick={() => {
+                const room = rooms.find(r => r.id === bk.roomId);
+                setSelectedRoom(room || null);
+                setSelectedBk(bk);
+                window.scrollTo({ top:0, behavior:"smooth" });
+              }}
+              style={{
+                padding:"11px 12px", borderRadius:12, cursor:"pointer",
+                background:STATUS_BG[bk.status] || "rgba(255,255,255,0.025)",
+                border:`1px solid ${STATUS_COLOR[bk.status]||"rgba(255,255,255,0.07)"}22`,
+                display:"flex", justifyContent:"space-between", alignItems:"center",
+                transition:"opacity 0.15s",
+                // Gold pulse for reserved rows
+                animation: bk.status === "reserved" ? "goldCellPulse 2.5s ease-in-out infinite" : "none",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:3 }}>
+                    <p style={{ fontSize:12, fontWeight:800, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{bk.guestName}</p>
+                    <StatusBadge status={bk.status} />
+                  </div>
+                  <p style={{ fontSize:10, color:"rgba(255,255,255,0.35)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    Room {bk.roomId} · {bk.checkInDate ? new Date(bk.checkInDate).toLocaleDateString("en-IN") : "—"}
+                    {bk.source === "marketplace" ? " · 🌐 Online" : ""}
+                  </p>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0, marginLeft:8 }}>
+                  <p style={{ fontSize:13, fontWeight:900, color:STATUS_COLOR[bk.status] || "#D4AF37" }}>₹{Number(bk.totalAmount||0).toLocaleString("en-IN")}</p>
+                  <div style={{ display:"flex", gap:4, justifyContent:"flex-end", marginTop:4 }}>
+                    <button onClick={e => { e.stopPropagation(); setPrintTarget(bk); }}
+                      style={{ width:24, height:24, borderRadius:6, background:"rgba(212,175,55,0.08)", border:"1px solid rgba(212,175,55,0.2)", color:"#D4AF37", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <Printer size={10} />
+                    </button>
+                    {bk.status === "reserved" && (
+                      <button onClick={async e => { e.stopPropagation(); await handleApprove(bk); }}
+                        style={{ width:24, height:24, borderRadius:6, background:"rgba(212,175,55,0.12)", border:"1px solid rgba(212,175,55,0.3)", color:"#D4AF37", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                        title="Approve reservation">
+                        <CheckCircle size={10} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* GRC PRINT MODAL */}
+      {printTarget && (
+        <GRCPrintModal
+          booking={printTarget}
+          hotel={config}
+          onClose={() => setPrintTarget(null)}
+        />
+      )}
+
+      {/* Export menu backdrop */}
+      {showExportMenu && (
+        <div onClick={() => setShowExportMenu(false)} style={{ position:"fixed", inset:0, zIndex:20 }} />
+      )}
     </div>
   );
 }
