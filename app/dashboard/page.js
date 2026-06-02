@@ -16,8 +16,8 @@ const NAV = [
   { id: "home",     Icon: LayoutDashboard, label: "Dashboard"  },
   { id: "scanner",  Icon: CalendarDays,    label: "Bookings"   },
   { id: "guests",   Icon: Users,           label: "Guests"     },
-  { id: "reports",  Icon: Cpu,             label: "Operations" },
-  { id: "settings", Icon: BarChart3,       label: "Reports"    },
+  { id: "reports",  Icon: Cpu,             label: "Reports"    },
+  { id: "settings", Icon: BarChart3,       label: "Settings"   },
 ];
 
 export default function App() {
