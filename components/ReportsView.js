@@ -11,15 +11,22 @@ export default function ReportsView({ hotelId, hotel, user }) {
 
   useEffect(() => {
     if (!hotelId) return;
-    // 1. Load from localStorage cache instantly — no crash
-    setWeekly(getWeeklyRevenue(hotelId));
-    setAll(getBookingsSync(hotelId));
-    setLoading(false);
-    // 2. Fetch fresh from Supabase in background
-    getBookings(hotelId).then(data => {
-      setAll(data);
+    const refresh = async () => {
+      // 1. Show localStorage cache instantly
       setWeekly(getWeeklyRevenue(hotelId));
-    }).catch(() => {});
+      setAll(getBookingsSync(hotelId));
+      setLoading(false);
+      // 2. Fetch fresh from Supabase and re-render
+      try {
+        const data = await getBookings(hotelId);
+        setAll(data);
+        setWeekly(getWeeklyRevenue(hotelId));
+      } catch {}
+    };
+    refresh();
+    // Auto-refresh every 20s so new bookings appear in revenue charts
+    const iv = setInterval(refresh, 20000);
+    return () => clearInterval(iv);
   }, [hotelId]);
 
   const total   = all.reduce((s, b) => s + (b.totalAmount || 0), 0);
