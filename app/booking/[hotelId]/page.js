@@ -905,6 +905,8 @@ export default function BookingPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "chat",
+          // Phase 3: pass hotelId so backend can do Supabase enrichment if needed
+          hotelId,
           hotelConfig: {
             name:               hotel?.name,
             location:           hotel?.location,
@@ -913,13 +915,17 @@ export default function BookingPage() {
             suiteRate:          hotel?.suiteRate,
             minFloorPrice:      hotel?.minFloorPrice,
             rates:              { standard: hotel?.standardRate, deluxe: hotel?.deluxeRate, suite: hotel?.suiteRate },
-            // Phase 1 fields injected so AI can answer Wi-Fi, menu, service queries
+            // Phase 1 + Phase 3 fields — full context for Sandy's system prompt
             wifiPassword:       hotel?.wifiPassword        || "",
             menuText:           hotel?.menuText            || "",
             menuUrl:            hotel?.menuUrl             || "",
             receptionPhone:     hotel?.receptionPhone      || "",
+            enableWifi:         hotel?.enableWifi          ?? true,
             enableFoodOrdering: hotel?.enableFoodOrdering  ?? true,
             enableHousekeeping: hotel?.enableHousekeeping  ?? true,
+            checkinTime:        hotel?.checkinTime         || "12:00 PM",
+            checkoutTime:       hotel?.checkoutTime        || "11:00 AM",
+            amenities:          hotel?.amenities           || [],
           },
           messages: [
             ...newMsgs.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
