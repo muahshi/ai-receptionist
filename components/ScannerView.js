@@ -51,6 +51,7 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
   const [lockAnim,   setLockAnim]= useState(false);
   const [submitting, setSub]     = useState(false);
   const [vacantRooms,setVacant]  = useState([]);
+  const [completedBooking, setCompletedBooking] = useState(null);
   const [booking,    setBooking] = useState({
     roomId:"", checkInDate:new Date().toISOString().split("T")[0],
     checkOutDate:"", nights:1, ratePerNight:0,
@@ -186,15 +187,29 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
     setTimeout(() => { setLocked(true); setLockAnim(false); }, 700);
   };
 
+  const [submitError, setSubmitError] = useState("");
+
   const handleSubmit = async () => {
-    if (!booking.roomId || !guests[0].guestName || !rateLocked) return;
+    setSubmitError("");
+    // Explicit validation with user-visible messages
+    if (!booking.roomId)            return setSubmitError("⚠ Pehle room select karo");
+    if (!guests[0].guestName?.trim()) return setSubmitError("⚠ Guest ka naam zaroori hai — Review step mein bharo");
+    if (!rateLocked)                return setSubmitError("⚠ Pehle rate lock karo");
+    if (!booking.checkInDate)       return setSubmitError("⚠ Check-in date select karo");
+
+    // Auto-set checkOutDate if missing (1 night default)
+    let finalBooking = { ...booking };
+    if (!finalBooking.checkOutDate || finalBooking.checkOutDate === "") {
+      const cin = new Date(finalBooking.checkInDate);
+      cin.setDate(cin.getDate() + finalBooking.nights);
+      finalBooking.checkOutDate = cin.toISOString().split("T")[0];
+    }
+
     setSub(true);
     if (navigator.vibrate) navigator.vibrate([50,30,50,30,200]);
     try {
-      // Build complete guest records with ID images
       const primaryGuest = {
         ...guests[0],
-        // ID images stored for compliance (India documentation rules)
         idImageFront: guests[0].idImageFront || null,
         idImageBack:  guests[0].idImageBack  || null,
       };
@@ -215,26 +230,112 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
         : undefined;
 
       const b = await createBooking(hotelId, {
-        ...primaryGuest, ...booking, status:"active",
+        ...primaryGuest, ...finalBooking, status:"active",
         totalGuests:  guests.length,
         extraGuests:  extraGuestsFull,
-        roomType:     vacantRooms.find(r=>r.id===booking.roomId)?.type||"standard",
+        roomType:     vacantRooms.find(r=>r.id===finalBooking.roomId)?.type||"standard",
       });
+
+      // Store completed booking for GRC download on SUCCESS screen
+      setCompletedBooking(b);
+
       sendBookingAlerts(b).catch(console.error);
-      // Phase 5: Send digital companion welcome kit to guest
       sendWelcomeKit(b).catch(e => console.warn("[WELCOME-KIT] Failed:", e.message));
       setStep(S.SUCCESS);
       setTimeout(onSuccess, 3000);
-    } catch(e){ console.error(e); setSub(false); }
+    } catch(e) {
+      console.error("[handleSubmit] Check-in failed:", e);
+      setSubmitError("❌ Check-in fail hua: " + (e.message || "Unknown error. Console check karo."));
+      setSub(false);
+    }
   };
 
   /* ══════════════════════════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════════════════════════ */
 
+  /* ── GRC Download helper ── */
+  const downloadGRC = () => {
+    const b = completedBooking;
+    if (!b) return;
+    const g = guests[0];
+    const hotelName = hotel?.name || "Hotel";
+    const now = new Date().toLocaleString("en-IN");
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>GRC — ${b.id}</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:30px;max-width:700px;margin:0 auto;color:#111}
+  h1{text-align:center;font-size:22px;margin-bottom:4px}
+  .sub{text-align:center;color:#666;font-size:12px;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px}
+  td{padding:7px 10px;border:1px solid #ddd;font-size:13px;vertical-align:top}
+  td:first-child{width:38%;background:#f8f8f8;font-weight:600}
+  .section{background:#003366;color:#fff;padding:6px 10px;font-weight:700;font-size:13px;margin-top:4px}
+  .ref{text-align:center;font-size:11px;color:#888;margin-top:20px}
+  @media print{body{padding:10px}}
+</style></head><body>
+<h1>🏨 ${hotelName}</h1>
+<div class="sub">GUEST REGISTRATION CARD (GRC) · Printed: ${now}</div>
+
+<div class="section">📋 Booking Details</div>
+<table>
+<tr><td>Booking ID</td><td><b>${b.id}</b></td></tr>
+<tr><td>Room No.</td><td>${b.roomId?.split("_R")?.[1] || b.roomId}</td></tr>
+<tr><td>Room Type</td><td>${b.roomType || "Standard"}</td></tr>
+<tr><td>Check-in</td><td>${b.checkInDate}</td></tr>
+<tr><td>Check-out</td><td>${b.checkOutDate || "—"}</td></tr>
+<tr><td>No. of Nights</td><td>${b.nights}</td></tr>
+<tr><td>Rate / Night</td><td>₹${b.ratePerNight}</td></tr>
+<tr><td>Total Amount</td><td><b>₹${b.totalAmount}</b></td></tr>
+<tr><td>Payment Mode</td><td>${b.paymentMode}</td></tr>
+</table>
+
+<div class="section">👤 Guest Details</div>
+<table>
+<tr><td>Guest Name</td><td><b>${g.guestName}</b></td></tr>
+<tr><td>Phone</td><td>${g.guestPhone || "—"}</td></tr>
+<tr><td>Email</td><td>${g.email || "—"}</td></tr>
+<tr><td>Address</td><td>${g.address || "—"}</td></tr>
+<tr><td>Nationality</td><td>${g.nationality || "Indian"}</td></tr>
+<tr><td>Gender</td><td>${g.gender || "—"}</td></tr>
+<tr><td>Date of Birth</td><td>${g.dob || "—"}</td></tr>
+<tr><td>ID Type</td><td>${g.idType || "Aadhaar"}</td></tr>
+<tr><td>ID Number</td><td>${g.idNumber || "[Redacted]"}</td></tr>
+<tr><td>Arrival From</td><td>${g.arrivalFrom || "—"}</td></tr>
+<tr><td>Proceeding To</td><td>${g.proceedingTo || "—"}</td></tr>
+<tr><td>Purpose of Visit</td><td>${g.purposeOfVisit || "—"}</td></tr>
+${g.companyName ? `<tr><td>Company</td><td>${g.companyName}</td></tr>` : ""}
+${g.gstNo ? `<tr><td>GST No.</td><td>${g.gstNo}</td></tr>` : ""}
+</table>
+
+${guests.length > 1 ? `<div class="section">👥 Additional Guests</div><table>
+<tr><td><b>Name</b></td><td><b>Phone</b></td><td><b>ID</b></td></tr>
+${guests.slice(1).map(eg => `<tr><td>${eg.guestName||"—"}</td><td>${eg.guestPhone||"—"}</td><td>${eg.idType||""} ${eg.idNumber||""}</td></tr>`).join("")}
+</table>` : ""}
+
+<br/>
+<table><tr>
+<td style="width:50%;border:1px solid #ddd;padding:30px 10px 10px;text-align:center">Guest Signature</td>
+<td style="width:50%;border:1px solid #ddd;padding:30px 10px 10px;text-align:center">Receptionist</td>
+</tr></table>
+<div class="ref">Booking ID: ${b.id} · Generated by AI Receptionist · ${now}</div>
+</body></html>`;
+
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); w.print(); }
+    else {
+      // Fallback: download as HTML file
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([html], {type:"text/html"}));
+      a.download = `GRC_${b.id}_${g.guestName?.replace(/\s/g,"_")}.html`;
+      a.click();
+    }
+  };
+
   /* SUCCESS */
   if (step===S.SUCCESS) return (
-    <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-5">
+    <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-4">
       <div className="w-24 h-24 rounded-3xl flex items-center justify-center lock-seal"
         style={{background:"rgba(34,197,94,0.15)",border:"2px solid rgba(34,197,94,0.4)"}}>
         <span className="text-5xl">✅</span>
@@ -243,14 +344,27 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
         <h2 className="font-black text-3xl text-white mb-1">Check-in Ho Gaya!</h2>
         <p className="text-gray-400 text-sm">{guests[0].guestName}</p>
         {guests.length>1 && <p className="text-gray-600 text-xs">+{guests.length-1} aur guest</p>}
-        <p className="text-gray-600 text-xs">Room {booking.roomId}</p>
+        <p className="text-gray-600 text-xs">Room {completedBooking?.roomId?.split("_R")?.[1] || booking.roomId}</p>
       </div>
       <div className="card-gold rounded-2xl px-8 py-4">
         <p className="text-gray-500 text-xs mb-1">Total Amount</p>
         <p className="font-black text-3xl" style={{color:"#D4AF37"}}>
-          ₹{booking.totalAmount.toLocaleString("en-IN")}
+          ₹{(completedBooking?.totalAmount || booking.totalAmount).toLocaleString("en-IN")}
         </p>
+        {completedBooking?.id && (
+          <p className="text-xs mt-1" style={{color:"rgba(212,175,55,0.5)",fontFamily:"monospace"}}>
+            ID: {completedBooking.id.slice(0,12)}
+          </p>
+        )}
       </div>
+      {/* GRC Download */}
+      {completedBooking && (
+        <button onClick={downloadGRC}
+          className="w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+          style={{background:"rgba(212,175,55,0.1)",border:"1px solid rgba(212,175,55,0.4)",color:"#D4AF37"}}>
+          🖨 GRC Form Print / Download
+        </button>
+      )}
       <p className="text-gray-700 text-xs">📱 WhatsApp alerts bhej diye gaye</p>
       <p className="text-gray-700 text-xs">🎁 Welcome Kit → Guest ko send ho raha hai</p>
     </div>
@@ -789,18 +903,30 @@ export default function ScannerView({ hotelId, hotel, user, onSuccess, onBack })
       </div>
 
       {/* Final submit */}
-      <div className="flex-shrink-0 pt-2">
-        {(!booking.roomId||!rateLocked)&&(
-          <p className="text-center text-xs text-gray-600 mb-2">
-            {!booking.roomId?"⚠ Room select karo":"⚠ Pehle rate lock karo"}
+      <div className="flex-shrink-0 pt-2 space-y-2">
+        {/* Validation hint — show which condition is still unmet */}
+        {!booking.roomId && (
+          <p className="text-center text-xs mb-1" style={{color:"#f87171"}}>⚠ Room select karo</p>
+        )}
+        {booking.roomId && !guests[0].guestName?.trim() && (
+          <p className="text-center text-xs mb-1" style={{color:"#f87171"}}>⚠ Guest ka naam missing hai — Review step mein check karo</p>
+        )}
+        {booking.roomId && guests[0].guestName?.trim() && !rateLocked && (
+          <p className="text-center text-xs mb-1" style={{color:"#f87171"}}>⚠ Pehle rate lock karo</p>
+        )}
+        {/* Runtime error from handleSubmit */}
+        {submitError && (
+          <p className="text-center text-xs px-3 py-2 rounded-xl mb-1"
+            style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"#f87171"}}>
+            {submitError}
           </p>
         )}
         <button onClick={handleSubmit}
-          disabled={!booking.roomId||!guests[0].guestName||!rateLocked||submitting}
+          disabled={!booking.roomId||!guests[0].guestName?.trim()||!rateLocked||submitting}
           className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
-          style={booking.roomId&&guests[0].guestName&&rateLocked&&!submitting
+          style={booking.roomId&&guests[0].guestName?.trim()&&rateLocked&&!submitting
             ?{background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",boxShadow:"0 4px 20px rgba(212,175,55,0.35)"}
-            :{background:"rgba(255,255,255,0.05)",color:"#444"}}>
+            :{background:"rgba(255,255,255,0.05)",color:"#444",cursor:"not-allowed"}}>
           {submitting
             ?<><Loader size={20} className="animate-spin"/>Check-in Ho Raha Hai...</>
             :<><Check size={20}/>{guests.length>1?`${guests.length} Guests Check-in Karo ✓`:"Guest Check-in Karo ✓"}</>}
