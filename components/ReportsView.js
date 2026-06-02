@@ -1,94 +1,148 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Download, FileText, TrendingUp } from "lucide-react";
 import { getWeeklyRevenue, getBookings, getBookingsSync, exportCSV, exportAllData } from "../lib/db";
 
 export default function ReportsView({ hotelId, hotel, user }) {
-  const [weekly,  setWeekly]  = useState([]);
-  const [all,     setAll]     = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [weekly,   setWeekly]   = useState([]);
+  const [all,      setAll]      = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [dbStatus, setDbStatus] = useState(null);
+
+  const refresh = useCallback(async () => {
+    if (!hotelId) {
+      setLoading(false);
+      return;
+    }
+
+    // 1. Show localStorage cache instantly
+    const cached = getBookingsSync(hotelId);
+    setWeekly(getWeeklyRevenue(hotelId));
+    setAll(cached);
+    setLoading(false);
+
+    // 2. Fetch fresh from Supabase and re-render
+    try {
+      const data = await getBookings(hotelId);
+      setAll(data);
+      setWeekly(getWeeklyRevenue(hotelId));
+      setDbStatus(data.length > 0 ? "supabase" : cached.length > 0 ? "cache_only" : "empty");
+    } catch (e) {
+      console.warn("[ReportsView] Supabase fetch failed:", e.message);
+      setDbStatus("offline");
+      // Keep showing cached data
+      setAll(getBookingsSync(hotelId));
+      setWeekly(getWeeklyRevenue(hotelId));
+    }
+  }, [hotelId]);
 
   useEffect(() => {
-    if (!hotelId) return;
-    const refresh = async () => {
-      // 1. Show localStorage cache instantly
-      setWeekly(getWeeklyRevenue(hotelId));
-      setAll(getBookingsSync(hotelId));
-      setLoading(false);
-      // 2. Fetch fresh from Supabase and re-render
-      try {
-        const data = await getBookings(hotelId);
-        setAll(data);
-        setWeekly(getWeeklyRevenue(hotelId));
-      } catch {}
-    };
     refresh();
-    // Auto-refresh every 20s so new bookings appear in revenue charts
     const iv = setInterval(refresh, 20000);
     return () => clearInterval(iv);
-  }, [hotelId]);
+  }, [refresh]);
+
+  // Reload when window regains focus (user came back from booking tab)
+  useEffect(() => {
+    window.addEventListener("focus", refresh);
+    const handleStorage = (e) => {
+      if (e.key && e.key.includes("bookings")) refresh();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [refresh]);
 
   const total   = all.reduce((s, b) => s + (b.totalAmount || 0), 0);
   const nights  = all.reduce((s, b) => s + (b.nights || 0), 0);
   const avgRate = all.length ? Math.round(all.reduce((s, b) => s + (b.ratePerNight || 0), 0) / all.length) : 0;
 
   const Tip = ({ active, payload, label }) => active && payload?.length ? (
-    <div className="card px-3 py-2 rounded-xl text-xs">
-      <p style={{ color:"#D4AF37" }}>{label}</p>
-      <p className="text-white font-bold">₹{payload[0].value.toLocaleString("en-IN")}</p>
+    <div style={{ background:"#1a1a2e", border:"1px solid rgba(212,175,55,0.3)",
+      borderRadius:10, padding:"8px 12px" }}>
+      <p style={{ color:"#D4AF37", fontSize:11 }}>{label}</p>
+      <p style={{ color:"#fff", fontWeight:700, fontSize:12 }}>₹{payload[0].value.toLocaleString("en-IN")}</p>
     </div>
   ) : null;
 
   return (
-    <div className="h-full flex flex-col gap-3 px-3 py-2 overflow-hidden">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <h2 className="font-black text-xl" style={{ color:"#D4AF37" }}>Reports</h2>
-        <div className="flex gap-2">
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", gap:12,
+      padding:"8px 12px", overflow:"hidden", background:"#0A0A0A" }}>
+
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+        <h2 style={{ fontWeight:900, fontSize:22, color:"#D4AF37",
+          textShadow:"0 0 20px rgba(212,175,55,0.3)", letterSpacing:"-0.02em" }}>
+          Reports
+        </h2>
+        <div style={{ display:"flex", gap:8 }}>
           <button onClick={() => exportCSV(hotelId)}
-            className="card px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs text-gray-400 active:scale-95">
+            style={{ padding:"6px 12px", borderRadius:10, border:"none", cursor:"pointer",
+              background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.5)",
+              display:"flex", alignItems:"center", gap:5, fontSize:12 }}>
             <FileText size={13}/> CSV
           </button>
           {user?.role === "owner" && (
             <button onClick={() => exportAllData(hotelId)}
-              className="px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold active:scale-95"
-              style={{ background:"linear-gradient(135deg,#b8960c,#D4AF37)", color:"#000" }}>
+              style={{ padding:"6px 12px", borderRadius:10, border:"none", cursor:"pointer",
+                background:"linear-gradient(135deg,#b8960c,#D4AF37)", color:"#000",
+                display:"flex", alignItems:"center", gap:5, fontSize:12, fontWeight:700 }}>
               <Download size={13}/> Export
             </button>
           )}
         </div>
       </div>
 
+      {/* DB status warning — only when no data */}
+      {!loading && all.length === 0 && dbStatus && (
+        <div style={{ padding:"8px 12px", borderRadius:10,
+          background:"rgba(255,100,100,0.07)", border:"1px solid rgba(255,100,100,0.15)",
+          flexShrink:0 }}>
+          <p style={{ fontSize:11, color:"rgba(255,130,130,0.7)" }}>
+            {dbStatus === "offline"
+              ? "⚠️ Supabase se connect nahi hua. Check karo env vars: NEXT_PUBLIC_SUPABASE_URL"
+              : "ℹ️ Koi booking nahi mili — Hotel ID: " + hotelId}
+          </p>
+        </div>
+      )}
+
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-2 flex-shrink-0">
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, flexShrink:0 }}>
         {[
-          { label:"Total Revenue", value:`₹${(total / 1000).toFixed(1)}K`, icon:"💰" },
-          { label:"Total Nights",  value: nights,                           icon:"🌙" },
-          { label:"Avg Rate",      value:`₹${avgRate}`,                    icon:"📊" },
+          { label:"Total Revenue", value:`₹${(total/1000).toFixed(1)}K`, icon:"💰" },
+          { label:"Total Nights",  value: nights,                         icon:"🌙" },
+          { label:"Avg Rate",      value:`₹${avgRate}`,                  icon:"📊" },
         ].map(c => (
-          <div key={c.label} className="card rounded-2xl p-3 text-center">
-            <p className="text-2xl mb-1">{c.icon}</p>
-            <p className="text-white font-black text-lg">{c.value}</p>
-            <p className="text-gray-600 text-xs">{c.label}</p>
+          <div key={c.label} style={{ background:"rgba(255,255,255,0.03)",
+            border:"1px solid rgba(255,255,255,0.07)", borderRadius:16,
+            padding:12, textAlign:"center" }}>
+            <p style={{ fontSize:22, marginBottom:4 }}>{c.icon}</p>
+            <p style={{ color:"#fff", fontWeight:900, fontSize:18 }}>{c.value}</p>
+            <p style={{ color:"rgba(255,255,255,0.3)", fontSize:11 }}>{c.label}</p>
           </div>
         ))}
       </div>
 
       {/* Revenue chart */}
-      <div className="card rounded-2xl p-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-gray-500 text-xs uppercase tracking-widest">7 Din Ki Kamayi</p>
+      <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)",
+        borderRadius:16, padding:14, flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+          <p style={{ color:"rgba(255,255,255,0.3)", fontSize:11, letterSpacing:"0.1em",
+            textTransform:"uppercase" }}>7 Din Ki Kamayi</p>
           <TrendingUp size={14} style={{ color:"#D4AF37" }}/>
         </div>
-        <ResponsiveContainer width="100%" height={120}>
+        <ResponsiveContainer width="100%" height={110}>
           <BarChart data={weekly} margin={{ top:0, right:0, left:-22, bottom:0 }}>
             <XAxis dataKey="date" tick={{ fill:"#555", fontSize:10 }} axisLine={false} tickLine={false}/>
             <YAxis tick={{ fill:"#555", fontSize:9 }} axisLine={false} tickLine={false}
-              tickFormatter={v => v > 0 ? `${(v / 1000).toFixed(0)}K` : "0"}/>
+              tickFormatter={v => v > 0 ? `${(v/1000).toFixed(0)}K` : "0"}/>
             <Tooltip content={<Tip/>} cursor={{ fill:"rgba(212,175,55,0.04)" }}/>
-            <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+            <Bar dataKey="revenue" radius={[4,4,0,0]}>
               {weekly.map((_, i) => (
-                <Cell key={i} fill={i === weekly.length - 1 ? "#D4AF37" : "rgba(212,175,55,0.25)"}/>
+                <Cell key={i} fill={i === weekly.length-1 ? "#D4AF37" : "rgba(212,175,55,0.25)"}/>
               ))}
             </Bar>
           </BarChart>
@@ -96,44 +150,62 @@ export default function ReportsView({ hotelId, hotel, user }) {
       </div>
 
       {/* Bookings list */}
-      <div className="card rounded-2xl flex-1 overflow-hidden flex flex-col min-h-0">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
-          <p className="text-gray-500 text-xs uppercase tracking-widest">Recent Bookings</p>
-          <span className="text-xs" style={{ color:"#D4AF37" }}>{all.length} total</span>
+      <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)",
+        borderRadius:16, flex:1, overflow:"hidden", display:"flex", flexDirection:"column", minHeight:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"12px 16px", borderBottom:"1px solid rgba(255,255,255,0.05)", flexShrink:0 }}>
+          <p style={{ color:"rgba(255,255,255,0.3)", fontSize:11, letterSpacing:"0.1em",
+            textTransform:"uppercase" }}>Recent Bookings</p>
+          <span style={{ fontSize:12, color:"#D4AF37", fontWeight:700 }}>{all.length} total</span>
         </div>
-        <div className="flex-1 scroll-y divide-y divide-white/5">
+
+        <div style={{ flex:1, overflowY:"auto" }}>
           {loading ? (
-            <div className="flex items-center justify-center h-full py-8">
-              <div className="w-6 h-6 border-2 rounded-full animate-spin"
-                style={{ borderColor:"rgba(212,175,55,0.2)", borderTopColor:"#D4AF37" }}/>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+              height:"100%", padding:32 }}>
+              <div style={{ width:24, height:24, borderRadius:"50%",
+                border:"2px solid rgba(212,175,55,0.2)", borderTopColor:"#D4AF37",
+                animation:"spin 1s linear infinite" }}/>
             </div>
           ) : all.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-700 text-sm">Koi booking nahi hai abhi</p>
-            </div>
-          ) : [...all].slice(0, 50).map(b => (
-            <div key={b.id} className="px-4 py-3 flex items-center justify-between">
-              <div className="flex-1 min-w-0 mr-3">
-                <p className="text-white text-sm font-semibold truncate">{b.guestName}</p>
-                <p className="text-gray-600 text-xs">
-                  Room {b.roomId} • {new Date(b.createdAt).toLocaleDateString("en-IN")}
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="font-bold text-sm" style={{ color:"#D4AF37" }}>
-                  ₹{Number(b.totalAmount || 0).toLocaleString("en-IN")}
-                </p>
-                <span className="text-xs px-1.5 py-0.5 rounded-full"
-                  style={b.status === "active"
-                    ? { background:"rgba(34,197,94,0.12)", color:"#22c55e" }
-                    : { background:"rgba(255,255,255,0.05)", color:"#555" }}>
-                  {b.status === "active" ? "Active" : "Checked Out"}
-                </span>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%" }}>
+              <div style={{ textAlign:"center" }}>
+                <p style={{ fontSize:28, marginBottom:8 }}>📋</p>
+                <p style={{ color:"rgba(255,255,255,0.2)", fontSize:13 }}>Koi booking nahi hai abhi</p>
               </div>
             </div>
-          ))}
+          ) : (
+            [...all].slice(0, 50).map(b => (
+              <div key={b.id} style={{ padding:"12px 16px", display:"flex",
+                alignItems:"center", justifyContent:"space-between",
+                borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ flex:1, minWidth:0, marginRight:12 }}>
+                  <p style={{ color:"#fff", fontSize:13, fontWeight:600,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {b.guestName}
+                  </p>
+                  <p style={{ color:"rgba(255,255,255,0.3)", fontSize:11, marginTop:2 }}>
+                    Room {b.roomId} • {new Date(b.createdAt).toLocaleDateString("en-IN")}
+                  </p>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <p style={{ fontWeight:700, fontSize:13, color:"#D4AF37" }}>
+                    ₹{Number(b.totalAmount||0).toLocaleString("en-IN")}
+                  </p>
+                  <span style={{ fontSize:10, padding:"2px 6px", borderRadius:8,
+                    ...(b.status === "active"
+                      ? { background:"rgba(34,197,94,0.12)", color:"#22c55e" }
+                      : { background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.3)" }) }}>
+                    {b.status === "active" ? "Active" : "Checked Out"}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
