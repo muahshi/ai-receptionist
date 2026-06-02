@@ -123,7 +123,6 @@ async function saveBooking(booking, hotelId) {
   try {
     const key  = `air_${hotelId}_bookings`;
     const list = JSON.parse(localStorage.getItem(key) || "[]");
-    // Prepend so newest appears first — same order as Supabase DESC
     if (!list.find(b => b.id === booking.id)) {
       localStorage.setItem(key, JSON.stringify([booking, ...list]));
     }
@@ -134,7 +133,7 @@ async function saveBooking(booking, hotelId) {
     try {
       const row = {
         id:              booking.id,
-        hotel_id:        hotelId,                               // scoped to this hotel
+        hotel_id:        hotelId,
         guest_name:      booking.guestName     || "",
         guest_phone:     booking.guestPhone    || "",
         address:         booking.address       || "",
@@ -143,6 +142,7 @@ async function saveBooking(booking, hotelId) {
         gender:          booking.gender        || "",
         dob:             booking.dob           || "",
         room_id:         booking.roomId        || "",
+        room_number:     booking.roomNumber    || 0,            // FIX: room number bhi save karo
         room_type:       booking.roomType      || "standard",
         check_in_date:   booking.checkInDate   || "",
         check_out_date:  booking.checkOutDate  || "",
@@ -155,7 +155,7 @@ async function saveBooking(booking, hotelId) {
         negotiated:      booking.negotiated    || false,
         negotiated_from: booking.negotiatedFrom || 0,
         source:          "marketplace",
-        created_at:      now,                                   // ← was missing — causes NULL in DB
+        created_at:      now,
       };
       const res = await fetch(`${sbUrl}/rest/v1/bookings`, {
         method: "POST",
@@ -170,7 +170,24 @@ async function saveBooking(booking, hotelId) {
     }
   }
 
-  // ── 3. Fire push event so staff dashboard refreshes instantly ──
+  // ── 3. FIX: Room status bhi Supabase mein update karo ──
+  // Pehle sirf localStorage mein hota tha — isliye dashboard mein room green dikhti thi
+  if (booking.roomId && sbUrl && sbKey && sbUrl !== "undefined") {
+    try {
+      await fetch(`${sbUrl}/rest/v1/rooms?id=eq.${encodeURIComponent(booking.roomId)}`, {
+        method: "PATCH",
+        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status:             "reserved",
+          current_booking_id: booking.id,
+          guest_name:         booking.guestName || "",
+          updated_at:         now,
+        }),
+      });
+    } catch {}
+  }
+
+  // ── 4. Fire push event so staff dashboard refreshes instantly ──
   try {
     await fetch("/api/push", {
       method: "POST",
@@ -179,8 +196,8 @@ async function saveBooking(booking, hotelId) {
         action:     "send",
         hotelId,
         type:       "new_booking",
-        title:      `🛎️ New Booking — ${booking.guestName || "Guest"}`,
-        body:       `Room ${booking.roomNumber || booking.roomId} · ₹${booking.totalAmount} · ${booking.nights} night(s)`,
+        title:      `🛎️ Naya Booking — ${booking.guestName || "Guest"}`,
+        body:       `Room ${booking.roomNumber || booking.roomId} · ₹${booking.totalAmount} · ${booking.nights} raat`,
         actionId:   "new_booking",
         roomNumber: booking.roomNumber || null,
         guestName:  booking.guestName  || "Guest",
@@ -867,21 +884,28 @@ export default function BookingPage() {
     };
     await saveBooking(booking, hotelId);
 
-    // Update room status in localStorage so staff dashboard reflects it immediately
+    // FIX: db.js ka updateRoomStatus use karo — ye Supabase mein bhi sync karta hai
+    // Pehle sirf localStorage mein manually update ho raha tha — Supabase miss ho jaata tha
     if (selectedRoom) {
       try {
-        const roomsKey = `air_${hotelId}_rooms`;
-        const storedRooms = JSON.parse(localStorage.getItem(roomsKey) || "[]");
-        if (storedRooms.length > 0) {
-          const updated = storedRooms.map(r =>
-            r.id === selectedRoom.id
-              ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName }
-              : r
-          );
-          localStorage.setItem(roomsKey, JSON.stringify(updated));
-        }
-      } catch {}
-      setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, status: "reserved", currentBookingId: bid } : r));
+        const { updateRoomStatus } = await import("../../../lib/db");
+        updateRoomStatus(hotelId, selectedRoom.id, "reserved", bid, booking.guestName);
+      } catch {
+        // Fallback: directly localStorage update karo
+        try {
+          const roomsKey = `air_${hotelId}_rooms`;
+          const storedRooms = JSON.parse(localStorage.getItem(roomsKey) || "[]");
+          if (storedRooms.length > 0) {
+            const updated = storedRooms.map(r =>
+              r.id === selectedRoom.id
+                ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName }
+                : r
+            );
+            localStorage.setItem(roomsKey, JSON.stringify(updated));
+          }
+        } catch {}
+      }
+      setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName } : r));
     }
 
     try {
