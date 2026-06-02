@@ -6,6 +6,7 @@ import {
   getTodayStats, getRooms, getBookingById, checkoutBooking,
   getTodayBookings, getWeeklyRevenue, initializeRooms
 } from "../lib/db";
+import { usePushNotifications, playNotificationSound } from "../lib/usePushNotifications";
 
 function greeting() {
   const h = new Date().getHours();
@@ -102,8 +103,14 @@ function getRoomCfg(status) {
 }
 
 /* ── 3D Isometric Room Block ──────────────────────────────── */
-function RoomBlock({ room, onClick, layout }) {
-  const cfg = getRoomCfg(room.status);
+function RoomBlock({ room, onClick, layout, alertType }) {
+  const rawCfg = getRoomCfg(room.status);
+  // Phase 4: If this room has an active service alert, overlay indigo highlight
+  const cfg = alertType === "cleaning"
+    ? { ...rawCfg, face: "linear-gradient(160deg,#1e1e5a 0%,#111138 60%,#08082a 100%)", right:"linear-gradient(180deg,#111138,#060618)", bottom:"#040412", glow:"#818cf8", glowA:"rgba(129,140,248,0.8)", border:"rgba(129,140,248,0.9)", badgeC:"#818cf8", numC:"#c7d2fe", label:"Service", icon:"🔔" }
+    : alertType === "alert"
+    ? { ...rawCfg, glow:"#f59e0b", glowA:"rgba(245,158,11,0.8)", border:"rgba(245,158,11,0.9)", badgeC:"#f59e0b", numC:"#fde68a" }
+    : rawCfg;
   const { numSz=9, badgeSz=13, depth=6 } = layout || {};
   const hasImg = room.imageUrl;
 
@@ -219,6 +226,16 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   const [refreshing, setRefresh] = useState(false);
   const [copied,     setCopied]  = useState(false);
 
+  /* ── Phase 4: Live Service Alert State ───────────────────── */
+  const [liveAlerts,   setLiveAlerts]   = useState([]);   // pending service requests
+  const [alertModal,   setAlertModal]   = useState(null); // currently shown alert
+  const [lastPollAt,   setLastPollAt]   = useState(null); // ISO string — poll cursor
+  const [alertRooms,   setAlertRooms]   = useState({});   // roomNumber → alertType map
+
+  // Push subscription hook
+  const { supported: pushSupported, subscribed: pushSubscribed,
+          subscribe: subscribePush } = usePushNotifications(hotelId, "staff");
+
   const load = useCallback(() => {
     if (!hotelId) return;
     initializeRooms(hotelId, hotel?.totalRooms || 20);
@@ -228,6 +245,56 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   }, [hotelId, hotel?.totalRooms]);
 
   useEffect(() => { load(); fetchInsight(); const iv=setInterval(load,30000); return ()=>clearInterval(iv); }, [load]);
+
+  /* ── Phase 4: Poll /api/push for new service_requests every 10s ── */
+  useEffect(() => {
+    if (!hotelId) return;
+    const poll = async () => {
+      try {
+        const qs = lastPollAt ? `&since=${encodeURIComponent(lastPollAt)}` : "";
+        const res = await fetch(`/api/push?hotelId=${hotelId}${qs}`);
+        const data = await res.json();
+        if (data.ok && data.requests?.length) {
+          const newest = data.requests[0];
+          setLastPollAt(newest.created_at);
+          setLiveAlerts(prev => {
+            const existingIds = new Set(prev.map(r => r.id));
+            const fresh = data.requests.filter(r => !existingIds.has(r.id));
+            if (fresh.length) {
+              playNotificationSound();
+              setAlertModal(fresh[0]); // show latest alert as modal
+              // Mark room in alertRooms for grid color
+              const roomUpdates = {};
+              fresh.forEach(req => {
+                if (req.room_number) {
+                  roomUpdates[String(req.room_number)] = req.action_id === "clean" ? "cleaning" : "alert";
+                }
+              });
+              setAlertRooms(prev2 => ({ ...prev2, ...roomUpdates }));
+            }
+            return [...fresh, ...prev].slice(0, 50);
+          });
+        }
+      } catch {}
+    };
+    poll(); // immediate first poll
+    const iv = setInterval(poll, 10000);
+    return () => clearInterval(iv);
+  }, [hotelId, lastPollAt]);
+
+  /* ── Resolve alert (mark done in DB + clear grid highlight) ─── */
+  const resolveAlert = async (alertId, roomNumber) => {
+    try {
+      await fetch("/api/push", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: alertId }),
+      });
+    } catch {}
+    setLiveAlerts(prev => prev.filter(r => r.id !== alertId));
+    setAlertRooms(prev => { const n = {...prev}; delete n[String(roomNumber)]; return n; });
+    setAlertModal(null);
+  };
 
   const fetchInsight = async () => {
     setILoad(true);
@@ -272,6 +339,8 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
         @keyframes holoPulse   { 0%,100%{filter:drop-shadow(0 0 12px #008cff) drop-shadow(0 0 28px rgba(0,140,255,0.4))} 50%{filter:drop-shadow(0 0 22px #00aaff) drop-shadow(0 0 55px rgba(0,160,255,0.65))} }
         @keyframes pulseDot    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.6)} }
         @keyframes audioBar    { 0%,100%{transform:scaleY(.3)} 50%{transform:scaleY(1)} }
+        @keyframes alertPulse  { 0%,100%{box-shadow:0 0 0 0 rgba(129,140,248,0.7)} 50%{box-shadow:0 0 0 14px rgba(129,140,248,0)} }
+        @keyframes alertSlideIn{ from{transform:translateY(-18px);opacity:0} to{transform:translateY(0);opacity:1} }
         .holo-svg { animation: holoPulse 3s ease-in-out infinite; }
       `}</style>
       <div className="scroll-y" style={{flex:1,paddingBottom:28}}>
@@ -731,6 +800,156 @@ function Skeleton() {
   return(
     <div style={{height:"100%",padding:"16px 14px",display:"flex",flexDirection:"column",gap:12,background:"#07090E"}}>
       {[80,160,280,120].map((h,i)=>(<div key={i} style={{height:h,background:"rgba(255,255,255,0.022)",borderRadius:20}}/>))}
+    </div>
+
+      {/* ── Phase 4: Live Service Alert Modal ────────────────────────── */}
+      {alertModal && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:9999,
+          background:"rgba(0,0,0,0.78)", backdropFilter:"blur(6px)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          padding:"20px",
+          animation:"alertSlideIn 0.25s ease-out",
+        }}>
+          <div style={{
+            width:"100%", maxWidth:360,
+            background:"linear-gradient(135deg,rgba(10,8,30,0.99),rgba(6,5,20,0.99))",
+            border:"2px solid rgba(129,140,248,0.6)",
+            borderRadius:22, padding:"22px 18px",
+            boxShadow:"0 0 50px rgba(129,140,248,0.35), 0 0 120px rgba(129,140,248,0.1)",
+            animation:"alertPulse 1.4s ease-in-out 3",
+          }}>
+            {/* Header */}
+            <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:16}}>
+              <div style={{
+                width:46, height:46, borderRadius:"50%",
+                background:"rgba(129,140,248,0.15)",
+                border:"1.5px solid rgba(129,140,248,0.5)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:22, flexShrink:0,
+              }}>
+                {alertModal.action_id === "clean"    ? "🧹"  :
+                 alertModal.action_id === "water"    ? "💧"  :
+                 alertModal.action_id === "towel"    ? "🛁"  :
+                 alertModal.action_id === "ac"       ? "❄️"  :
+                 alertModal.action_id === "blanket"  ? "🛏️"  :
+                 alertModal.action_id === "wakeup"   ? "⏰"  :
+                 alertModal.action_id === "dnd"      ? "🔕"  :
+                 alertModal.action_id === "checkout" ? "🧾"  :
+                 alertModal.action_id === "food"     ? "🍽️"  : "🔔"}
+              </div>
+              <div style={{flex:1}}>
+                <p style={{fontSize:12, fontWeight:800, color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase"}}>
+                  🔴 Live Service Alert
+                </p>
+                <p style={{fontSize:15, fontWeight:900, color:"#fff", marginTop:2}}>
+                  {alertModal.title || "Room Service Request"}
+                </p>
+              </div>
+            </div>
+
+            {/* Detail card */}
+            <div style={{
+              background:"rgba(129,140,248,0.06)",
+              border:"1px solid rgba(129,140,248,0.2)",
+              borderRadius:14, padding:"12px 14px", marginBottom:16,
+            }}>
+              <p style={{fontSize:13, color:"rgba(255,255,255,0.8)", lineHeight:1.5}}>
+                {alertModal.message}
+              </p>
+              <div style={{display:"flex", gap:12, marginTop:10}}>
+                {alertModal.room_number && (
+                  <div style={{textAlign:"center"}}>
+                    <p style={{fontSize:18, fontWeight:900, color:"#818cf8"}}>{alertModal.room_number}</p>
+                    <p style={{fontSize:9, color:"rgba(255,255,255,0.35)"}}>Room</p>
+                  </div>
+                )}
+                {alertModal.guest_name && (
+                  <div>
+                    <p style={{fontSize:12, fontWeight:700, color:"#fff"}}>{alertModal.guest_name}</p>
+                    <p style={{fontSize:9, color:"rgba(255,255,255,0.35)"}}>Guest</p>
+                  </div>
+                )}
+                <div style={{marginLeft:"auto", textAlign:"right"}}>
+                  <p style={{fontSize:10, color:"rgba(255,255,255,0.3)"}}>
+                    {alertModal.created_at ? new Date(alertModal.created_at).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}) : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{display:"flex", gap:10}}>
+              <button
+                onClick={() => resolveAlert(alertModal.id, alertModal.room_number)}
+                style={{
+                  flex:1, padding:"13px 10px", borderRadius:14,
+                  background:"linear-gradient(135deg,#4338ca,#818cf8)",
+                  color:"#fff", fontWeight:800, fontSize:13,
+                  border:"none", cursor:"pointer",
+                  boxShadow:"0 4px 18px rgba(129,140,248,0.35)",
+                }}
+              >
+                ✓ Done — Mark Resolved
+              </button>
+              <button
+                onClick={() => setAlertModal(null)}
+                style={{
+                  padding:"13px 14px", borderRadius:14,
+                  background:"rgba(255,255,255,0.05)",
+                  color:"rgba(255,255,255,0.4)", fontWeight:600, fontSize:12,
+                  border:"1px solid rgba(255,255,255,0.08)", cursor:"pointer",
+                }}
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 4: Live Alerts Tray (top-right badge) ── */}
+      {liveAlerts.filter(r => r.status === "pending").length > 0 && !alertModal && (
+        <div
+          onClick={() => setAlertModal(liveAlerts.find(r => r.status === "pending"))}
+          style={{
+            position:"fixed", top:14, right:14, zIndex:8888,
+            background:"linear-gradient(135deg,#4338ca,#818cf8)",
+            borderRadius:22, padding:"7px 14px",
+            display:"flex", alignItems:"center", gap:7,
+            cursor:"pointer", boxShadow:"0 4px 18px rgba(129,140,248,0.5)",
+            animation:"alertPulse 1.5s ease-in-out infinite",
+          }}
+        >
+          <span style={{fontSize:14}}>🔔</span>
+          <span style={{fontSize:12, fontWeight:800, color:"#fff"}}>
+            {liveAlerts.filter(r=>r.status==="pending").length} Alert{liveAlerts.filter(r=>r.status==="pending").length > 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
+
+      {/* ── Phase 4: Push Subscribe Button (shows if not subscribed) ── */}
+      {pushSupported && !pushSubscribed && (
+        <div style={{
+          position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)",
+          zIndex:7777,
+        }}>
+          <button
+            onClick={subscribePush}
+            style={{
+              background:"linear-gradient(135deg,rgba(8,12,28,0.97),rgba(5,8,18,0.98))",
+              border:"1px solid rgba(129,140,248,0.5)",
+              borderRadius:30, padding:"10px 20px",
+              display:"flex", alignItems:"center", gap:8,
+              color:"#818cf8", fontWeight:700, fontSize:12,
+              cursor:"pointer", boxShadow:"0 4px 20px rgba(129,140,248,0.2)",
+              whiteSpace:"nowrap",
+            }}
+          >
+            🔔 Live Alerts Enable Karo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
