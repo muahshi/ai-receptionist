@@ -43,6 +43,17 @@ CREATE INDEX IF NOT EXISTS idx_hotels_city_slug  ON hotels(city_slug);
 CREATE INDEX IF NOT EXISTS idx_hotels_is_featured ON hotels(is_featured);
 CREATE INDEX IF NOT EXISTS idx_hotels_is_active   ON hotels(is_active);
 
+-- ── Phase 1: Guest Services & Digital Companion columns ─────────
+-- Safe to re-run — IF NOT EXISTS guards each column
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS wifi_password        TEXT    DEFAULT '';
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS menu_url             TEXT    DEFAULT '';
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS menu_text            TEXT    DEFAULT '';
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS reception_phone      TEXT    DEFAULT '';
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS enable_wifi          BOOLEAN DEFAULT TRUE;
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS enable_food_ordering BOOLEAN DEFAULT TRUE;
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS enable_housekeeping  BOOLEAN DEFAULT TRUE;
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS enable_call_desk     BOOLEAN DEFAULT TRUE;
+
 -- ── Hotels RLS ──────────────────────────────────────────────────
 ALTER TABLE hotels ENABLE ROW LEVEL SECURITY;
 
