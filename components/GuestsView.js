@@ -1,35 +1,68 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Phone, User, CreditCard, BedDouble, Calendar, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Phone, BedDouble, Calendar, RefreshCw } from "lucide-react";
 import { getBookings, getBookingsSync, checkoutBooking } from "../lib/db";
 
 export default function GuestsView({ hotelId, hotel, user }) {
   const [guests,     setGuests]     = useState([]);
   const [loading,    setLoading]    = useState(true);
-  const [filter,     setFilter]     = useState("all"); // all | active | checked_out
+  const [filter,     setFilter]     = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [selGuest,   setSelGuest]   = useState(null);
+  const [dbStatus,   setDbStatus]   = useState(null); // for debug
 
-  const load = async (showRefresh = false) => {
+  const load = useCallback(async (showRefresh = false) => {
+    if (!hotelId) {
+      setLoading(false);
+      return;
+    }
     if (showRefresh) setRefreshing(true);
-    // 1. Show cached instantly
+
+    // 1. Show localStorage cache instantly
     const cached = getBookingsSync(hotelId);
-    if (cached.length > 0) setGuests(cached);
+    if (cached.length > 0) {
+      setGuests(cached);
+      setLoading(false);
+    }
+
     // 2. Fetch fresh from Supabase
     try {
       const fresh = await getBookings(hotelId);
       setGuests(fresh);
-    } catch {}
+      setDbStatus(fresh.length > 0 ? "supabase" : cached.length > 0 ? "cache" : "empty");
+    } catch (e) {
+      console.warn("[GuestsView] Supabase fetch failed:", e.message);
+      setDbStatus("offline");
+      // Fall back to localStorage
+      const fallback = getBookingsSync(hotelId);
+      setGuests(fallback);
+    }
+
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [hotelId]);
 
   useEffect(() => {
     load();
-    // Auto-refresh every 20s so marketplace bookings appear without manual refresh
     const iv = setInterval(() => load(), 20000);
     return () => clearInterval(iv);
-  }, [hotelId]);
+  }, [load]);
+
+  // Listen for new bookings from other tabs / components
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key && e.key.includes("bookings")) {
+        load();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    // Also check on focus (user switches back to tab)
+    window.addEventListener("focus", () => load());
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", () => load());
+    };
+  }, [load]);
 
   const filtered = guests.filter(g =>
     filter === "all" ? true :
@@ -40,7 +73,7 @@ export default function GuestsView({ hotelId, hotel, user }) {
   const handleCheckout = async (bookingId) => {
     await checkoutBooking(hotelId, bookingId);
     setSelGuest(null);
-    load();
+    load(true);
   };
 
   return (
@@ -81,6 +114,20 @@ export default function GuestsView({ hotelId, hotel, user }) {
             }}>{f.label}</button>
           ))}
         </div>
+
+        {/* Debug status — only show if data is missing */}
+        {!loading && guests.length === 0 && dbStatus && (
+          <div style={{ marginTop:8, padding:"4px 10px", borderRadius:8,
+            background:"rgba(255,100,100,0.08)", border:"1px solid rgba(255,100,100,0.15)" }}>
+            <p style={{ fontSize:10, color:"rgba(255,120,120,0.7)" }}>
+              {dbStatus === "offline"
+                ? "⚠️ Supabase connect nahi hua — check karo NEXT_PUBLIC_SUPABASE_URL env var"
+                : dbStatus === "empty"
+                ? "ℹ️ Database mein koi booking nahi hai abhi"
+                : `Status: ${dbStatus}`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Guest list */}
@@ -98,6 +145,9 @@ export default function GuestsView({ hotelId, hotel, user }) {
               {filter === "active" ? "Koi active guest nahi" :
                filter === "checked_out" ? "Koi checkout nahi hua" :
                "Abhi koi guest nahi hai"}
+            </p>
+            <p style={{ fontSize:11, color:"rgba(255,255,255,0.12)", marginTop:6 }}>
+              Hotel ID: {hotelId}
             </p>
           </div>
         ) : (
@@ -177,7 +227,6 @@ export default function GuestsView({ hotelId, hotel, user }) {
             <div style={{ width:40, height:4, borderRadius:2, background:"rgba(255,255,255,0.15)",
               margin:"0 auto 18px" }}/>
 
-            {/* Guest name + status */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
               <h3 style={{ fontWeight:900, fontSize:20, color:"#fff" }}>{selGuest.guestName || "Guest"}</h3>
               <span style={{
@@ -190,7 +239,6 @@ export default function GuestsView({ hotelId, hotel, user }) {
               </span>
             </div>
 
-            {/* Details grid */}
             <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)",
               borderRadius:16, padding:14, marginBottom:12, display:"flex", flexDirection:"column", gap:0 }}>
               {[
@@ -214,15 +262,13 @@ export default function GuestsView({ hotelId, hotel, user }) {
               ))}
             </div>
 
-            {/* Rate badge */}
             <div style={{ background:"rgba(212,175,55,0.07)", border:"1px solid rgba(212,175,55,0.2)",
               borderRadius:14, padding:"12px 14px", marginBottom:14,
               display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <p style={{ fontSize:10, color:"rgba(212,175,55,0.6)", fontWeight:700,
                   letterSpacing:"0.08em", marginBottom:3 }}>TOTAL AMOUNT</p>
-                <p style={{ fontSize:24, fontWeight:900, color:"#D4AF37",
-                  letterSpacing:"-0.03em" }}>
+                <p style={{ fontSize:24, fontWeight:900, color:"#D4AF37", letterSpacing:"-0.03em" }}>
                   ₹{Number(selGuest.totalAmount||0).toLocaleString("en-IN")}
                 </p>
               </div>
@@ -236,7 +282,6 @@ export default function GuestsView({ hotelId, hotel, user }) {
               </div>
             </div>
 
-            {/* Actions */}
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {selGuest.status === "active" && (
                 <button onClick={() => handleCheckout(selGuest.id)} style={{
