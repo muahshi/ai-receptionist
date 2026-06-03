@@ -449,12 +449,14 @@ function ServiceTab({ hotel, bookingResult, onRequestSent }) {
           },
           body: JSON.stringify({
             hotel_id:    hotel?.id,
+            booking_id:  bookingResult?.id   || null,   // ✅ FIX: link to booking row for staff dashboard
             room_number: String(bookingResult?.roomNumber || ""),
             guest_name:  bookingResult?.guestName || "",
             action_id:   action.id,
             title:       `Room ${bookingResult?.roomNumber || "?"} — ${action.label}`,
             message:     action.msg,
             status:      "pending",
+            created_at:  new Date().toISOString(),
           }),
         });
       }
@@ -833,7 +835,10 @@ export default function BookingPage() {
             setActiveBooking(parsed);
             setBookingResult(parsed);
             setSubmitted(true);
-            setCompanionOpen(true);
+            // ✅ FIX: Do NOT auto-open companion on restore.
+            // Show booking details card first so guest sees their Booking ID,
+            // room, dates, and total. They can tap "Open In-Room Companion" manually.
+            // setCompanionOpen(true) is intentionally removed here.
           }
         }
       } catch {}
@@ -843,9 +848,21 @@ export default function BookingPage() {
 
   useEffect(() => {
     if (hotel && messages.length === 0) {
+      // ✅ FIX: Personalized welcome if restoring an active guest session
+      const restoredBooking = (() => {
+        try {
+          const s = localStorage.getItem(`air_active_booking_${hotel.id}`);
+          return s ? JSON.parse(s) : null;
+        } catch { return null; }
+      })();
+      const guestFirstName = restoredBooking?.guestName?.split(" ")[0] || null;
+      const roomNum        = restoredBooking?.roomNumber || null;
+
       setMessages([{
         role: "assistant",
-        content: `Namaste! 🙏 Main ${hotel.name} ka AI Concierge Sandy hoon.\n\nAap puchh sakte ho:\n• 📶 Wi-Fi password\n• 🍽️ Menu & food order\n• 🏨 Room service requests\n• 💰 Rates & discount negotiate\n\nKya main aapki help kar sakta hoon? 😊`,
+        content: guestFirstName
+          ? `Wapas aaye, ${guestFirstName}! 🙏 Main Sandy hoon — ${hotel.name} ka AI Concierge.\n\n${roomNum ? `Room ${roomNum} mein aapka swagat hai! 🏨\n\n` : ""}Aap puchh sakte ho:\n• 📶 Wi-Fi password\n• 🍽️ Menu & food order\n• 🧹 Room service request\n• 📞 Reception call\n\nKya main aapki help kar sakta hoon? 😊`
+          : `Namaste! 🙏 Main ${hotel.name} ka AI Concierge Sandy hoon.\n\nAap puchh sakte ho:\n• 📶 Wi-Fi password\n• 🍽️ Menu & food order\n• 🏨 Room service requests\n• 💰 Rates & discount negotiate\n\nKya main aapki help kar sakta hoon? 😊`,
       }]);
     }
   }, [hotel]);
@@ -1494,14 +1511,14 @@ export default function BookingPage() {
           chatLoading={chatLoading}
           negotiating={negotiating}
           sendChat={sendChat}
-          checkIn={checkIn}
-          checkOut={checkOut}
-          selectedRoom={selectedRoom}
-          negotiatedRate={negotiatedRate}
-          rateLockToken={rateLockToken}
-          nights={nights}
-          roomRate={roomRate}
-          activeRoomTypeKey={activeRoomTypeKey}
+          checkIn={checkIn       || bookingResult?.checkInDate  || ""}
+          checkOut={checkOut     || bookingResult?.checkOutDate || ""}
+          selectedRoom={selectedRoom || (bookingResult?.roomNumber ? { number: bookingResult.roomNumber, type: bookingResult.roomType || "standard" } : null)}
+          negotiatedRate={negotiatedRate || (bookingResult?.negotiated ? bookingResult.ratePerNight : null)}
+          rateLockToken={rateLockToken  || bookingResult?.rateLockToken || null}
+          nights={nights         || bookingResult?.nights        || 0}
+          roomRate={roomRate     || bookingResult?.ratePerNight  || 0}
+          activeRoomTypeKey={activeRoomTypeKey || bookingResult?.roomType || "standard"}
           chatEndRef={chatEndRef}
           onClose={() => setCompanionOpen(false)}
         />
