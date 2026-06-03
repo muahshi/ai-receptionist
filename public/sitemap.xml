@@ -1,46 +1,172 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- Core Marketplace Pages -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+  <!-- ═══════════════════════════════════════
+       CORE PAGES
+  ════════════════════════════════════════ -->
   <url>
     <loc>https://ai-receptionist-sandy-six.vercel.app/</loc>
-    <lastmod>2026-06-02</lastmod>
+    <lastmod>2026-06-03</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.00</priority>
   </url>
-  
-  <!-- Active Demo / Public Companion Pages (Internal Links) -->
+
+  <!-- ═══════════════════════════════════════
+       PUBLIC BOOKING PAGES (Guest-facing)
+       These are the direct booking links each
+       hotel owner shares — highest SEO value
+  ════════════════════════════════════════ -->
   <url>
     <loc>https://ai-receptionist-sandy-six.vercel.app/booking/cherry-bhopal</loc>
-    <lastmod>2026-06-02</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/booking/hotel-cherry</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://ai-receptionist-sandy-six.vercel.app/booking/sunrise-jaipur</loc>
-    <lastmod>2026-06-02</lastmod>
+    <lastmod>2026-06-03</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
+    <priority>0.85</priority>
   </url>
   <url>
     <loc>https://ai-receptionist-sandy-six.vercel.app/booking/grand-mumbai</loc>
-    <lastmod>2026-06-02</lastmod>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/booking/midtown-indore</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/booking/comforts-nagpur</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/booking/amardeep-palace</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/booking/saffron-ahmedabad</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.75</priority>
+  </url>
+
+  <!-- ═══════════════════════════════════════
+       STAFF SHORTCUT ENTRY ROUTES (/h/)
+       These load the manager dashboard directly
+  ════════════════════════════════════════ -->
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/h/cherry-bhopal</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/h/sunrise-jaipur</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/h/grand-mumbai</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/h/midtown-indore</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.45</priority>
+  </url>
+
+  <!-- ═══════════════════════════════════════
+       STATIC PAGES
+  ════════════════════════════════════════ -->
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/landing.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/contact.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.60</priority>
+  </url>
+
+  <!-- ═══════════════════════════════════════
+       BLOG INDEX
+  ════════════════════════════════════════ -->
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/</loc>
+    <lastmod>2026-06-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>
   </url>
 
-  <!-- Staff Shortcut Entry Routes -->
+  <!-- ═══════════════════════════════════════
+       BLOG ARTICLES — Content Marketing & Local SEO
+  ════════════════════════════════════════ -->
   <url>
-    <loc>https://ai-receptionist-sandy-six.vercel.app/h/cherry-bhopal</loc>
-    <lastmod>2026-06-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.50</priority>
-  </url>
-
-  <!-- Content Marketing & Local SEO Blogs -->
-  <url>
-    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/bhopal-smart-hotel-case-study.html</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/zero-ota-commission-strategy.html</loc>
+    <lastmod>2026-06-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
   </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/bhopal-smart-hotel-case-study.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/ai-checkin-bhopal-hotels.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/smart-pricing-engine-guide.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/whatsapp-hotel-automation.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.82</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/jaipur-boutique-hotel-case-study.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.82</priority>
+  </url>
+  <url>
+    <loc>https://ai-receptionist-sandy-six.vercel.app/blogs/revenue-protection-anti-theft.html</loc>
+    <lastmod>2026-06-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
 </urlset>
