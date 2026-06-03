@@ -18,23 +18,27 @@ export default function GuestsView({ hotelId, hotel, user }) {
     }
     if (showRefresh) setRefreshing(true);
 
-    // 1. Show localStorage cache INSTANTLY — always, no conditions
+    // 1. Show localStorage cache INSTANTLY — zero flicker
     const cached = getBookingsSync(hotelId);
     setGuests(cached);
     setLoading(false);
 
-    // 2. Fetch fresh from Supabase — but NEVER downgrade if result is emptier
+    // 2. Always fetch from Supabase — public bookings (from guest phones) are
+    //    NEVER in manager's localStorage. Supabase is the single source of truth.
     try {
       const fresh = await getBookings(hotelId);
-      // Only update UI if fresh has data OR if cache was also empty
-      // Prevents blank flash when Supabase returns 0 but localStorage has bookings
-      if (fresh.length > 0 || cached.length === 0) {
+      // fresh.length >= 0 is always valid — show whatever Supabase returns
+      // merged with any unsynced local-only bookings (getBookings handles merge)
+      if (fresh.length > 0) {
         setGuests(fresh);
-        setDbStatus(fresh.length > 0 ? "supabase" : "empty");
-      } else {
-        // Supabase empty but we have local data — keep showing local
-        setGuests(getBookingsSync(hotelId));
+        setDbStatus("supabase");
+      } else if (cached.length > 0) {
+        // Supabase empty but local has data — keep local (unsynced bookings)
+        setGuests(cached);
         setDbStatus("cache");
+      } else {
+        setGuests([]);
+        setDbStatus("empty");
       }
     } catch (e) {
       console.warn("[GuestsView] Supabase fetch failed:", e.message);
@@ -45,9 +49,10 @@ export default function GuestsView({ hotelId, hotel, user }) {
     setRefreshing(false);
   }, [hotelId]);
 
+  // Poll every 8s (was 20s) — public bookings from guest devices need faster sync
   useEffect(() => {
     load();
-    const iv = setInterval(() => load(), 20000);
+    const iv = setInterval(() => load(), 8000);
     return () => clearInterval(iv);
   }, [load]);
 
