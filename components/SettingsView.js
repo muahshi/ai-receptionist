@@ -19,10 +19,14 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
     if (hotelId) {
       const loaded = getHotelConfig(hotelId);
       // Set defaults if missing
-      if (!loaded.rates) loaded.rates = { standard:1500, deluxe:2500, suite:4500 };
-      if (!loaded.rates.standard) loaded.rates.standard = 1500;
-      if (!loaded.gstPercent) loaded.gstPercent = 12;
-      if (!loaded.checkoutTime) loaded.checkoutTime = "11:00";
+      if (!loaded.rates) loaded.rates = { standard:1200, deluxe:2000, suite:3800 };
+      if (!loaded.rates.standard) loaded.rates.standard = 1200;
+      if (!loaded.gstPercent)    loaded.gstPercent   = 12;
+      if (!loaded.checkoutTime)  loaded.checkoutTime  = "11:00";
+      if (!loaded.checkinTime)   loaded.checkinTime   = "12:00";
+      if (!loaded.minFloorPrice) loaded.minFloorPrice = Math.round((loaded.rates.standard || 1200) * 0.7);
+      if (!loaded.emoji)         loaded.emoji         = "🏨";
+      if (!Array.isArray(loaded.amenities)) loaded.amenities = [];
       setCfg(loaded);
     }
   }, [hotelId]);
@@ -34,60 +38,118 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
     if (cfg.ownerPin && cfg.managerPin && cfg.ownerPin === cfg.managerPin) {
       alert("Owner aur Manager PIN alag hone chahiye."); return;
     }
+    // minFloorPrice can't exceed standard rate
+    const stdRate = cfg.rates?.standard || cfg.standardRate || 1200;
+    if (cfg.minFloorPrice && cfg.minFloorPrice > stdRate) {
+      alert(`Min Floor Price (₹${cfg.minFloorPrice}) standard rate (₹${stdRate}) se zyada nahi ho sakta.`); return;
+    }
     setSaving(true);
 
-    // 1. Save to localStorage
-    saveHotelConfig(hotelId, cfg);
+    // 1. Normalize amenities to array before save
+    const amenitiesArr = Array.isArray(cfg.amenities)
+      ? cfg.amenities.filter(Boolean)
+      : (cfg.amenities || "").split(",").map(s => s.trim()).filter(Boolean);
+    const cfgToSave = { ...cfg, amenities: amenitiesArr };
 
-    // 2. Update registry
+    // 2. Save to localStorage via db.js (handles normalization + Supabase sync)
+    saveHotelConfig(hotelId, cfgToSave);
+
+    // 3. Update ALL registry keys so booking page + marketplace pick up new values
     try {
-      const reg = JSON.parse(localStorage.getItem("gi_hotel_registry") || "[]");
-      const updated = reg.map(h => h.id === hotelId ? {
-        ...h, name:cfg.name, location:cfg.location,
-        totalRooms:cfg.totalRooms, ownerPin:cfg.ownerPin,
-        managerPin:cfg.managerPin, ownerPhone:cfg.ownerPhone,
-        managerPhone:cfg.managerPhone, ownerEmail:cfg.ownerEmail,
-        managerEmail:cfg.managerEmail, rates:cfg.rates,
-      } : h);
-      localStorage.setItem("gi_hotel_registry", JSON.stringify(updated));
-      const cache = JSON.parse(localStorage.getItem("gi_hotel_registry_cache") || "[]");
-      localStorage.setItem("gi_hotel_registry_cache", JSON.stringify(
-        cache.map(h => h.id === hotelId ? { ...h, name:cfg.name, location:cfg.location, totalRooms:cfg.totalRooms } : h)
-      ));
+      ["gi_hotel_registry", "air_hotel_registry"].forEach(regKey => {
+        const reg = JSON.parse(localStorage.getItem(regKey) || "[]");
+        const updated = reg.map(h => h.id === hotelId ? {
+          ...h,
+          name:          cfg.name,
+          location:      cfg.location,
+          address:       cfg.address      || "",
+          addressLine:   cfg.addressLine  || cfg.address || "",
+          distanceTag:   cfg.distanceTag  || "",
+          totalRooms:    cfg.totalRooms,
+          emoji:         cfg.emoji        || "🏨",
+          amenities:     amenitiesArr,
+          ownerPin:      cfg.ownerPin,
+          managerPin:    cfg.managerPin,
+          ownerPhone:    cfg.ownerPhone,
+          managerPhone:  cfg.managerPhone,
+          ownerEmail:    cfg.ownerEmail,
+          managerEmail:  cfg.managerEmail,
+          standardRate:  stdRate,
+          deluxeRate:    cfg.rates?.deluxe   || cfg.deluxeRate   || 2000,
+          suiteRate:     cfg.rates?.suite    || cfg.suiteRate    || 3800,
+          minFloorPrice: cfg.minFloorPrice   || Math.round(stdRate * 0.7),
+          rates:         cfg.rates,
+          wifiPassword:  cfg.wifiPassword    || "",
+          menuUrl:       cfg.menuUrl         || "",
+          menuText:      cfg.menuText        || "",
+          receptionPhone:cfg.receptionPhone  || "",
+          checkinTime:   cfg.checkinTime     || "12:00",
+          checkoutTime:  cfg.checkoutTime    || "11:00",
+          enableWifi:         cfg.enableWifi          ?? true,
+          enableFoodOrdering: cfg.enableFoodOrdering  ?? true,
+          enableHousekeeping: cfg.enableHousekeeping  ?? true,
+          enableCallDesk:     cfg.enableCallDesk      ?? true,
+        } : h);
+        localStorage.setItem(regKey, JSON.stringify(updated));
+      });
+      // Also update cache
+      ["gi_hotel_registry_cache", "air_hotel_registry_cache"].forEach(cacheKey => {
+        const cache = JSON.parse(localStorage.getItem(cacheKey) || "[]");
+        localStorage.setItem(cacheKey, JSON.stringify(
+          cache.map(h => h.id === hotelId ? {
+            ...h,
+            name: cfg.name, location: cfg.location,
+            totalRooms: cfg.totalRooms, emoji: cfg.emoji || "🏨",
+          } : h)
+        ));
+      });
     } catch {}
 
-    // 3. Supabase sync
+    // 4. Supabase PATCH — full hotel row update
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (sbUrl && sbKey && sbUrl !== "undefined") {
       try {
         await fetch(`${sbUrl}/rest/v1/hotels?id=eq.${encodeURIComponent(hotelId)}`, {
-          method:"PATCH",
-          headers:{ apikey:sbKey, Authorization:`Bearer ${sbKey}`,
+          method: "PATCH",
+          headers: { apikey:sbKey, Authorization:`Bearer ${sbKey}`,
             "Content-Type":"application/json", Prefer:"return=minimal" },
-          body:JSON.stringify({
-            name:                cfg.name,
-            location:            cfg.location,
-            total_rooms:         cfg.totalRooms || 20,
-            owner_pin:           cfg.ownerPin,
-            manager_pin:         cfg.managerPin,
-            owner_phone:         cfg.ownerPhone || "",
-            // ── Phase 1: Guest Services ──────────────────────
-            wifi_password:       cfg.wifiPassword       || "",
-            menu_url:            cfg.menuUrl            || "",
-            menu_text:           cfg.menuText           || "",
-            reception_phone:     cfg.receptionPhone     || "",
-            enable_wifi:         cfg.enableWifi         ?? true,
-            enable_food_ordering:cfg.enableFoodOrdering ?? true,
-            enable_housekeeping: cfg.enableHousekeeping ?? true,
-            enable_call_desk:    cfg.enableCallDesk     ?? true,
-            updated_at:          new Date().toISOString(),
+          body: JSON.stringify({
+            name:                 cfg.name                || "",
+            location:             cfg.location            || "",
+            address_line:         cfg.addressLine         || cfg.address || "",
+            distance_tag:         cfg.distanceTag         || "",
+            total_rooms:          cfg.totalRooms          || 20,
+            emoji:                cfg.emoji               || "🏨",
+            amenities:            amenitiesArr,
+            standard_rate:        stdRate,
+            deluxe_rate:          cfg.rates?.deluxe       || cfg.deluxeRate   || 2000,
+            suite_rate:           cfg.rates?.suite        || cfg.suiteRate    || 3800,
+            min_floor_price:      cfg.minFloorPrice       || Math.round(stdRate * 0.7),
+            owner_pin:            cfg.ownerPin,
+            manager_pin:          cfg.managerPin,
+            owner_phone:          cfg.ownerPhone          || "",
+            manager_phone:        cfg.managerPhone        || "",
+            owner_email:          cfg.ownerEmail          || "",
+            manager_email:        cfg.managerEmail        || "",
+            // Phase 1 Guest Services
+            wifi_password:        cfg.wifiPassword        || "",
+            menu_url:             cfg.menuUrl             || "",
+            menu_text:            cfg.menuText            || "",
+            reception_phone:      cfg.receptionPhone      || "",
+            enable_wifi:          cfg.enableWifi          ?? true,
+            enable_food_ordering: cfg.enableFoodOrdering  ?? true,
+            enable_housekeeping:  cfg.enableHousekeeping  ?? true,
+            enable_call_desk:     cfg.enableCallDesk      ?? true,
+            checkin_time:         cfg.checkinTime         || "12:00",
+            checkout_time:        cfg.checkoutTime        || "11:00",
+            updated_at:           new Date().toISOString(),
           }),
         });
       } catch {}
     }
 
-    // 4. Reinit rooms if count changed
+    // 5. Reinit rooms if count changed
     try {
       const current = JSON.parse(localStorage.getItem(`air_${hotelId}_rooms`) || "[]");
       if (current.length > 0 && current.length !== Number(cfg.totalRooms)) {
@@ -134,13 +196,62 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
 
         {/* ── HOTEL INFO ── */}
         <Section title="🏨 Hotel Info">
-          <LI label="Hotel Name"   val={cfg.name}       onChange={v=>setCfg({...cfg,name:v})}                     ph="Hotel ka naam"/>
-          <LI label="Location"     val={cfg.location}   onChange={v=>setCfg({...cfg,location:v})}                 ph="City, State"/>
-          <LI label="Hotel Address" val={cfg.address||""} onChange={v=>setCfg({...cfg,address:v})}                ph="Plot no., Street, City"/>
-          <LI label="Hotel Phone"  val={cfg.phone||""}  onChange={v=>setCfg({...cfg,phone:v})}                    ph="+91 9999999999" type="tel"/>
+          {/* Emoji picker */}
+          <div>
+            <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>Hotel Emoji / Icon</label>
+            <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
+              {["🏨","🏩","🏪","🏫","🏬","🌅","🍒","🌴","🏔️","🌟","💎","🏰"].map(e=>(
+                <button key={e} onClick={()=>setCfg({...cfg,emoji:e})}
+                  style={{
+                    width:38, height:38, borderRadius:10, fontSize:20,
+                    background: cfg.emoji===e ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.04)",
+                    border: cfg.emoji===e ? "1px solid rgba(212,175,55,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                    cursor:"pointer",
+                  }}>
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+          <LI label="Hotel Name"    val={cfg.name}               onChange={v=>setCfg({...cfg,name:v})}               ph="Hotel ka naam"/>
+          <LI label="Location"      val={cfg.location}           onChange={v=>setCfg({...cfg,location:v})}           ph="City, State"/>
+          <LI label="Hotel Address (Full)" val={cfg.addressLine||cfg.address||""} onChange={v=>setCfg({...cfg,addressLine:v,address:v})} ph="Plot no., Street, City - 462001"/>
+          <LI label="Distance Tag"  val={cfg.distanceTag||""}    onChange={v=>setCfg({...cfg,distanceTag:v})}         ph="e.g. 900m from Bus Stand"/>
+          <LI label="Hotel Phone"   val={cfg.phone||""}          onChange={v=>setCfg({...cfg,phone:v})}               ph="+91 9999999999" type="tel"/>
           <div className="grid grid-cols-2 gap-2">
             <LI label="Total Rooms" val={cfg.totalRooms} onChange={v=>setCfg({...cfg,totalRooms:parseInt(v)||20})} ph="20" type="number"/>
             <LI label="GST %"       val={cfg.gstPercent} onChange={v=>setCfg({...cfg,gstPercent:parseInt(v)||12})} ph="12" type="number"/>
+          </div>
+          {/* Amenities */}
+          <div>
+            <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>
+              Amenities <span style={{color:"rgba(255,255,255,0.2)"}}>(booking page pe dikhenge)</span>
+            </label>
+            {/* Quick-tap chips */}
+            <div style={{display:"flex", gap:5, flexWrap:"wrap", marginBottom:6}}>
+              {["Free Wi-Fi","AC Rooms","Geyser","Hot Water","Parking","Restaurant","Room Service","Pool","Gym","Lift","24/7 Reception"].map(a=>{
+                const has = Array.isArray(cfg.amenities) && cfg.amenities.includes(a);
+                return (
+                  <button key={a} onClick={()=>setCfg({...cfg, amenities: has
+                    ? (cfg.amenities||[]).filter(x=>x!==a)
+                    : [...(cfg.amenities||[]), a]})}
+                    style={{
+                      padding:"4px 10px", borderRadius:8, fontSize:10, fontWeight:600, cursor:"pointer",
+                      background: has ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.04)",
+                      color:      has ? "#D4AF37"                : "rgba(255,255,255,0.3)",
+                      border:     has ? "1px solid rgba(212,175,55,0.35)" : "1px solid rgba(255,255,255,0.06)",
+                    }}>
+                    {has ? "✓ " : "+ "}{a}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Selected preview */}
+            {Array.isArray(cfg.amenities) && cfg.amenities.length > 0 && (
+              <div className="px-3 py-2 rounded-xl text-xs" style={{background:"rgba(212,175,55,0.05)",border:"1px solid rgba(212,175,55,0.15)",color:"rgba(255,255,255,0.4)"}}>
+                ✅ Selected: {cfg.amenities.join(" · ")}
+              </div>
+            )}
           </div>
         </Section>
 
@@ -275,33 +386,93 @@ export default function SettingsView({ hotelId, hotel, user, onLogout }) {
             </div>
           ))}
 
-          {/* Checkout time */}
-          <div>
-            <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>Checkout Time</label>
-            <div className="flex gap-2">
-              {["10:00","11:00","12:00","13:00"].map(t=>(
-                <button key={t} onClick={()=>setCfg({...cfg,checkoutTime:t})}
-                  className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                  style={cfg.checkoutTime===t
-                    ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
-                    :{background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.07)"}}>
-                  {t}
-                </button>
-              ))}
+          {/* Check-in / Check-out times */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>Check-in Time</label>
+              <div className="flex gap-1.5">
+                {["11:00","12:00","13:00","14:00"].map(t=>(
+                  <button key={t} onClick={()=>setCfg({...cfg,checkinTime:t})}
+                    className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                    style={cfg.checkinTime===t
+                      ?{background:"linear-gradient(135deg,#0050c8,#0080ff)",color:"#fff"}
+                      :{background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.07)"}}>
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
+            <div>
+              <label className="text-xs mb-1.5 block" style={{color:"rgba(255,255,255,0.4)"}}>Checkout Time</label>
+              <div className="flex gap-1.5">
+                {["10:00","11:00","12:00","13:00"].map(t=>(
+                  <button key={t} onClick={()=>setCfg({...cfg,checkoutTime:t})}
+                    className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                    style={cfg.checkoutTime===t
+                      ?{background:"linear-gradient(135deg,#b8960c,#D4AF37)",color:"#000"}
+                      :{background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.07)"}}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Min Floor Price (AI Negotiator lower limit) */}
+          <div style={{background:"rgba(239,68,68,0.04)",border:"1px solid rgba(239,68,68,0.15)",borderRadius:14,padding:"12px 14px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+              <div>
+                <p className="text-xs font-semibold" style={{color:"rgba(255,255,255,0.6)"}}>🛡️ AI Negotiator Floor Price</p>
+                <p className="text-xs" style={{color:"rgba(255,255,255,0.3)"}}>Is rate se neeche AI koi bhi deal approve nahi karega</p>
+              </div>
+              <span style={{fontSize:16,fontWeight:900,color:"#ef4444"}}>
+                ₹{(cfg.minFloorPrice||Math.round((cfg.rates?.standard||1200)*0.7)).toLocaleString("en-IN")}
+              </span>
+            </div>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"rgba(255,255,255,0.3)",fontSize:13,fontWeight:700}}>₹</span>
+              <input type="number"
+                value={cfg.minFloorPrice||""}
+                onChange={e=>{
+                  const v=parseInt(e.target.value)||0;
+                  setCfg({...cfg,minFloorPrice:v});
+                }}
+                placeholder={`Min ₹${Math.round((cfg.rates?.standard||1200)*0.7)}`}
+                className="inp w-full text-sm"
+                style={{paddingLeft:28}}
+                min={200} max={cfg.rates?.standard||1200}
+              />
+            </div>
+            <p className="text-xs mt-1.5" style={{color:"rgba(255,255,255,0.2)"}}>
+              Suggested: Standard rate ka 60–75% · Currently ₹{Math.round((cfg.rates?.standard||1200)*0.7)} (70%)
+            </p>
           </div>
         </Section>
 
         {/* ── RATE SUMMARY (live preview) ── */}
         <div className="rounded-2xl p-3" style={{background:"rgba(212,175,55,0.04)",border:"1px solid rgba(212,175,55,0.12)"}}>
-          <p className="text-xs mb-2 font-semibold" style={{color:"rgba(212,175,55,0.6)"}}>💡 Current Rates Preview</p>
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <p className="text-xs mb-2 font-semibold" style={{color:"rgba(212,175,55,0.6)"}}>💡 Current Rates Preview — Booking Page Pe Dikhenge</p>
+          <div className="grid grid-cols-3 gap-2 text-center" style={{marginBottom:8}}>
             {[["Standard",cfg.rates?.standard],["Deluxe",cfg.rates?.deluxe],["Suite",cfg.rates?.suite]].map(([l,v])=>(
               <div key={l} className="card rounded-xl py-2">
                 <p className="text-xs" style={{color:"rgba(255,255,255,0.3)"}}>{l}</p>
                 <p className="font-black text-sm" style={{color:"#D4AF37"}}>₹{(v||0).toLocaleString("en-IN")}</p>
               </div>
             ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="card rounded-xl py-1.5">
+              <p className="text-xs" style={{color:"rgba(255,255,255,0.25)"}}>🛡️ Floor</p>
+              <p className="font-bold text-xs" style={{color:"#ef4444"}}>₹{(cfg.minFloorPrice||0).toLocaleString("en-IN")}</p>
+            </div>
+            <div className="card rounded-xl py-1.5">
+              <p className="text-xs" style={{color:"rgba(255,255,255,0.25)"}}>🔑 Check-in</p>
+              <p className="font-bold text-xs" style={{color:"#60b8ff"}}>{cfg.checkinTime||"12:00"}</p>
+            </div>
+            <div className="card rounded-xl py-1.5">
+              <p className="text-xs" style={{color:"rgba(255,255,255,0.25)"}}>🚪 Checkout</p>
+              <p className="font-bold text-xs" style={{color:"#D4AF37"}}>{cfg.checkoutTime||"11:00"}</p>
+            </div>
           </div>
         </div>
 
