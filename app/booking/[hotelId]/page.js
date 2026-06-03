@@ -115,88 +115,97 @@ function getRooms(hotelId, total) {
 ═══════════════════════════════════════════ */
 async function saveBooking(booking, hotelId) {
   const now  = booking.createdAt || new Date().toISOString();
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // ── 1. Always write to localStorage FIRST (instant, scoped key) ──
-  // Key MUST match what db.js uses: air_${hotelId}_bookings
+  // ── Step 1: localStorage — instant (same key as db.js: air_${hotelId}_bookings) ──
   try {
     const key  = `air_${hotelId}_bookings`;
     const list = JSON.parse(localStorage.getItem(key) || "[]");
     if (!list.find(b => b.id === booking.id)) {
       localStorage.setItem(key, JSON.stringify([booking, ...list]));
     }
-    // Broadcast to dashboard/guests/reports tabs for instant refresh
+    // Update room status in localStorage too
+    const roomsKey = `air_${hotelId}_rooms`;
+    try {
+      const rooms = JSON.parse(localStorage.getItem(roomsKey) || "[]");
+      if (rooms.length > 0 && booking.roomId) {
+        const updated = rooms.map(r =>
+          r.id === booking.roomId
+            ? { ...r, status: "reserved", currentBookingId: booking.id, guestName: booking.guestName }
+            : r
+        );
+        localStorage.setItem(roomsKey, JSON.stringify(updated));
+      }
+    } catch {}
+    // BroadcastChannel — instant sync to dashboard/guests/reports tabs
     try {
       const bc = new BroadcastChannel("air_hotel_sync");
       bc.postMessage({ type: "new_booking", hotelId, ts: Date.now() });
       bc.close();
     } catch {}
     localStorage.setItem(`air_sync_${hotelId}`, Date.now().toString());
-  } catch {}
+  } catch (e) {
+    console.warn("[saveBooking] localStorage error:", e.message);
+  }
 
-  // ── 2. Sync to Supabase (background, non-blocking) ──
-  if (sbUrl && sbKey && sbUrl !== "undefined") {
-    try {
-      const row = {
-        id:              booking.id,
-        hotel_id:        hotelId,
-        guest_name:      booking.guestName     || "",
-        guest_phone:     booking.guestPhone    || "",
-        address:         booking.address       || "",
-        id_type:         booking.idType        || "Aadhaar",
-        id_number:       booking.idNumber      || "[Aadhaar Redacted]",
-        gender:          booking.gender        || "",
-        dob:             booking.dob           || "",
-        room_id:         booking.roomId        || "",
-        room_number:     booking.roomNumber    || 0,            // FIX: room number bhi save karo
-        room_type:       booking.roomType      || "standard",
-        check_in_date:   booking.checkInDate   || "",
-        check_out_date:  booking.checkOutDate  || "",
-        nights:          booking.nights        || 1,
-        rate_per_night:  booking.ratePerNight  || 0,
-        total_amount:    booking.totalAmount   || 0,
-        payment_mode:    booking.paymentMode   || "Cash",
-        status:          "active",
-        rate_locked:     true,
-        negotiated:      booking.negotiated    || false,
-        negotiated_from: booking.negotiatedFrom || 0,
-        source:          "marketplace",
-        created_at:      now,
-      };
-      const res = await fetch(`${sbUrl}/rest/v1/bookings`, {
-        method: "POST",
-        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify(row),
-      });
-      if (!res.ok && res.status !== 201) {
-        console.warn("[saveBooking] Supabase insert failed:", res.status);
+  // ── Step 2: Use db.js createBooking for Supabase — consistent, no RLS issues ──
+  try {
+    const { createBooking } = await import("../../../lib/db");
+    await createBooking(hotelId, {
+      ...booking,
+      isPublicBooking: true,   // marks source as "marketplace"
+    });
+    // createBooking handles: Supabase insert + room status update + broadcastUpdate
+    // No need to do anything else
+  } catch (e) {
+    console.warn("[saveBooking] createBooking error:", e.message);
+    // Fallback: direct Supabase REST if dynamic import fails
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (sbUrl && sbKey && sbUrl !== "undefined") {
+      try {
+        const row = {
+          id:              booking.id,
+          hotel_id:        hotelId,
+          guest_name:      booking.guestName     || "",
+          guest_phone:     booking.guestPhone    || "",
+          address:         booking.address       || "",
+          id_type:         booking.idType        || "Aadhaar",
+          id_number:       booking.idNumber      || "",
+          gender:          booking.gender        || "",
+          dob:             booking.dob           || "",
+          room_id:         booking.roomId        || "",
+          room_number:     booking.roomNumber    || 0,
+          room_type:       booking.roomType      || "standard",
+          check_in_date:   booking.checkInDate   || "",
+          check_out_date:  booking.checkOutDate  || "",
+          nights:          booking.nights        || 1,
+          rate_per_night:  booking.ratePerNight  || 0,
+          total_amount:    booking.totalAmount   || 0,
+          payment_mode:    booking.paymentMode   || "Cash",
+          status:          "active",
+          rate_locked:     true,
+          negotiated:      booking.negotiated    || false,
+          negotiated_from: booking.negotiatedFrom || 0,
+          source:          "marketplace",
+          created_at:      now,
+        };
+        const res = await fetch(`${sbUrl}/rest/v1/bookings`, {
+          method: "POST",
+          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(row),
+        });
+        if (!res.ok && res.status !== 201) {
+          console.warn("[saveBooking] Supabase REST fallback failed:", res.status, await res.text());
+        }
+      } catch (e2) {
+        console.warn("[saveBooking] Supabase REST error:", e2.message);
       }
-    } catch (e) {
-      console.warn("[saveBooking] Supabase error:", e.message);
     }
   }
 
-  // ── 3. FIX: Room status bhi Supabase mein update karo ──
-  // Pehle sirf localStorage mein hota tha — isliye dashboard mein room green dikhti thi
-  if (booking.roomId && sbUrl && sbKey && sbUrl !== "undefined") {
-    try {
-      await fetch(`${sbUrl}/rest/v1/rooms?id=eq.${encodeURIComponent(booking.roomId)}`, {
-        method: "PATCH",
-        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({
-          status:             "reserved",
-          current_booking_id: booking.id,
-          guest_name:         booking.guestName || "",
-          updated_at:         now,
-        }),
-      });
-    } catch {}
-  }
-
-  // ── 4. Fire push event so staff dashboard refreshes instantly ──
+  // ── Step 3: Push notification to staff dashboard ──
   try {
-    await fetch("/api/push", {
+    fetch("/api/push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -210,11 +219,12 @@ async function saveBooking(booking, hotelId) {
         guestName:  booking.guestName  || "Guest",
         timestamp:  now,
       }),
-    });
+    }).catch(() => {});
   } catch {}
 
   return { success: true };
 }
+
 
 /* ═══════════════════════════════════════════
    ROOM KEYCAP
@@ -892,28 +902,13 @@ export default function BookingPage() {
     };
     await saveBooking(booking, hotelId);
 
-    // FIX: db.js ka updateRoomStatus use karo — ye Supabase mein bhi sync karta hai
-    // Pehle sirf localStorage mein manually update ho raha tha — Supabase miss ho jaata tha
+    // UI: room color update karo instantly (display only)
     if (selectedRoom) {
-      try {
-        const { updateRoomStatus } = await import("../../../lib/db");
-        updateRoomStatus(hotelId, selectedRoom.id, "reserved", bid, booking.guestName);
-      } catch {
-        // Fallback: directly localStorage update karo
-        try {
-          const roomsKey = `air_${hotelId}_rooms`;
-          const storedRooms = JSON.parse(localStorage.getItem(roomsKey) || "[]");
-          if (storedRooms.length > 0) {
-            const updated = storedRooms.map(r =>
-              r.id === selectedRoom.id
-                ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName }
-                : r
-            );
-            localStorage.setItem(roomsKey, JSON.stringify(updated));
-          }
-        } catch {}
-      }
-      setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName } : r));
+      setRooms(prev => prev.map(r =>
+        r.id === selectedRoom.id
+          ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName }
+          : r
+      ));
     }
 
     try {
