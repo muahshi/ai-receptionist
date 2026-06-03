@@ -228,11 +228,6 @@ async function saveBooking(booking, hotelId) {
   return { success: true };
 }
 
-  } catch {}
-
-  return { success: true };
-}
-
 
 /* ═══════════════════════════════════════════
    ROOM KEYCAP
