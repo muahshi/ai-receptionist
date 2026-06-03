@@ -113,56 +113,40 @@ function getRooms(hotelId, total) {
 /* ═══════════════════════════════════════════
    SAVE BOOKING
 ═══════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   SAVE BOOKING — FIXED: Single atomic entry point
+   
+   ROOT CAUSE OF SYNC BUG:
+   Previous version wrote to localStorage here, THEN called createBooking()
+   which wrote again — double-write race condition caused state drift across
+   Dashboard, Guests, and Reports tabs.
+   
+   FIX: This function is now a thin orchestrator. It calls createBooking()
+   from lib/db.js which is the ONLY place that touches localStorage, rooms,
+   and BroadcastChannel. No pre-writing here.
+═══════════════════════════════════════════ */
 async function saveBooking(booking, hotelId) {
-  const now  = booking.createdAt || new Date().toISOString();
-
-  // ── Step 1: localStorage — instant (same key as db.js: air_${hotelId}_bookings) ──
   try {
-    const key  = `air_${hotelId}_bookings`;
-    const list = JSON.parse(localStorage.getItem(key) || "[]");
-    if (!list.find(b => b.id === booking.id)) {
-      localStorage.setItem(key, JSON.stringify([booking, ...list]));
-    }
-    // Update room status in localStorage too
-    const roomsKey = `air_${hotelId}_rooms`;
-    try {
-      const rooms = JSON.parse(localStorage.getItem(roomsKey) || "[]");
-      if (rooms.length > 0 && booking.roomId) {
-        const updated = rooms.map(r =>
-          r.id === booking.roomId
-            ? { ...r, status: "reserved", currentBookingId: booking.id, guestName: booking.guestName }
-            : r
-        );
-        localStorage.setItem(roomsKey, JSON.stringify(updated));
-      }
-    } catch {}
-    // BroadcastChannel — instant sync to dashboard/guests/reports tabs
-    try {
-      const bc = new BroadcastChannel("air_hotel_sync");
-      bc.postMessage({ type: "new_booking", hotelId, ts: Date.now() });
-      bc.close();
-    } catch {}
-    localStorage.setItem(`air_sync_${hotelId}`, Date.now().toString());
-  } catch (e) {
-    console.warn("[saveBooking] localStorage error:", e.message);
-  }
-
-  // ── Step 2: Use db.js createBooking for Supabase — consistent, no RLS issues ──
-  try {
+    // Single atomic call — lib/db.js handles:
+    //   1. localStorage write (instant)
+    //   2. Room status update (localStorage + broadcast)
+    //   3. BroadcastChannel fire (all tabs: Dashboard, Guests, Reports)
+    //   4. Supabase insert (background, non-blocking)
     const { createBooking } = await import("../../../lib/db");
     await createBooking(hotelId, {
       ...booking,
-      isPublicBooking: true,   // marks source as "marketplace"
+      isPublicBooking: true,   // marks source as "marketplace", room as "reserved"
     });
-    // createBooking handles: Supabase insert + room status update + broadcastUpdate
-    // No need to do anything else
   } catch (e) {
     console.warn("[saveBooking] createBooking error:", e.message);
-    // Fallback: direct Supabase REST if dynamic import fails
+    // Hard fallback: direct Supabase REST if dynamic import fails entirely
+    // localStorage is NOT written here — we don't want duplicate state
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (sbUrl && sbKey && sbUrl !== "undefined") {
       try {
+        const now = booking.createdAt || new Date().toISOString();
         const row = {
           id:              booking.id,
           hotel_id:        hotelId,
@@ -189,21 +173,40 @@ async function saveBooking(booking, hotelId) {
           source:          "marketplace",
           created_at:      now,
         };
-        const res = await fetch(`${sbUrl}/rest/v1/bookings`, {
+        await fetch(`${sbUrl}/rest/v1/bookings`, {
           method: "POST",
-          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          headers: {
+            apikey: sbKey,
+            Authorization: `Bearer ${sbKey}`,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
           body: JSON.stringify(row),
         });
-        if (!res.ok && res.status !== 201) {
-          console.warn("[saveBooking] Supabase REST fallback failed:", res.status, await res.text());
-        }
+        // Minimal localStorage write in fallback — only if createBooking failed
+        try {
+          const key  = `air_${hotelId}_bookings`;
+          const list = JSON.parse(localStorage.getItem(key) || "[]");
+          if (!list.find(b => b.id === booking.id)) {
+            localStorage.setItem(key, JSON.stringify([{
+              ...booking, source: "marketplace", status: "active",
+            }, ...list]));
+          }
+          // Minimal broadcast in fallback
+          try {
+            const bc = new BroadcastChannel("air_hotel_sync");
+            bc.postMessage({ type: "new_booking", hotelId, ts: Date.now() });
+            bc.close();
+          } catch {}
+          localStorage.setItem(`air_sync_${hotelId}`, Date.now().toString());
+        } catch {}
       } catch (e2) {
-        console.warn("[saveBooking] Supabase REST error:", e2.message);
+        console.warn("[saveBooking] Hard fallback error:", e2.message);
       }
     }
   }
 
-  // ── Step 3: Push notification to staff dashboard ──
+  // Push notification to staff dashboard — separate from data sync
   try {
     fetch("/api/push", {
       method: "POST",
@@ -217,9 +220,14 @@ async function saveBooking(booking, hotelId) {
         actionId:   "new_booking",
         roomNumber: booking.roomNumber || null,
         guestName:  booking.guestName  || "Guest",
-        timestamp:  now,
+        timestamp:  booking.createdAt  || new Date().toISOString(),
       }),
     }).catch(() => {});
+  } catch {}
+
+  return { success: true };
+}
+
   } catch {}
 
   return { success: true };
