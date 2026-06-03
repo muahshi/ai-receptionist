@@ -240,20 +240,52 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   const load = useCallback(async (fromSupabase = false) => {
     if (!hotelId) return;
     initializeRooms(hotelId, hotel?.totalRooms || 20);
+    // Show localStorage snapshot instantly (zero flicker)
     setStats(getTodayStats(hotelId));
     setRooms(getRooms(hotelId));
     setRevData(getWeeklyRevenue(hotelId));
-    // If called with fromSupabase flag (e.g. on new_booking push), pull fresh data from DB
-    if (fromSupabase) {
-      try {
-        await getBookings(hotelId); // this caches to localStorage
-        setStats(getTodayStats(hotelId));
-        setRevData(getWeeklyRevenue(hotelId));
-      } catch {}
-    }
+    // ALWAYS pull fresh from Supabase — public bookings come from guest devices
+    // and are never in manager's localStorage. fromSupabase flag kept for compat.
+    try {
+      // 1. Fetch bookings from Supabase → merges into localStorage
+      await getBookings(hotelId);
+      // 2. Also sync room statuses from Supabase (public booking marks rooms "reserved")
+      const sbUrl = typeof window !== "undefined" && process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const sbKey = typeof window !== "undefined" && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (sbUrl && sbKey && sbUrl !== "undefined") {
+        try {
+          const res = await fetch(
+            `${sbUrl}/rest/v1/rooms?hotel_id=eq.${encodeURIComponent(hotelId)}&select=*`,
+            { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+          );
+          if (res.ok) {
+            const sbRooms = await res.json();
+            if (sbRooms?.length > 0) {
+              // Merge Supabase room statuses into localStorage
+              const lsKey = `air_${hotelId}_rooms`;
+              try {
+                const localRooms = JSON.parse(localStorage.getItem(lsKey) || "[]");
+                const sbMap = {};
+                sbRooms.forEach(r => { sbMap[r.id] = r; });
+                const merged = localRooms.map(r => {
+                  const sb = sbMap[r.id];
+                  if (!sb) return r;
+                  return { ...r, status: sb.status, currentBookingId: sb.current_booking_id || null, guestName: sb.guest_name || r.guestName || "" };
+                });
+                localStorage.setItem(lsKey, JSON.stringify(merged));
+              } catch {}
+            }
+          }
+        } catch {}
+      }
+      setStats(getTodayStats(hotelId));
+      setRooms(getRooms(hotelId));
+      setRevData(getWeeklyRevenue(hotelId));
+    } catch {}
   }, [hotelId, hotel?.totalRooms]);
 
-  useEffect(() => { load(); fetchInsight(); const iv=setInterval(() => load(true), 30000); return ()=>clearInterval(iv); }, [load]);
+  // Poll every 10s (was 30s) — public bookings from guest devices need faster sync
+  useEffect(() => { load(); fetchInsight(); const iv=setInterval(() => load(), 10000); return ()=>clearInterval(iv); }, [load]);
 
   /* ── Phase 4: Poll /api/push for new service_requests every 10s ── */
   useEffect(() => {
