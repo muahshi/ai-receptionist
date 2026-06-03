@@ -417,6 +417,7 @@ function ServiceTab({ hotel, bookingResult, onRequestSent }) {
   const handleRequest = async (action) => {
     if (sentRequests.includes(action.id)) return;
     setLoading(action.id);
+    // 1. Push notification to staff
     try {
       await fetch("/api/push", {
         method: "POST",
@@ -432,6 +433,36 @@ function ServiceTab({ hotel, bookingResult, onRequestSent }) {
           guestName:   bookingResult?.guestName,
           timestamp:   new Date().toISOString(),
         }),
+      });
+    } catch {}
+    // 2. Log to Supabase service_requests + broadcast to staff dashboard
+    try {
+      const { broadcastUpdate } = await import("../../../lib/db");
+      const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (sbUrl && sbKey && sbUrl !== "undefined") {
+        await fetch(`${sbUrl}/rest/v1/service_requests`, {
+          method: "POST",
+          headers: {
+            apikey: sbKey, Authorization: `Bearer ${sbKey}`,
+            "Content-Type": "application/json", Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            hotel_id:    hotel?.id,
+            room_number: String(bookingResult?.roomNumber || ""),
+            guest_name:  bookingResult?.guestName || "",
+            action_id:   action.id,
+            title:       `Room ${bookingResult?.roomNumber || "?"} — ${action.label}`,
+            message:     action.msg,
+            status:      "pending",
+          }),
+        });
+      }
+      broadcastUpdate("service_request", hotel?.id, {
+        actionId:   action.id,
+        roomNumber: bookingResult?.roomNumber,
+        guestName:  bookingResult?.guestName,
+        msg:        action.msg,
       });
     } catch {}
     setSentRequests(p => [...p, action.id]);
@@ -747,6 +778,8 @@ export default function BookingPage() {
   const [submitted,     setSubmitted]     = useState(false);
   const [bookingResult, setBookingResult] = useState(null);
   const [formError,     setFormError]     = useState("");
+  // Persistent guest session — survives page refresh
+  const [activeBooking, setActiveBooking] = useState(null);
 
   const [negotiatedRate, setNegotiatedRate] = useState(null);
   const [rateLockToken,  setRateLockToken]  = useState(null);
@@ -790,6 +823,20 @@ export default function BookingPage() {
     fetchHotel(hotelId).then(h => {
       setHotel(h);
       if (h) setRooms(getRooms(hotelId, h.totalRooms));
+      // ── Persistent guest session: check for active booking in localStorage ──
+      try {
+        const stored = localStorage.getItem(`air_active_booking_${hotelId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Only restore if booking is still active (not checked_out)
+          if (parsed && parsed.id && parsed.status !== "checked_out") {
+            setActiveBooking(parsed);
+            setBookingResult(parsed);
+            setSubmitted(true);
+            setCompanionOpen(true);
+          }
+        }
+      } catch {}
       setPageLoading(false);
     });
   }, [hotelId]);
@@ -918,8 +965,16 @@ export default function BookingPage() {
       const { sendBookingAlerts } = await import("../../../lib/alerts");
       await sendBookingAlerts(booking);
     } catch {}
-    setBookingResult({ ...booking, roomNumber });
+
+    const result = { ...booking, roomNumber };
+    // ── Persist active booking to localStorage — survives refresh ──
+    try {
+      localStorage.setItem(`air_active_booking_${hotelId}`, JSON.stringify(result));
+    } catch {}
+    setActiveBooking(result);
+    setBookingResult(result);
     setSubmitted(true);
+    setCompanionOpen(true);   // auto-open companion after booking
     setSubmitting(false);
   };
 
@@ -1120,6 +1175,22 @@ export default function BookingPage() {
                 <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Room {bookingResult.roomNumber} · {bookingResult.guestName}</p>
               </div>
             </div>
+            {/* Booking details — visible anytime, survives refresh */}
+            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                ["📋 Booking ID",  bookingResult.id?.slice(0, 14)],
+                ["🛏 Room",        `Room ${bookingResult.roomNumber} (${bookingResult.roomType || "standard"})`],
+                ["📅 Check-in",    bookingResult.checkInDate ? new Date(bookingResult.checkInDate).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}) : "—"],
+                ["📅 Check-out",   bookingResult.checkOutDate ? new Date(bookingResult.checkOutDate).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}) : "—"],
+                ["🌙 Nights",      `${bookingResult.nights || 1} raat`],
+                ["💰 Total",       `₹${Number(bookingResult.totalAmount||0).toLocaleString("en-IN")}`],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: label === "📋 Booking ID" ? "monospace" : "inherit" }}>{val}</span>
+                </div>
+              ))}
+            </div>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 10, lineHeight: 1.5 }}>
               Aapka digital companion ready hai — Wi-Fi password, food order, room service, aur call desk — sab ek jagah.
             </p>
@@ -1132,14 +1203,31 @@ export default function BookingPage() {
                 color: "#000", fontSize: 14, fontWeight: 900,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 boxShadow: "0 4px 20px rgba(212,175,55,0.35)",
+                marginBottom: 8,
               }}
             >
               <Sparkles size={16} /> Open In-Room Companion
             </button>
+            {/* Checkout clear — removes persistent session */}
+            <button
+              onClick={() => {
+                try { localStorage.removeItem(`air_active_booking_${hotelId}`); } catch {}
+                setActiveBooking(null); setSubmitted(false); setBookingResult(null);
+                setCompanionOpen(false);
+              }}
+              style={{
+                width: "100%", padding: "10px", borderRadius: 12,
+                background: "transparent", border: "1px solid rgba(239,68,68,0.2)",
+                color: "rgba(239,68,68,0.5)", fontSize: 11, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              🚪 Check-out ho gaye? Session clear karo
+            </button>
           </div>
         )}
 
-        {/* ROOM ALLOCATOR */}
+        {/* ROOM ALLOCATOR + FORM — only show when no active booking */}
+        {!activeBooking && <>}
         <div style={{ background: "linear-gradient(135deg,rgba(5,15,8,0.9),rgba(2,10,4,0.95))", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 20, padding: "16px", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Visual Room Allocator</p>
@@ -1350,6 +1438,8 @@ export default function BookingPage() {
             </div>
           </div>
         </div>
+
+        </>} {/* end !activeBooking wrapper */}
 
         {/* LOCATION */}
         <div style={{ background: "rgba(6,8,15,0.98)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 16, padding: "14px", marginBottom: 12 }}>
