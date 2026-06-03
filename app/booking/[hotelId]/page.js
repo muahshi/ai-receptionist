@@ -1227,7 +1227,7 @@ export default function BookingPage() {
         )}
 
         {/* ROOM ALLOCATOR + FORM — only show when no active booking */}
-        {!activeBooking && <>}
+        {!activeBooking && <>
         <div style={{ background: "linear-gradient(135deg,rgba(5,15,8,0.9),rgba(2,10,4,0.95))", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 20, padding: "16px", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Visual Room Allocator</p>
