@@ -16,22 +16,29 @@ export default function ReportsView({ hotelId, hotel, user }) {
       return;
     }
 
-    // 1. Show localStorage cache instantly
+    // 1. Show localStorage cache INSTANTLY — always paint from cache first
     const cached = getBookingsSync(hotelId);
-    setWeekly(getWeeklyRevenue(hotelId));
     setAll(cached);
+    setWeekly(getWeeklyRevenue(hotelId));
     setLoading(false);
 
-    // 2. Fetch fresh from Supabase and re-render
+    // 2. Fetch fresh from Supabase — never downgrade to empty if cache has data
     try {
       const data = await getBookings(hotelId);
-      setAll(data);
-      setWeekly(getWeeklyRevenue(hotelId));
-      setDbStatus(data.length > 0 ? "supabase" : cached.length > 0 ? "cache_only" : "empty");
+      if (data.length > 0 || cached.length === 0) {
+        setAll(data);
+        setWeekly(getWeeklyRevenue(hotelId));
+        setDbStatus(data.length > 0 ? "supabase" : "empty");
+      } else {
+        // Supabase empty but localStorage has bookings — keep showing them
+        const stillCached = getBookingsSync(hotelId);
+        setAll(stillCached);
+        setWeekly(getWeeklyRevenue(hotelId));
+        setDbStatus("cache");
+      }
     } catch (e) {
       console.warn("[ReportsView] Supabase fetch failed:", e.message);
       setDbStatus("offline");
-      // Keep showing cached data
       setAll(getBookingsSync(hotelId));
       setWeekly(getWeeklyRevenue(hotelId));
     }
