@@ -18,27 +18,30 @@ export default function GuestsView({ hotelId, hotel, user }) {
     }
     if (showRefresh) setRefreshing(true);
 
-    // 1. Show localStorage cache instantly
+    // 1. Show localStorage cache INSTANTLY — always, no conditions
     const cached = getBookingsSync(hotelId);
-    if (cached.length > 0) {
-      setGuests(cached);
-      setLoading(false);
-    }
+    setGuests(cached);
+    setLoading(false);
 
-    // 2. Fetch fresh from Supabase
+    // 2. Fetch fresh from Supabase — but NEVER downgrade if result is emptier
     try {
       const fresh = await getBookings(hotelId);
-      setGuests(fresh);
-      setDbStatus(fresh.length > 0 ? "supabase" : cached.length > 0 ? "cache" : "empty");
+      // Only update UI if fresh has data OR if cache was also empty
+      // Prevents blank flash when Supabase returns 0 but localStorage has bookings
+      if (fresh.length > 0 || cached.length === 0) {
+        setGuests(fresh);
+        setDbStatus(fresh.length > 0 ? "supabase" : "empty");
+      } else {
+        // Supabase empty but we have local data — keep showing local
+        setGuests(getBookingsSync(hotelId));
+        setDbStatus("cache");
+      }
     } catch (e) {
       console.warn("[GuestsView] Supabase fetch failed:", e.message);
       setDbStatus("offline");
-      // Fall back to localStorage
-      const fallback = getBookingsSync(hotelId);
-      setGuests(fallback);
+      setGuests(getBookingsSync(hotelId));
     }
 
-    setLoading(false);
     setRefreshing(false);
   }, [hotelId]);
 
