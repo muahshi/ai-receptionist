@@ -194,6 +194,33 @@ Rules: name=full name, dob=DD/MM/YYYY, idNumber=exact number on card, idType=one
       return Response.json({ success: true, data: clean });
     }
 
+    // ── AI BRIEFING (Dashboard Receptionist) ───────────────────
+    if (type === "ai_briefing") {
+      const dayName = new Date().toLocaleDateString("en-IN", { weekday: "long" });
+      const timeStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      const s = stats || {};
+      const res = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 80,
+        temperature: 0.6,
+        messages: [
+          { role: "system", content: `You are an AI Receptionist briefing a hotel manager in Hinglish. Be crisp, warm, action-oriented. Max 2 sentences. Use ₹ for money. Focus on what needs attention NOW.` },
+          { role: "user",   content: `Hotel: ${body.hotelName || "Hotel"}. Time: ${timeStr}, ${dayName}. Stats: occupied=${s.occupied||0}, reserved=${s.reserved||0} (pending check-in approval), vacant=${s.vacant||0}, cleaning=${s.cleaning||0}, todayBookings=${s.todayBookings||0}, revenue=₹${s.todayRevenue||0}. Give manager briefing.` }
+        ]
+      });
+      const briefing = res.choices[0]?.message?.content || "";
+      // Also generate insight
+      const insightRes = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 100,
+        messages: [
+          { role: "system", content: `Hotel revenue AI. Short actionable tip in Hinglish. Max 2 sentences. Use ₹.` },
+          { role: "user",   content: `Stats: ${JSON.stringify(s)}. Today: ${dayName}. Revenue insight do.` }
+        ]
+      });
+      return Response.json({ success: true, briefing, insight: insightRes.choices[0]?.message?.content || "" });
+    }
+
     // ── AI INSIGHT ──────────────────────────────────────────────
     if (type === "ai_insight") {
       const dayName = new Date().toLocaleDateString("en-IN", { weekday: "long" });
