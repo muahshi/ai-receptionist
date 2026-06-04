@@ -260,9 +260,9 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
           );
           if (res.ok) {
             const sbRooms = await res.json();
+            const lsKey = `air_${hotelId}_rooms`;
             if (sbRooms?.length > 0) {
               // Merge Supabase room statuses into localStorage
-              const lsKey = `air_${hotelId}_rooms`;
               try {
                 const localRooms = JSON.parse(localStorage.getItem(lsKey) || "[]");
                 const sbMap = {};
@@ -274,6 +274,39 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                 });
                 localStorage.setItem(lsKey, JSON.stringify(merged));
               } catch {}
+            } else {
+              // ── CRITICAL FALLBACK: rooms table empty but bookings exist ──
+              // This happens when guest books from their phone (createBooking writes
+              // rooms table via Supabase) but race condition or RLS blocks the upsert.
+              // Derive room status directly from active bookings in Supabase.
+              try {
+                const bRes = await fetch(
+                  `${sbUrl}/rest/v1/bookings?hotel_id=eq.${encodeURIComponent(hotelId)}&status=eq.active&select=room_id,room_number,room_type,rate_per_night,guest_name,id`,
+                  { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+                );
+                if (bRes.ok) {
+                  const activeBookings = await bRes.json();
+                  if (activeBookings?.length > 0) {
+                    const localRooms = JSON.parse(localStorage.getItem(lsKey) || "[]");
+                    if (localRooms.length > 0) {
+                      // Build a map: roomId → booking
+                      const bMap = {};
+                      activeBookings.forEach(b => { if (b.room_id) bMap[b.room_id] = b; });
+                      const derived = localRooms.map(r => {
+                        const b = bMap[r.id];
+                        if (!b) return r; // no active booking → keep current status
+                        return {
+                          ...r,
+                          status:           "reserved",
+                          currentBookingId: b.id,
+                          guestName:        b.guest_name || "",
+                        };
+                      });
+                      localStorage.setItem(lsKey, JSON.stringify(derived));
+                    }
+                  }
+                }
+              } catch {}
             }
           }
         } catch {}
@@ -284,8 +317,8 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
     } catch {}
   }, [hotelId, hotel?.totalRooms]);
 
-  // Poll every 10s (was 30s) — public bookings from guest devices need faster sync
-  useEffect(() => { load(); fetchInsight(); const iv=setInterval(() => load(), 10000); return ()=>clearInterval(iv); }, [load]);
+  // Poll every 6s — faster sync for cross-device bookings (guest phone → manager screen)
+  useEffect(() => { load(); fetchInsight(); const iv=setInterval(() => load(), 6000); return ()=>clearInterval(iv); }, [load]);
 
   /* ── Phase 4: Poll /api/push for new service_requests every 10s ── */
   useEffect(() => {
