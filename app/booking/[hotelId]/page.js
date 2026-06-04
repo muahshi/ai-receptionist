@@ -1748,4 +1748,220 @@ export default function BookingPage() {
               <div>
                 <label style={labelStyle}>ID Type</label>
                 <select value={idType} onChange={e => setIdType(e.target.value)} style={{ ...inpStyle, appearance: "none" }}>
-                  {["Aadhaar", "PAN", "Passport", "Dri
+                  {["Aadhaar", "PAN", "Passport", "Driving License", "Voter ID"].map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>ID Number</label>
+                <input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="XXXX XXXX XXXX" style={inpStyle} />
+              </div>
+            </div>
+
+            {/* Room Type + Payment */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {!selectedRoom && (
+                <div>
+                  <label style={labelStyle}>Room Type</label>
+                  <select value={roomType} onChange={e => setRoomType(e.target.value)} style={{ ...inpStyle, appearance: "none" }}>
+                    <option value="Standard Room">Standard — ₹{(hotel.standardRate || 1200).toLocaleString("en-IN")}/raat</option>
+                    <option value="Deluxe Room">Deluxe — ₹{(hotel.deluxeRate || 2000).toLocaleString("en-IN")}/raat</option>
+                    <option value="Suite Room">Suite — ₹{(hotel.suiteRate || 3800).toLocaleString("en-IN")}/raat</option>
+                  </select>
+                </div>
+              )}
+              <div style={selectedRoom ? { gridColumn: "1 / -1" } : {}}>
+                <label style={labelStyle}>Payment Mode</label>
+                <select value={paymentMode} onChange={e => setPaymentMode(e.target.value)} style={{ ...inpStyle, appearance: "none" }}>
+                  <option>Cash</option><option>UPI</option><option>Card</option><option>Online</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Terms */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
+              <div style={{ width: 18, height: 18, borderRadius: 5, background: "rgba(212,175,55,0.15)", border: "1.5px solid rgba(212,175,55,0.4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: "#D4AF37" }}>✓</span>
+              </div>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+                I agree to the <span style={{ color: "#D4AF37", textDecoration: "underline" }}>Terms &amp; Conditions</span> and <span style={{ color: "#D4AF37", textDecoration: "underline" }}>Privacy Policy</span>
+              </p>
+            </div>
+
+            {/* Price summary */}
+            {nights > 0 && (
+              <div style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.2)", borderRadius: 14, padding: "14px 16px", animation: "fadeUp 0.3s ease" }}>
+                {negotiatedRate && (
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: "#22c55e" }}>🔒 AI Negotiated Rate</span>
+                    <span style={{ fontSize: 11, color: "#22c55e" }}>₹{negotiatedRate.toLocaleString("en-IN")}/night</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{selectedRoom ? `Room ${selectedRoom.number}` : roomType} × {nights} raat</span>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>₹{roomRate.toLocaleString("en-IN")} × {nights}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid rgba(212,175,55,0.15)" }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#D4AF37" }}>Total</span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: "#D4AF37", textShadow: "0 0 16px rgba(212,175,55,0.4)" }}>₹{total.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {formError && (
+              <div style={{ padding: "11px 14px", borderRadius: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 12, animation: "fadeUp 0.2s ease" }}>⚠️ {formError}</div>
+            )}
+
+            {/* Success or CTA */}
+            {submitted ? (
+              <div style={{ textAlign: "center", padding: "22px", borderRadius: 16, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", animation: "fadeUp 0.4s ease" }}>
+                <CheckCircle size={38} style={{ color: "#22c55e", margin: "0 auto 12px", display: "block" }} />
+                <p style={{ fontSize: 16, fontWeight: 900, color: "#22c55e", marginBottom: 4 }}>Booking Confirm Ho Gayi! 🎉</p>
+                <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>Room {bookingResult?.roomNumber || selectedRoom?.number || ""} aapke naam RESERVE ho gaya hai</p>
+                <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 12, padding: "12px 14px", textAlign: "left" }}>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>📋 Booking ID: <span style={{ color: "rgba(255,255,255,0.7)", fontFamily: "monospace" }}>{bookingResult?.id?.slice(0, 12)}</span></p>
+                  {rateLockToken && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>🔒 Rate Lock Token: <span style={{ color: "#D4AF37", fontFamily: "monospace" }}>{rateLockToken}</span></p>}
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>🏨 Hotel team aapko <strong style={{ color: "#fff" }}>{guestPhone}</strong> par confirm karegi</p>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleBook}
+                disabled={submitting}
+                style={{ width: "100%", padding: "17px", borderRadius: 16, fontWeight: 900, fontSize: 15, background: submitting ? "rgba(212,175,55,0.3)" : "linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color: "#000", border: "none", cursor: submitting ? "not-allowed" : "pointer", boxShadow: "0 6px 28px rgba(212,175,55,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 20, paddingRight: 20 }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {submitting
+                    ? <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2.5px solid rgba(0,0,0,0.3)", borderTop: "2.5px solid #000", animation: "spinRingCW 0.8s linear infinite" }} />
+                    : <Crown size={18} />
+                  }
+                  <span>{submitting ? "Saving..." : "Book Karo & Owner Ko Batao"}</span>
+                </div>
+                {!submitting && <ChevronRight size={20} />}
+              </button>
+            )}
+
+            {/* Rate lock note */}
+            <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderRadius: 12, background: "rgba(0,140,255,0.04)", border: "1px solid rgba(0,140,255,0.1)" }}>
+              <ShieldCheck size={13} style={{ color: "#60b8ff", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", lineHeight: 1.5 }}>Direct booking se <strong style={{ color: "rgba(255,255,255,0.5)" }}>rate lock</strong> hota hai — OTA commission nahi lagta. Checkout tak rate change nahi hoga.</p>
+            </div>
+          </div>
+        </div>
+
+        </>} {/* end !activeBooking wrapper */}
+
+        {/* LOCATION */}
+        <div style={{ background: "rgba(6,8,15,0.98)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 18, padding: "16px", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, background: "rgba(0,140,255,0.1)", border: "1px solid rgba(0,140,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <MapPin size={16} style={{ color: "#60b8ff" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{hotel.name}</p>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{hotel.addressLine || hotel.location}</p>
+              {hotel.distanceTag && <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>📍 {hotel.distanceTag}</p>}
+            </div>
+          </div>
+          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + " " + hotel.location)}`} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "11px", borderRadius: 12, background: "rgba(0,140,255,0.08)", border: "1px solid rgba(0,140,255,0.2)", color: "#60b8ff", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+            <Navigation size={11} /> Google Maps Pe Dekho
+          </a>
+        </div>
+
+        {/* FAQ */}
+        <FaqSection faqOpen={faqOpen} setFaqOpen={setFaqOpen} />
+
+        {/* REPUTATION & TRUST */}
+        <ReputationSection hotel={hotel} />
+
+        {/* BOTTOM TRUST BADGES */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, padding: "12px 0 4px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          {[
+            { icon: "🛡️", label: "Best Price Guarantee" },
+            { icon: "⚡", label: "Instant Confirmation" },
+            { icon: "🔒", label: "Secure Booking" },
+          ].map((item, i) => (
+            <div key={i} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "4px 8px", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+              <span style={{ fontSize: 12 }}>{item.icon}</span>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+
+      </div>
+
+      {/* ══════════════════════════════════════
+          STICKY CTA BAR
+      ══════════════════════════════════════ */}
+      {!submitted && !activeBooking && (
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 40, background: "rgba(7,9,14,0.97)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "12px 16px 16px" }}>
+          <div style={{ maxWidth: 480, margin: "0 auto" }}>
+            <button
+              onClick={handleBook}
+              disabled={submitting}
+              style={{ width: "100%", padding: "16px 20px", borderRadius: 16, fontWeight: 900, fontSize: 15, background: submitting ? "rgba(212,175,55,0.3)" : "linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)", color: "#000", border: "none", cursor: submitting ? "not-allowed" : "pointer", boxShadow: "0 6px 28px rgba(212,175,55,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {submitting
+                  ? <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2.5px solid rgba(0,0,0,0.3)", borderTop: "2.5px solid #000", animation: "spinRingCW 0.8s linear infinite" }} />
+                  : <Crown size={18} />
+                }
+                <span>{submitting ? "Processing..." : "Book Karo & Owner Ko Batao"}</span>
+              </div>
+              {!submitting && <ChevronRight size={20} />}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING SANDY BUTTON */}
+      {!companionOpen && (
+        <button
+          onClick={() => setCompanionOpen(true)}
+          style={{
+            position: "fixed",
+            bottom: submitted || activeBooking ? 20 : 84,
+            right: 16,
+            zIndex: 50,
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "11px 16px", borderRadius: 28,
+            background: "linear-gradient(135deg,#b8960c,#D4AF37)",
+            border: "none", cursor: "pointer",
+            boxShadow: "0 4px 20px rgba(212,175,55,0.45)",
+            color: "#000", fontWeight: 900, fontSize: 12,
+            animation: "goldPulse 2s infinite",
+          }}
+        >
+          <Sparkles size={15} />
+          <span>Sandy</span>
+          <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.7 }}>AI Concierge</span>
+          <div style={{ position: "absolute", top: -2, right: -2, width: 10, height: 10, borderRadius: "50%", background: "#22c55e", border: "2px solid #07090E" }} />
+        </button>
+      )}
+
+      {/* IN-ROOM COMPANION PANEL */}
+      {companionOpen && (
+        <InRoomCompanion
+          hotel={hotel}
+          bookingResult={bookingResult}
+          messages={messages}
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          chatLoading={chatLoading}
+          negotiating={negotiating}
+          sendChat={sendChat}
+          checkIn={checkIn       || bookingResult?.checkInDate  || ""}
+          checkOut={checkOut     || bookingResult?.checkOutDate || ""}
+          selectedRoom={selectedRoom || (bookingResult?.roomNumber ? { number: bookingResult.roomNumber, type: bookingResult.roomType || "standard" } : null)}
+          negotiatedRate={negotiatedRate || (bookingResult?.negotiated ? bookingResult.ratePerNight : null)}
+          rateLockToken={rateLockToken  || bookingResult?.rateLockToken || null}
+          nights={nights         || bookingResult?.nights        || 0}
+          roomRate={roomRate     || bookingResult?.ratePerNight  || 0}
+          activeRoomTypeKey={activeRoomTypeKey || bookingResult?.roomType || "standard"}
+          chatEndRef={chatEndRef}
+          onClose={() => setCompanionOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
