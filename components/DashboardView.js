@@ -449,20 +449,21 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
   /* ── Approve Check-in: reserved → occupied ── */
   const handleApproveCheckin = async (room) => {
     const { updateRoomStatus } = await import("../lib/db");
+    // Update room: reserved → occupied (localStorage + Supabase rooms table)
     updateRoomStatus(hotelId, room.id, "occupied", room.currentBookingId, room.booking?.guestName || "");
-    // Also update booking status in Supabase
+    // Also update booking record status in Supabase
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (sbUrl && sbKey && sbUrl !== "undefined" && room.currentBookingId) {
       fetch(`${sbUrl}/rest/v1/bookings?id=eq.${room.currentBookingId}`, {
         method: "PATCH",
         headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "active", updated_at: new Date().toISOString() }),
+        body: JSON.stringify({ status: "active", checked_in_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
       }).catch(() => {});
     }
     if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
-    load();
-    setSelRoom(null);
+    setSelRoom(null);  // close modal first for instant feel
+    load();            // then reload data
   };
 
   /* ── Download GRC (Guest Registration Card) as printable HTML ── */
@@ -998,14 +999,16 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
                   </div>
                 )}
 
-                {selRoom.booking ? (
+                {selRoom.status==="occupied" ? (
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.35)",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+                    <button onClick={()=>handleCheckout(selRoom.booking?.id)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.35)",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
                       ✓ Check-out Karo
                     </button>
-                    <button onClick={()=>handleDownloadGRC(selRoom.booking,selRoom)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.25)",color:"#D4AF37",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
-                      <span style={{fontSize:14}}>📄</span> GRC Card Print
-                    </button>
+                    {selRoom.booking && (
+                      <button onClick={()=>handleDownloadGRC(selRoom.booking,selRoom)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.25)",color:"#D4AF37",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+                        <span style={{fontSize:14}}>📄</span> GRC Card Print
+                      </button>
+                    )}
                     <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"transparent",color:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.06)",cursor:"pointer"}}>
                       Close
                     </button>
