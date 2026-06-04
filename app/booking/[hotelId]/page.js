@@ -85,7 +85,9 @@ async function fetchHotel(hotelId) {
   } catch {}
   const DEMOS = [
     { id: "cherry-bhopal",   name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128, wifiPassword: "cherry@2024", menuText: "Dal Fry ₹120 | Paneer Butter Masala ₹180 | Roti ₹15 | Rice ₹60 | Tea ₹20 | Coffee ₹30", menuUrl: "", receptionPhone: "919009109108", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
-    { id: "hotel-cherry",    name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128, wifiPassword: "cherry@2024", menuText: "Dal Fry ₹120 | Paneer Butter Masala ₹180 | Roti ₹15 | Rice ₹60 | Tea ₹20 | Coffee ₹30", menuUrl: "", receptionPhone: "919009109108", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    { id: "hotel-cherry",         name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128, wifiPassword: "cherry@2024", menuText: "Dal Fry ₹120 | Paneer Butter Masala ₹180 | Roti ₹15 | Rice ₹60 | Tea ₹20 | Coffee ₹30", menuUrl: "", receptionPhone: "919009109108", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
+    // Alias: old marketplace link used "hotel-cherry-bhopal" — redirect internally to cherry-bhopal data
+    { id: "hotel-cherry-bhopal",  name: "Hotel Cherry",           location: "Peer Gate, Bhopal, MP",  totalRooms: 20, ownerPhone: "919009109108", emoji: "🍒", standardRate: 1200, deluxeRate: 2000, suiteRate: 3800, minFloorPrice: 900,  addressLine: "Peer Gate Area, Bhopal - 462001",        distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","AC Rooms","Geyser"], avgRating: 4.5, totalReviews: 128, wifiPassword: "cherry@2024", menuText: "Dal Fry ₹120 | Paneer Butter Masala ₹180 | Roti ₹15 | Rice ₹60 | Tea ₹20 | Coffee ₹30", menuUrl: "", receptionPhone: "919009109108", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
     { id: "sunrise-jaipur",  name: "Hotel Sunrise Palace",   location: "Jaipur, Rajasthan",       totalRooms: 40, ownerPhone: "919876543210", emoji: "🌅", standardRate: 1500, deluxeRate: 2500, suiteRate: 5000, minFloorPrice: 1100, addressLine: "Civil Lines, Jaipur - 302006",           distanceTag: "2.1 km from City Center", amenities: ["Free Wi-Fi","Pool Access","AC Rooms"], avgRating: 4.7, totalReviews: 312, wifiPassword: "sunrise#jaipur", menuText: "Dal Baati ₹150 | Laal Maas ₹250 | Bajra Roti ₹20 | Lassi ₹50", menuUrl: "", receptionPhone: "919876543210", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
     { id: "midtown-indore",  name: "Hotel Midtown",          location: "Indore, Madhya Pradesh",  totalRooms: 35, ownerPhone: "919977665544", emoji: "🏙️", standardRate: 1100, deluxeRate: 1800, suiteRate: 3500, minFloorPrice: 850,  addressLine: "MG Road, Indore - 452001",              distanceTag: "900m from Bus Stand",    amenities: ["Free Wi-Fi","Early Check-in","AC Rooms"], avgRating: 4.5, totalReviews: 89, wifiPassword: "midtown@456", menuText: "Poha ₹60 | Kachori ₹50 | Biryani ₹180 | Chai ₹15", menuUrl: "", receptionPhone: "919977665544", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
     { id: "comforts-nagpur", name: "City Comforts Nagpur",   location: "Nagpur, Maharashtra",     totalRooms: 30, ownerPhone: "919988776655", emoji: "🏨", standardRate: 1000, deluxeRate: 1600, suiteRate: 3200, minFloorPrice: 800,  addressLine: "Sitabuldi, Nagpur - 440012",            distanceTag: "1.5 km from Bus Stand",  amenities: ["Free Wi-Fi","Parking","AC Rooms"], avgRating: 4.4, totalReviews: 56, wifiPassword: "comforts2024", menuText: "Sabudana Khichdi ₹80 | Vada Pav ₹30 | Thali ₹120", menuUrl: "", receptionPhone: "919988776655", enableWifi: true, enableFoodOrdering: true, enableHousekeeping: true },
@@ -126,7 +128,21 @@ function getRooms(hotelId, total) {
    from lib/db.js which is the ONLY place that touches localStorage, rooms,
    and BroadcastChannel. No pre-writing here.
 ═══════════════════════════════════════════ */
+// ── Hotel ID alias map — old marketplace IDs → canonical db.js IDs ────────────
+// When landing page had wrong IDs, bookings went to wrong localStorage key.
+// This map normalizes so all bookings always save under the correct canonical ID.
+const HOTEL_ID_ALIASES = {
+  "hotel-cherry-bhopal":   "cherry-bhopal",
+  "hotel-cherry":          "cherry-bhopal",
+  "boutique-stays-jaipur": "sunrise-jaipur",
+  "hotel-midtown-indore":  "midtown-indore",
+  "city-comforts-nagpur":  "comforts-nagpur",
+};
+function normalizeHotelId(id) { return HOTEL_ID_ALIASES[id] || id; }
+
 async function saveBooking(booking, hotelId) {
+  // Normalize alias IDs → canonical IDs so booking always saves under correct hotel
+  hotelId = normalizeHotelId(hotelId);
   try {
     // Single atomic call — lib/db.js handles:
     //   1. localStorage write (instant)
