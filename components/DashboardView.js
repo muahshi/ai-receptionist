@@ -336,13 +336,12 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             const fresh = data.requests.filter(r => !existingIds.has(r.id));
             if (fresh.length) {
               playNotificationSound();
-              // If any fresh event is a new_booking, pull Supabase so guests/reports update
+              // If any fresh event is a new_booking, do a full load() immediately
+              // This refreshes rooms grid + stats + bookings all at once
               const hasNewBooking = fresh.some(r => r.action_id === "new_booking");
               if (hasNewBooking) {
-                getBookings(hotelId).then(() => {
-                  setStats(getTodayStats(hotelId));
-                  setRevData(getWeeklyRevenue(hotelId));
-                }).catch(() => {});
+                // Full load — fetches bookings + room statuses from Supabase
+                load();
               }
               // Only show modal for non-booking service alerts
               const serviceAlerts = fresh.filter(r => r.action_id !== "new_booking");
