@@ -389,21 +389,197 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
     setAlertModal(null);
   };
 
-  const fetchInsight = async () => {
-    setILoad(true);
+  const [briefing,   setBriefing]  = useState(null);  // AI Receptionist live briefing
+  const [briefLoad,  setBriefLoad] = useState(false);
+
+  const fetchAIBriefing = async () => {
+    setBriefLoad(true);
     try {
       const s = getTodayStats(hotelId);
-      const r = await fetch("/api/groq",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"ai_insight",stats:s,hotelName:hotel?.name}) });
+      const allRooms  = getRooms(hotelId);
+      const reserved  = allRooms.filter(r => r.status === "reserved").length;
+      const occupied  = allRooms.filter(r => r.status === "occupied").length;
+      const vacant    = allRooms.filter(r => r.status === "vacant").length;
+      const cleaning  = allRooms.filter(r => r.status === "cleaning").length;
+      const todayBks  = getTodayBookings(hotelId);
+      // Build local briefing immediately (no API delay)
+      const localMsg = buildLocalBriefing({ s, reserved, occupied, vacant, cleaning, todayBks });
+      setBriefing(localMsg);
+      // Try Groq for better briefing
+      const r = await fetch("/api/groq", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "ai_briefing",
+          stats: { ...s, reserved, occupied, vacant, cleaning, todayBookings: todayBks.length },
+          hotelName: hotel?.name,
+        }),
+      });
       const d = await r.json();
+      if (d.briefing) setBriefing(d.briefing);
+      // Also refresh bottom insight
       setInsight(d.insight || localInsight(s));
-    } catch { setInsight(localInsight(getTodayStats(hotelId))); }
-    setILoad(false);
+    } catch {
+      const s = getTodayStats(hotelId);
+      const allRooms = getRooms(hotelId);
+      setBriefing(buildLocalBriefing({
+        s,
+        reserved:  allRooms.filter(r=>r.status==="reserved").length,
+        occupied:  allRooms.filter(r=>r.status==="occupied").length,
+        vacant:    allRooms.filter(r=>r.status==="vacant").length,
+        cleaning:  allRooms.filter(r=>r.status==="cleaning").length,
+        todayBks:  getTodayBookings(hotelId),
+      }));
+      setInsight(localInsight(s));
+    }
+    setBriefLoad(false);
   };
 
-  const handleRefresh = async () => { setRefresh(true); load(); await fetchInsight(); setRefresh(false); };
+  const fetchInsight = fetchAIBriefing; // alias for backward compat
+
+  const handleRefresh = async () => {
+    setRefresh(true);
+    load();
+    await fetchAIBriefing();
+    setRefresh(false);
+  };
   const copyLink = () => { navigator.clipboard?.writeText(`${window.location.origin}/booking/${hotelId}`).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }); };
   const handleRoomClick = (room) => { const booking=room.currentBookingId?getBookingById(hotelId,room.currentBookingId):null; setSelRoom({...room,booking}); };
   const handleCheckout = async (bookingId) => { await checkoutBooking(hotelId,bookingId); load(); setSelRoom(null); if(navigator.vibrate)navigator.vibrate(50); };
+
+  /* ── Approve Check-in: reserved → occupied ── */
+  const handleApproveCheckin = async (room) => {
+    const { updateRoomStatus } = await import("../lib/db");
+    updateRoomStatus(hotelId, room.id, "occupied", room.currentBookingId, room.booking?.guestName || "");
+    // Also update booking status in Supabase
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (sbUrl && sbKey && sbUrl !== "undefined" && room.currentBookingId) {
+      fetch(`${sbUrl}/rest/v1/bookings?id=eq.${room.currentBookingId}`, {
+        method: "PATCH",
+        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ status: "active", updated_at: new Date().toISOString() }),
+      }).catch(() => {});
+    }
+    if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
+    load();
+    setSelRoom(null);
+  };
+
+  /* ── Download GRC (Guest Registration Card) as printable HTML ── */
+  const handleDownloadGRC = (booking, room) => {
+    if (!booking) return;
+    const hotelName = hotel?.name || "Hotel";
+    const hotelLoc  = hotel?.location || "";
+    const now = new Date().toLocaleString("en-IN");
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>GRC - ${booking.guestName} - Room ${room.number}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#111;padding:20px}
+  .card{max-width:720px;margin:0 auto;border:2px solid #000;border-radius:4px;overflow:hidden}
+  .header{background:#111;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+  .hotel-name{font-size:20px;font-weight:900;letter-spacing:0.04em}
+  .grc-title{font-size:11px;letter-spacing:0.2em;opacity:0.6;text-transform:uppercase;margin-top:2px}
+  .booking-id{font-size:13px;font-weight:700;opacity:0.8}
+  .section{padding:14px 20px;border-bottom:1px solid #ddd}
+  .section-title{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#666;font-weight:700;margin-bottom:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .field{padding:8px 10px;border:1px solid #ddd;border-radius:3px}
+  .field-label{font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#888;font-weight:700;margin-bottom:4px}
+  .field-value{font-size:14px;font-weight:700;color:#111}
+  .highlight{background:#f9f5e0;border-color:#c8a800}
+  .highlight .field-value{color:#7a5800;font-size:18px}
+  .footer{padding:12px 20px;background:#f5f5f5;display:flex;justify-content:space-between;align-items:flex-end}
+  .sign-box{border-bottom:1px solid #666;width:180px;height:40px}
+  .sign-label{font-size:10px;color:#666;margin-top:4px;letter-spacing:0.06em}
+  .declaration{font-size:10px;color:#555;line-height:1.5;max-width:380px}
+  .stamp-box{width:80px;height:80px;border:1px dashed #aaa;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;text-align:center;flex-shrink:0}
+  @media print{body{padding:0}.card{border-radius:0;border-width:1px}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div>
+      <div class="hotel-name">${hotelName}</div>
+      <div class="grc-title">${hotelLoc}</div>
+      <div class="grc-title" style="margin-top:6px">Guest Registration Card</div>
+    </div>
+    <div style="text-align:right">
+      <div class="booking-id">ID: ${booking.id?.slice(0,12).toUpperCase()}</div>
+      <div style="font-size:10px;opacity:0.5;margin-top:4px">Printed: ${now}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Guest Information</div>
+    <div class="grid2" style="margin-bottom:8px">
+      <div class="field"><div class="field-label">Full Name</div><div class="field-value">${booking.guestName || "—"}</div></div>
+      <div class="field"><div class="field-label">Phone Number</div><div class="field-value">${booking.guestPhone || "—"}</div></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><div class="field-label">ID Type</div><div class="field-value">${booking.idType || "Aadhaar"}</div></div>
+      <div class="field"><div class="field-label">ID Number</div><div class="field-value">${booking.idNumber || "—"}</div></div>
+      <div class="field"><div class="field-label">Gender</div><div class="field-value">${booking.gender || "—"}</div></div>
+    </div>
+    ${booking.address ? `<div class="field" style="margin-top:8px"><div class="field-label">Address</div><div class="field-value" style="font-size:13px">${booking.address}</div></div>` : ""}
+  </div>
+
+  <div class="section">
+    <div class="section-title">Stay Details</div>
+    <div class="grid3">
+      <div class="field highlight"><div class="field-label">Room Number</div><div class="field-value">Room ${room.number}</div></div>
+      <div class="field"><div class="field-label">Room Type</div><div class="field-value">${(booking.roomType||room.type||"Standard").charAt(0).toUpperCase()+(booking.roomType||room.type||"Standard").slice(1)}</div></div>
+      <div class="field"><div class="field-label">Floor</div><div class="field-value">Floor ${room.floor || 1}</div></div>
+    </div>
+    <div class="grid3" style="margin-top:8px">
+      <div class="field"><div class="field-label">Check-in Date</div><div class="field-value">${booking.checkInDate || "—"}</div></div>
+      <div class="field"><div class="field-label">Check-out Date</div><div class="field-value">${booking.checkOutDate || "—"}</div></div>
+      <div class="field"><div class="field-label">Nights</div><div class="field-value">${booking.nights || 1}</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Payment Details</div>
+    <div class="grid3">
+      <div class="field"><div class="field-label">Rate / Night</div><div class="field-value">₹${Number(booking.ratePerNight||0).toLocaleString("en-IN")}</div></div>
+      <div class="field"><div class="field-label">Payment Mode</div><div class="field-value">${booking.paymentMode || "Cash"}</div></div>
+      <div class="field highlight"><div class="field-label">Total Amount</div><div class="field-value">₹${Number(booking.totalAmount||0).toLocaleString("en-IN")}</div></div>
+    </div>
+    <div style="margin-top:8px;padding:8px 10px;background:#e6ffe6;border:1px solid #22c55e;border-radius:3px;font-size:11px;color:#166534;font-weight:700">
+      ✓ Check-in Confirmed — Approved by ${hotel?.name || "Management"}
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>
+      <div class="declaration">I declare that the information provided is correct. I agree to abide by the hotel rules and regulations. I am responsible for all charges incurred during my stay.</div>
+      <div style="margin-top:14px">
+        <div class="sign-box"></div>
+        <div class="sign-label">Guest Signature</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="stamp-box">Hotel<br/>Stamp</div>
+      <div style="font-size:9px;color:#999">Authorised Signatory</div>
+    </div>
+  </div>
+</div>
+<script>window.onload=()=>{setTimeout(()=>window.print(),300)}</script>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: "text/html" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `GRC_Room${room.number}_${(booking.guestName||"Guest").replace(/\s+/g,"_")}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!stats) return <Skeleton />;
 
@@ -479,8 +655,30 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
             </div>
             <div style={{flex:1,minWidth:0}}>
               <p style={{fontSize:14,fontWeight:800,color:"#D4AF37",marginBottom:3,textShadow:"0 0 12px rgba(212,175,55,0.4)"}}>AI Receptionist</p>
-              <p style={{fontSize:12,color:"rgba(255,255,255,0.55)",lineHeight:1.5}}>{greeting()}, {user?.role==="owner"?"Owner":"Manager"} 👋</p>
-              <p style={{fontSize:11,color:"rgba(255,255,255,0.3)"}}>Here's your operational overview.</p>
+              {briefLoad ? (
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                  {[0,1,2].map(i=>(
+                    <div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#60b8ff",animation:"dotBounce 0.9s ease-in-out infinite",animationDelay:`${i*0.18}s`}}/>
+                  ))}
+                  <span style={{fontSize:10,color:"rgba(255,255,255,0.3)",marginLeft:2}}>Briefing update ho raha hai...</span>
+                </div>
+              ) : briefing ? (
+                <p style={{fontSize:11,color:"rgba(255,255,255,0.7)",lineHeight:1.55,marginBottom:4}}>{briefing}</p>
+              ) : (
+                <>
+                  <p style={{fontSize:12,color:"rgba(255,255,255,0.55)",lineHeight:1.5}}>{greeting()}, {user?.role==="owner"?"Owner":"Manager"} 👋</p>
+                  <p style={{fontSize:11,color:"rgba(255,255,255,0.3)"}}>Here's your operational overview.</p>
+                </>
+              )}
+              {/* Pending reserved rooms alert */}
+              {rooms.filter(r=>r.status==="reserved").length > 0 && (
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,marginTop:4,background:"rgba(212,175,55,0.12)",border:"1px solid rgba(212,175,55,0.4)",borderRadius:8,padding:"3px 9px"}}>
+                  <div style={{width:6,height:6,borderRadius:"50%",background:"#D4AF37",boxShadow:"0 0 6px #D4AF37",animation:"pulseDot 1.2s infinite"}}/>
+                  <span style={{fontSize:10,fontWeight:700,color:"#D4AF37"}}>
+                    {rooms.filter(r=>r.status==="reserved").length} pending check-in{rooms.filter(r=>r.status==="reserved").length>1?"s":""}
+                  </span>
+                </div>
+              )}
             </div>
             <button onClick={handleRefresh} disabled={refreshing} style={{width:33,height:33,borderRadius:10,flexShrink:0,background:"rgba(0,140,255,0.08)",border:"1px solid rgba(0,140,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <RefreshCw size={13} style={{color:"#60b8ff"}} className={refreshing?"animate-spin":""}/>
@@ -802,35 +1000,107 @@ export default function DashboardView({ hotelId, hotel, user, onNavigate, onNewB
 
                 {selRoom.booking ? (
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.35)"}}>
+                    <button onClick={()=>handleCheckout(selRoom.booking.id)} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#b8960c,#D4AF37,#F5C842)",color:"#000",border:"none",cursor:"pointer",boxShadow:"0 4px 24px rgba(212,175,55,0.35)",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
                       ✓ Check-out Karo
                     </button>
-                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:13,borderRadius:14,fontWeight:600,fontSize:13,background:"transparent",color:"rgba(255,255,255,0.35)",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer"}}>
+                    <button onClick={()=>handleDownloadGRC(selRoom.booking,selRoom)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.25)",color:"#D4AF37",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+                      <span style={{fontSize:14}}>📄</span> GRC Card Print
+                    </button>
+                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,background:"transparent",color:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.06)",cursor:"pointer"}}>
                       Close
                     </button>
                   </div>
                 ) : selRoom.status==="reserved" ? (
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.2)",borderRadius:14,padding:"12px 14px"}}>
-                      {selRoom.booking && (<div>
-                        <p style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:4}}>{selRoom.booking.guestName}</p>
-                        <p style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{selRoom.booking.guestPhone}</p>
-                        <p style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2}}>Check-in: {selRoom.booking.checkInDate}</p>
-                      </div>)}
-                    </div>
-                    <button onClick={async()=>{
-                      const {updateRoomStatus} = await import("../lib/db");
-                      updateRoomStatus(hotelId,selRoom.id,"occupied",selRoom.currentBookingId);
-                      load(); setSelRoom(null);
-                    }} style={{width:"100%",padding:14,borderRadius:14,fontWeight:800,fontSize:14,background:"linear-gradient(135deg,#065f46,#22c55e)",color:"#fff",border:"none",cursor:"pointer"}}>
-                      ✓ Approve Check-in
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {/* Full booking details */}
+                    {selRoom.booking ? (
+                      <div style={{background:"rgba(212,175,55,0.06)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:16,padding:"14px 16px"}}>
+                        <p style={{fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",color:"rgba(212,175,55,0.6)",fontWeight:700,marginBottom:12}}>📋 Booking Details</p>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,paddingBottom:12,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+                          <div style={{width:42,height:42,borderRadius:"50%",background:"rgba(212,175,55,0.12)",border:"1px solid rgba(212,175,55,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>👤</div>
+                          <div>
+                            <p style={{fontSize:16,fontWeight:900,color:"#fff",marginBottom:2}}>{selRoom.booking.guestName}</p>
+                            <p style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{selRoom.booking.guestPhone}</p>
+                          </div>
+                        </div>
+                        {(selRoom.booking.idType || selRoom.booking.idNumber) && (
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
+                            <div style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 10px"}}>
+                              <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,marginBottom:3}}>ID Type</p>
+                              <p style={{fontSize:12,fontWeight:700,color:"#fff"}}>{selRoom.booking.idType||"Aadhaar"}</p>
+                            </div>
+                            <div style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 10px"}}>
+                              <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,marginBottom:3}}>ID Number</p>
+                              <p style={{fontSize:12,fontWeight:700,color:"#fff"}}>{selRoom.booking.idNumber||"—"}</p>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}}>
+                          {[
+                            {label:"Check-in",  val:selRoom.booking.checkInDate||"—"},
+                            {label:"Check-out", val:selRoom.booking.checkOutDate||"—"},
+                            {label:"Raatein",   val:selRoom.booking.nights||1},
+                          ].map(x=>(
+                            <div key={x.label} style={{textAlign:"center",padding:"8px 4px",background:"rgba(255,255,255,0.025)",borderRadius:10}}>
+                              <p style={{fontSize:13,fontWeight:900,color:"#D4AF37"}}>{x.val}</p>
+                              <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:2}}>{x.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                          <div style={{background:"rgba(255,255,255,0.025)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
+                            <p style={{fontSize:13,fontWeight:900,color:"#D4AF37"}}>{selRoom.booking.paymentMode||"Cash"}</p>
+                            <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:2}}>Payment</p>
+                          </div>
+                          <div style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.2)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
+                            <p style={{fontSize:15,fontWeight:900,color:"#22c55e"}}>₹{Number(selRoom.booking.totalAmount||0).toLocaleString("en-IN")}</p>
+                            <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:2}}>Total</p>
+                          </div>
+                        </div>
+                        {selRoom.booking.address && (
+                          <div style={{marginTop:10,padding:"8px 10px",background:"rgba(255,255,255,0.025)",borderRadius:10}}>
+                            <p style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,marginBottom:3}}>Address</p>
+                            <p style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>{selRoom.booking.address}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{background:"rgba(212,175,55,0.06)",border:"1px solid rgba(212,175,55,0.2)",borderRadius:14,padding:"12px 14px",textAlign:"center"}}>
+                        <p style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>Booking details load ho rahi hain...</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={()=>handleApproveCheckin(selRoom)}
+                      style={{width:"100%",padding:15,borderRadius:14,fontWeight:800,fontSize:15,
+                        background:"linear-gradient(135deg,#065f46 0%,#16a34a 50%,#22c55e 100%)",
+                        color:"#fff",border:"none",cursor:"pointer",
+                        boxShadow:"0 4px 24px rgba(34,197,94,0.4)",
+                        display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
+                    >
+                      <span style={{fontSize:18}}>✅</span> Check-in Confirm Karo
                     </button>
+                    {selRoom.booking && (
+                      <button
+                        onClick={()=>handleDownloadGRC(selRoom.booking,selRoom)}
+                        style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,
+                          background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.3)",
+                          color:"#D4AF37",cursor:"pointer",
+                          display:"flex",alignItems:"center",justifyContent:"center",gap:7}}
+                      >
+                        <span style={{fontSize:15}}>📄</span> GRC Card Download / Print
+                      </button>
+                    )}
                     <button onClick={async()=>{
-                      const {updateRoomStatus} = await import("../lib/db");
-                      updateRoomStatus(hotelId,selRoom.id,"out_of_order",null);
-                      load(); setSelRoom(null);
-                    }} style={{width:"100%",padding:12,borderRadius:14,fontWeight:700,fontSize:13,background:"rgba(107,114,128,0.15)",border:"1px solid rgba(107,114,128,0.3)",color:"#9ca3af",cursor:"pointer"}}>
-                      🔧 Mark Out of Order
+                      const {updateRoomStatus}=await import("../lib/db");
+                      updateRoomStatus(hotelId,selRoom.id,"vacant",null);
+                      load();setSelRoom(null);
+                    }} style={{width:"100%",padding:11,borderRadius:14,fontWeight:600,fontSize:12,
+                      background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",
+                      color:"#fca5a5",cursor:"pointer"}}>
+                      ✕ Reservation Cancel Karo
+                    </button>
+                    <button onClick={()=>setSelRoom(null)} style={{width:"100%",padding:10,borderRadius:14,fontWeight:600,fontSize:12,background:"transparent",color:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.06)",cursor:"pointer"}}>
+                      Close
                     </button>
                   </div>
                 ) : selRoom.status==="vacant" ? (
@@ -1037,6 +1307,20 @@ function localInsight(s) {
   if(s.occupancyPercent>80)return`Aaj occupancy ${s.occupancyPercent}% hai — bohot acha! Peak demand mein dynamic pricing try karo.`;
   if(s.occupancyPercent>50)return`${s.vacantRooms} rooms khali hain — online listing promote karo ya walk-in offers do.`;
   return "High demand detected for Deluxe Rooms this weekend. Dynamic pricing consider karo!";
+}
+
+function buildLocalBriefing({ s, reserved, occupied, vacant, cleaning, todayBks }) {
+  const parts = [];
+  const h = new Date().getHours();
+  const greet = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  parts.push(`${greet}! 👋`);
+  if (reserved > 0) parts.push(`${reserved} reservation${reserved>1?"s":""} pending approval — room${reserved>1?"s":""} confirmed karo.`);
+  if (occupied > 0) parts.push(`${occupied} room${occupied>1?"s":""} occupied.`);
+  if (vacant > 0)   parts.push(`${vacant} room${vacant>1?"s":""} available.`);
+  if (cleaning > 0) parts.push(`${cleaning} room${cleaning>1?"s":""} in cleaning.`);
+  if (s?.todayRevenue > 0) parts.push(`Aaj ka revenue: ₹${Number(s.todayRevenue).toLocaleString("en-IN")}.`);
+  if (todayBks?.length === 0 && occupied === 0 && reserved === 0) parts.push("Koi activity nahi — yahan se naya booking link share karo.");
+  return parts.join(" ");
 }
 
 function Skeleton() {
