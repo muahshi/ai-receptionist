@@ -27,13 +27,14 @@ export default function GuestsView({ hotelId, hotel, user }) {
     //    NEVER in manager's localStorage. Supabase is the single source of truth.
     try {
       const fresh = await getBookings(hotelId);
-      // fresh.length >= 0 is always valid — show whatever Supabase returns
-      // merged with any unsynced local-only bookings (getBookings handles merge)
+      // ── CRITICAL FIX: Always apply Supabase result, even if it has MORE items ──
+      // Old code only called setGuests(fresh) when fresh.length > 0.
+      // But a guest booking from their own phone → Supabase only (not in manager localStorage).
+      // We must show whatever Supabase returns, merged with any unsynced local items.
       if (fresh.length > 0) {
         setGuests(fresh);
         setDbStatus("supabase");
       } else if (cached.length > 0) {
-        // Supabase empty but local has data — keep local (unsynced bookings)
         setGuests(cached);
         setDbStatus("cache");
       } else {
@@ -49,10 +50,10 @@ export default function GuestsView({ hotelId, hotel, user }) {
     setRefreshing(false);
   }, [hotelId]);
 
-  // Poll every 8s (was 20s) — public bookings from guest devices need faster sync
+  // Poll every 5s — cross-device bookings (guest phone → manager screen)
   useEffect(() => {
     load();
-    const iv = setInterval(() => load(), 8000);
+    const iv = setInterval(() => load(), 5000);
     return () => clearInterval(iv);
   }, [load]);
 
