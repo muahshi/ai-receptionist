@@ -1,74 +1,113 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Wifi, Coffee, Star, ArrowRight, Shield } from "lucide-react";
+import { MapPin, Wifi, Coffee, Star, ArrowRight, Shield, Plus } from "lucide-react";
 
-const HOTELS = [
+// ── STATIC DEMO HOTELS — IDs match db.js DEMO_HOTELS exactly ────────────────
+// CRITICAL: These IDs must match lib/db.js DEMO_HOTELS IDs so bookings save correctly
+const STATIC_HOTELS = [
   {
-    id: "hotel-cherry-bhopal",
+    id: "cherry-bhopal",           // ← matches db.js DEMO_HOTELS id exactly
     name: "Hotel Cherry, Bhopal",
     city: "Bhopal, Madhya Pradesh",
-    distance: "1.2 km from Bus Stand",
-    rating: 4.6,
+    distance: "900m from Bus Stand",
+    rating: 4.5,
     image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80",
-    amenities: ["Free Wi-Fi", "Complimentary Breakfast"],
+    amenities: ["Free Wi-Fi", "AC Rooms", "Geyser"],
     rooms: [
-      { type: "Standard", price: 1200, count: 2,  available: true  },
-      { type: "Deluxe",   price: 1500, count: 3,  available: true  },
-      { type: "Premium",  price: 1800, count: 2,  available: true  },
-      { type: "Suite",    price: 2400, count: 1,  available: false },
+      { type: "Standard", price: 1200, count: 10, available: true  },
+      { type: "Deluxe",   price: 2000, count: 6,  available: true  },
+      { type: "Suite",    price: 3800, count: 2,  available: true  },
     ],
-    defaultRoom: 1,
+    defaultRoom: 0,
+    emoji: "🍒",
   },
   {
-    id: "boutique-stays-jaipur",
-    name: "Boutique Stays, Jaipur",
+    id: "sunrise-jaipur",          // ← matches db.js DEMO_HOTELS id exactly
+    name: "Hotel Sunrise Palace, Jaipur",
     city: "Jaipur, Rajasthan",
     distance: "2.1 km from City Center",
     rating: 4.7,
     image: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&q=80",
     amenities: ["Free Wi-Fi", "Pool Access"],
     rooms: [
-      { type: "Standard", price: 1150, count: 4,  available: true  },
-      { type: "Deluxe",   price: 1450, count: 5,  available: true  },
-      { type: "Premium",  price: 1950, count: 3,  available: true  },
-      { type: "Suite",    price: 2700, count: 1,  available: false },
+      { type: "Standard", price: 1500, count: 20, available: true  },
+      { type: "Deluxe",   price: 2500, count: 10, available: true  },
+      { type: "Suite",    price: 5000, count: 4,  available: true  },
     ],
-    defaultRoom: 1,
+    defaultRoom: 0,
+    emoji: "🏨",
   },
   {
-    id: "hotel-midtown-indore",
-    name: "Hotel Midtown, Indore",
-    city: "Indore, Madhya Pradesh",
-    distance: "900 m from Bus Stand",
-    rating: 4.5,
+    id: "grand-mumbai",            // ← matches db.js DEMO_HOTELS id exactly
+    name: "The Grand Inn, Mumbai",
+    city: "Mumbai, Maharashtra",
+    distance: "1.8 km from Metro Station",
+    rating: 4.8,
     image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&q=80",
-    amenities: ["Free Wi-Fi", "Early Check-in"],
+    amenities: ["Free Wi-Fi", "Restaurant", "Gym"],
     rooms: [
-      { type: "Standard", price: 1100, count: 3,  available: true  },
-      { type: "Deluxe",   price: 1400, count: 2,  available: true  },
-      { type: "Premium",  price: 1700, count: 2,  available: true  },
-      { type: "Suite",    price: 2300, count: 1,  available: false },
+      { type: "Standard", price: 2500, count: 60, available: true  },
+      { type: "Deluxe",   price: 4500, count: 30, available: true  },
+      { type: "Suite",    price: 9000, count: 10, available: true  },
     ],
-    defaultRoom: 1,
+    defaultRoom: 0,
+    emoji: "🏩",
   },
   {
-    id: "city-comforts-nagpur",
-    name: "City Comforts, Nagpur",
-    city: "Nagpur, Maharashtra",
-    distance: "1.5 km from Bus Stand",
+    id: "saffron-ahmedabad",       // ← matches db.js DEMO_HOTELS id exactly
+    name: "Saffron Stays, Ahmedabad",
+    city: "Ahmedabad, Gujarat",
+    distance: "1.5 km from Manek Chowk",
     rating: 4.4,
     image: "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=400&q=80",
     amenities: ["Free Wi-Fi", "Parking"],
     rooms: [
-      { type: "Standard", price: 1000, count: 5,  available: true  },
-      { type: "Deluxe",   price: 1300, count: 4,  available: true  },
-      { type: "Premium",  price: 1300, count: 3,  available: false },
-      { type: "Suite",    price: 1900, count: 1,  available: false },
+      { type: "Standard", price: 1000, count: 15, available: true  },
+      { type: "Deluxe",   price: 1600, count: 6,  available: true  },
+      { type: "Suite",    price: 3200, count: 2,  available: true  },
     ],
-    defaultRoom: 1,
+    defaultRoom: 0,
+    emoji: "🏪",
   },
 ];
+
+// ── Fetch registered hotels from Supabase (non-demo, user-added hotels) ──────
+async function fetchRegisteredHotels() {
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!sbUrl || !sbKey || sbUrl === "undefined") return [];
+  try {
+    const res = await fetch(
+      `${sbUrl}/rest/v1/hotels?select=id,name,location,total_rooms,plan,emoji,standard_rate,deluxe_rate,suite_rate,avg_rating,amenities&order=created_at.desc`,
+      { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    // Filter out DEMO hotels (already shown from STATIC_HOTELS)
+    const staticIds = new Set(STATIC_HOTELS.map(h => h.id));
+    return (data || []).filter(h => !staticIds.has(h.id)).map(h => ({
+      id:          h.id,
+      name:        h.name,
+      city:        h.location || "",
+      distance:    "",
+      rating:      h.avg_rating || 4.0,
+      image:       "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80",
+      amenities:   Array.isArray(h.amenities) ? h.amenities : ["Free Wi-Fi"],
+      rooms: [
+        { type: "Standard", price: h.standard_rate || 1200, count: Math.floor((h.total_rooms || 20) * 0.6), available: true },
+        { type: "Deluxe",   price: h.deluxe_rate   || 2000, count: Math.floor((h.total_rooms || 20) * 0.3), available: true },
+        { type: "Suite",    price: h.suite_rate     || 3800, count: Math.max(1, Math.floor((h.total_rooms || 20) * 0.1)), available: true },
+      ],
+      defaultRoom: 0,
+      emoji:       h.emoji || "🏨",
+      isRegistered: true, // flag to show "Registered" badge
+    }));
+  } catch (e) {
+    console.warn("[MarketplaceHotels] Supabase fetch failed:", e.message);
+    return [];
+  }
+}
 
 function HotelCard({ hotel }) {
   const [selectedRoom, setSelectedRoom] = useState(hotel.defaultRoom);
@@ -103,7 +142,6 @@ function HotelCard({ hotel }) {
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
           onError={e => { e.target.style.background = "rgba(20,25,40,1)"; e.target.style.display = "none"; }}
         />
-        {/* Dark overlay */}
         <div style={{
           position: "absolute", inset: 0,
           background: "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)",
@@ -121,22 +159,37 @@ function HotelCard({ hotel }) {
           <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{hotel.rating}</span>
         </div>
 
-        {/* AI Verified badge */}
+        {/* Badge: AI Verified or Registered */}
         <div style={{
           position: "absolute", top: 12, right: 12,
-          background: "rgba(212,175,55,0.15)", backdropFilter: "blur(8px)",
-          border: "1px solid rgba(212,175,55,0.35)",
+          background: hotel.isRegistered ? "rgba(34,197,94,0.15)" : "rgba(212,175,55,0.15)",
+          backdropFilter: "blur(8px)",
+          border: `1px solid ${hotel.isRegistered ? "rgba(34,197,94,0.35)" : "rgba(212,175,55,0.35)"}`,
           borderRadius: 8, padding: "4px 10px",
           display: "flex", alignItems: "center", gap: 4,
         }}>
-          <Shield size={10} style={{ color: "#D4AF37" }}/>
-          <span style={{ fontSize: 9, fontWeight: 800, color: "#D4AF37", letterSpacing: "0.06em" }}>AI VERIFIED</span>
+          <Shield size={10} style={{ color: hotel.isRegistered ? "#22c55e" : "#D4AF37" }}/>
+          <span style={{
+            fontSize: 9, fontWeight: 800,
+            color: hotel.isRegistered ? "#22c55e" : "#D4AF37",
+            letterSpacing: "0.06em"
+          }}>
+            {hotel.isRegistered ? "REGISTERED" : "AI VERIFIED"}
+          </span>
+        </div>
+
+        {/* Emoji pill */}
+        <div style={{
+          position: "absolute", bottom: 12, left: 12,
+          fontSize: 24, lineHeight: 1,
+          filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.8))",
+        }}>
+          {hotel.emoji}
         </div>
       </div>
 
       {/* Card body */}
       <div style={{ padding: "16px 18px 18px" }}>
-        {/* Hotel name & location */}
         <h3 style={{
           fontSize: 16, fontWeight: 800, color: "#fff",
           marginBottom: 6, letterSpacing: "-0.01em",
@@ -148,27 +201,29 @@ function HotelCard({ hotel }) {
           <MapPin size={11} style={{ color: "#D4AF37", flexShrink: 0 }}/>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{hotel.city}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 12 }}>
-          <MapPin size={11} style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0 }}/>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>⊙ {hotel.distance}</span>
-        </div>
+        {hotel.distance && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 12 }}>
+            <MapPin size={11} style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0 }}/>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>⊙ {hotel.distance}</span>
+          </div>
+        )}
 
         {/* Amenities */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-          {hotel.amenities.map(a => (
+          {hotel.amenities.slice(0, 3).map(a => (
             <span key={a} style={{
               fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.45)",
               background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 6, padding: "3px 8px",
               display: "flex", alignItems: "center", gap: 4,
             }}>
-              {a.includes("Wi-Fi") ? <Wifi size={8}/> : a.includes("Breakfast") ? <Coffee size={8}/> : null}
+              {a.includes("Wi-Fi") ? <Wifi size={8}/> : a.includes("Breakfast") || a.includes("Restaurant") ? <Coffee size={8}/> : null}
               {a}
             </span>
           ))}
         </div>
 
-        {/* Active price display */}
+        {/* Price */}
         <div style={{
           display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12,
         }}>
@@ -190,7 +245,7 @@ function HotelCard({ hotel }) {
 
         {/* Room type selector */}
         <div style={{
-          display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 14,
+          display: "grid", gridTemplateColumns: `repeat(${hotel.rooms.length}, 1fr)`, gap: 6, marginBottom: 14,
         }}>
           {hotel.rooms.map((room, idx) => {
             const isSelected = selectedRoom === idx;
@@ -201,9 +256,7 @@ function HotelCard({ hotel }) {
                 style={{
                   padding: "8px 4px",
                   borderRadius: 10,
-                  background: isSelected
-                    ? "rgba(212,175,55,0.12)"
-                    : "rgba(255,255,255,0.03)",
+                  background: isSelected ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.03)",
                   border: `1px solid ${isSelected ? "rgba(212,175,55,0.5)" : "rgba(255,255,255,0.08)"}`,
                   cursor: "pointer",
                   transition: "all 0.2s",
@@ -228,14 +281,14 @@ function HotelCard({ hotel }) {
                 <div style={{
                   fontSize: 9, color: "rgba(255,255,255,0.25)", marginTop: 2,
                 }}>
-                  {room.count} Room{room.count !== 1 ? "s" : ""}
+                  {room.count} room{room.count !== 1 ? "s" : ""}
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* CTA */}
+        {/* CTA — uses hotel.id directly which matches db.js DEMO_HOTELS */}
         <button
         onClick={() => router.push(`/booking/${hotel.id}`)}
         style={{
@@ -251,7 +304,7 @@ function HotelCard({ hotel }) {
         onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.01)"; e.currentTarget.style.boxShadow = "0 6px 30px rgba(212,175,55,0.5)"; }}
         onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 22px rgba(212,175,55,0.35)"; }}
         >
-          View Hotel
+          Book Now
           <ArrowRight size={14}/>
         </button>
       </div>
@@ -260,6 +313,24 @@ function HotelCard({ hotel }) {
 }
 
 export default function MarketplaceHotels() {
+  const [allHotels, setAllHotels] = useState(STATIC_HOTELS);
+  const [loading, setLoading]     = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const registered = await fetchRegisteredHotels();
+        // Registered hotels aage dikho (latest first), phir static demos
+        setAllHotels([...registered, ...STATIC_HOTELS]);
+      } catch {
+        setAllHotels(STATIC_HOTELS);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   return (
     <section style={{ padding: "40px 20px 80px" }}>
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -277,7 +348,7 @@ export default function MarketplaceHotels() {
                 boxShadow: "0 0 8px #22c55e", animation: "livePulse 2s infinite",
               }}/>
               <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>
-                Live Properties Near You
+                Live Properties — GuestInn Network
               </span>
             </div>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
@@ -285,37 +356,61 @@ export default function MarketplaceHotels() {
             </p>
           </div>
 
-          <button style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.2)",
-            borderRadius: 10, padding: "8px 16px", cursor: "pointer",
-            fontSize: 12, fontWeight: 700, color: "#D4AF37",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,175,55,0.12)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(212,175,55,0.06)"; }}
+          {/* Register hotel CTA */}
+          <button
+            onClick={() => router.push("/dashboard")}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.2)",
+              borderRadius: 10, padding: "8px 16px", cursor: "pointer",
+              fontSize: 12, fontWeight: 700, color: "#D4AF37",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,175,55,0.12)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(212,175,55,0.06)"; }}
           >
-            View All Properties
-            <ArrowRight size={13}/>
+            <Plus size={13}/>
+            Register Your Hotel
           </button>
         </div>
 
+        {/* Loading skeleton */}
+        {loading && (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 20,
+          }} className="hotels-grid">
+            {[1,2,3,4].map(i => (
+              <div key={i} style={{
+                height: 420, borderRadius: 20,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                animation: "shimmer 1.5s infinite",
+              }}/>
+            ))}
+          </div>
+        )}
+
         {/* Hotel card grid */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 20,
-        }} className="hotels-grid">
-          {HOTELS.map(hotel => (
-            <HotelCard key={hotel.id} hotel={hotel}/>
-          ))}
-        </div>
+        {!loading && (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 20,
+          }} className="hotels-grid">
+            {allHotels.map(hotel => (
+              <HotelCard key={hotel.id} hotel={hotel}/>
+            ))}
+          </div>
+        )}
       </div>
 
       <style>{`
         @media (max-width: 1100px) { .hotels-grid { grid-template-columns: repeat(2,1fr) !important; } }
         @media (max-width: 640px)  { .hotels-grid { grid-template-columns: 1fr !important; } }
         @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
+        @keyframes shimmer { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
       `}</style>
     </section>
   );
