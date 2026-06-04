@@ -822,9 +822,42 @@ export default function BookingPage() {
 
   useEffect(() => {
     if (!hotelId) { setPageLoading(false); return; }
-    fetchHotel(hotelId).then(h => {
+    fetchHotel(hotelId).then(async h => {
       setHotel(h);
-      if (h) setRooms(getRooms(hotelId, h.totalRooms));
+      if (h) {
+        // 1. Load rooms from localStorage first (instant)
+        const localRooms = getRooms(hotelId, h.totalRooms);
+        setRooms(localRooms);
+
+        // 2. Also fetch live room statuses from Supabase
+        //    so the room grid shows real-time availability (other guests' bookings)
+        const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (sbUrl && sbKey && sbUrl !== "undefined") {
+          try {
+            const res = await fetch(
+              `${sbUrl}/rest/v1/rooms?hotel_id=eq.${encodeURIComponent(hotelId)}&select=id,number,status,current_booking_id,guest_name`,
+              { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+            );
+            if (res.ok) {
+              const sbRooms = await res.json();
+              if (sbRooms?.length > 0) {
+                // Merge Supabase statuses so guest sees accurate availability
+                const sbMap = {};
+                sbRooms.forEach(r => { sbMap[r.id] = r; });
+                const merged = localRooms.map(r => {
+                  const sb = sbMap[r.id];
+                  if (!sb) return r;
+                  return { ...r, status: sb.status, currentBookingId: sb.current_booking_id || null, guestName: sb.guest_name || "" };
+                });
+                setRooms(merged);
+                // Also write back to localStorage so consistency
+                try { localStorage.setItem(`air_${hotelId}_rooms`, JSON.stringify(merged)); } catch {}
+              }
+            }
+          } catch {}
+        }
+      }
       // ── Persistent guest session: check for active booking in localStorage ──
       try {
         const stored = localStorage.getItem(`air_active_booking_${hotelId}`);
@@ -835,10 +868,6 @@ export default function BookingPage() {
             setActiveBooking(parsed);
             setBookingResult(parsed);
             setSubmitted(true);
-            // ✅ FIX: Do NOT auto-open companion on restore.
-            // Show booking details card first so guest sees their Booking ID,
-            // room, dates, and total. They can tap "Open In-Room Companion" manually.
-            // setCompanionOpen(true) is intentionally removed here.
           }
         }
       } catch {}
@@ -937,9 +966,21 @@ export default function BookingPage() {
     if (!checkOut)          return setFormError("Check-out date select karo.");
     if (nights <= 0)        return setFormError("Check-out, check-in ke baad honi chahiye.");
     setSubmitting(true);
-    const bid        = `BK${Date.now().toString(36).toUpperCase()}`;
-    const roomId     = selectedRoom?.id     || `${hotelId}_AUTO`;
-    const roomNumber = selectedRoom?.number || "—";
+    const bid = `BK${Date.now().toString(36).toUpperCase()}`;
+
+    // ── CRITICAL FIX: Never use _AUTO room ID ──
+    // _AUTO is not a real room — it won't match any row in the rooms table.
+    // If guest didn't pick a room, auto-assign the first vacant room of their type.
+    let resolvedRoom = selectedRoom;
+    if (!resolvedRoom) {
+      // Find first vacant room matching the active room type
+      const vacantRooms = rooms.filter(r => r.status === "vacant" && r.type === activeRoomTypeKey);
+      const anyVacant   = rooms.filter(r => r.status === "vacant");
+      resolvedRoom = vacantRooms[0] || anyVacant[0] || rooms[0] || null;
+    }
+
+    const roomId     = resolvedRoom?.id     || `${hotelId}_R001`;
+    const roomNumber = resolvedRoom?.number || 1;
     const booking = {
       id:             bid,
       hotelId,
@@ -953,7 +994,7 @@ export default function BookingPage() {
       nationality,
       roomId,
       roomNumber,
-      roomType:       activeRoomTypeKey,
+      roomType:       resolvedRoom?.type || activeRoomTypeKey,
       checkInDate:    checkIn,
       checkOutDate:   checkOut,
       nights,
@@ -962,7 +1003,7 @@ export default function BookingPage() {
       paymentMode,
       rateLocked:     true,
       negotiated:     !!negotiatedRate,
-      negotiatedFrom: negotiatedRate ? (selectedRoom?.baseRate || hotel?.standardRate || 0) : 0,
+      negotiatedFrom: negotiatedRate ? (resolvedRoom?.baseRate || hotel?.standardRate || 0) : 0,
       rateLockToken:  rateLockToken || null,
       source:         "marketplace",
       createdAt:      new Date().toISOString(),
@@ -970,9 +1011,9 @@ export default function BookingPage() {
     await saveBooking(booking, hotelId);
 
     // UI: room color update karo instantly (display only)
-    if (selectedRoom) {
+    if (resolvedRoom) {
       setRooms(prev => prev.map(r =>
-        r.id === selectedRoom.id
+        r.id === resolvedRoom.id
           ? { ...r, status: "reserved", currentBookingId: bid, guestName: booking.guestName }
           : r
       ));
